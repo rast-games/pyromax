@@ -1,3 +1,0 @@
-pillow==12.1.0
-qrcode==8.2
-websockets==16.0
