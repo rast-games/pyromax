@@ -1,0 +1,4 @@
+/.idea/
+.venv/
+bot.py
+gitignore
