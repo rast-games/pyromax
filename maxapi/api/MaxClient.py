@@ -10,7 +10,7 @@ import json
 import asyncio
 import string
 
-from maxapi.utils import get_random_string, NotFoundFlag, use_decorator_on_obj_method
+from maxapi.utils import get_random_string, NotFoundFlag
 from maxapi.types import Update, Opcode
 
 
@@ -80,8 +80,8 @@ class MaxClient:
             self.websocket.ws_client = None
             self.max_api = None
             self.__logger.info('WebSocket Closed')
-            del self.send_message
-            del self.wait_recv
+            # del self.send_message
+            # del self.wait_recv
 
     async def send_message(self, message: dict, send_count: int = 1) -> None:
         # test = random.random()

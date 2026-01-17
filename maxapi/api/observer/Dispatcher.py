@@ -1,4 +1,4 @@
-
+from socket import gaierror
 import logging
 from typing import Iterable
 
@@ -46,6 +46,7 @@ class Dispatcher(Subject, Router):
                 if update:
                     self._allowed_args_for_handler['update'] = update
                     await self.notify(update)
+
 
     def include_router(self, router: Router):
         self._handlers += router._handlers

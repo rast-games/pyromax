@@ -2,8 +2,9 @@ import asyncio
 import logging
 import time
 import string
+from pprint import pprint
 
-from websockets.exceptions import ConnectionClosedOK,  WebSocketException
+from websockets.exceptions import ConnectionClosedOK, WebSocketException, ConnectionClosedError
 
 from maxapi.utils import get_random_string
 from maxapi.utils import get_dict_value_by_path
@@ -23,6 +24,17 @@ class MaxApi:
         await self.login(url_callback)
         await self._authorize()
         return self
+
+    async def reload_if_connection_broke(self, dispatcher):
+        while True:
+            try:
+                await dispatcher.start_polling(self)
+            except WebSocketException:
+                self.__logger.warning('WebSocket connection broke')
+                await self.detach()
+                await self.attach()
+                await self.send_user_agent()
+                await self._authorize()
 
     # async def _recreate_client_for_exception(self, method):
     #     async def wrapper(*args, **kwargs):
@@ -83,7 +95,7 @@ class MaxApi:
         return ''.join(random_string)
 
 
-    async def _get_login_data(self) -> tuple[int, int, int, str] | None:
+    async def send_user_agent(self) -> tuple[int, int, int, str] | None:
         await self.max_client.send_and_receive(opcode=6, payload={
             "userAgent": {"deviceType": "WEB", "locale": "ru", "deviceLocale": "ru", "osVersion": "Alpha",
                           "deviceName": "MaxBot",
@@ -113,7 +125,7 @@ class MaxApi:
                 self.__logger.info('Start Login')
 
                 try:
-                    metadata = await self._get_login_data()
+                    metadata = await self.send_user_agent()
 
                     if metadata:
                         self._polling_interval, self._track_id, expires_at, url = metadata
@@ -161,14 +173,18 @@ class MaxApi:
 
     async def _authorize(self) -> None:
         self.__logger.info('Sending authorize request...')
-        await self.max_client.send_and_receive(opcode=Opcode.AUTHORIZE.value, payload = {
+        response = await self.max_client.send_and_receive(opcode=Opcode.AUTHORIZE.value, payload = {
             'interactive': False,
             'token': self.__token,
         })
-        response = await self.max_client.wait_recv()
-        response = response[0]
+
+
+        await self.max_client.wait_recv()
+
+
         data = response['payload']['chats']
         chats = []
+
         for json_chat in data:
             chats.append(Chat(json_chat, self.max_client))
         self.chats = chats
