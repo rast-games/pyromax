@@ -1,6 +1,7 @@
 from socket import gaierror
 import logging
 from typing import Iterable
+from pprint import pprint
 
 from .ObserverPattern import Subject
 from .Router import Router
@@ -30,6 +31,9 @@ class Dispatcher(Subject, Router):
     async def _check_update(self, max_api: MaxApi):
         if not max_api.max_client._wait_recv:
             update = await max_api.max_client.wait_recv(return_updates=True)
+            if not update:
+                return NotFoundFlag()
+            pprint(update)
             self.__logger.debug(f'Dispatcher update: %s', update)
             if update[0]['opcode'] == Opcode.PUSH_NOTIFICATION.value:
                 self.__logger.debug('PUSH_NOTIFICATION')

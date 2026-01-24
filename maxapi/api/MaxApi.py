@@ -2,28 +2,38 @@ import asyncio
 import logging
 import time
 import string
-from pprint import pprint
+from typing import List
 
-from websockets.exceptions import ConnectionClosedOK, WebSocketException, ConnectionClosedError
+
+from websockets.exceptions import ConnectionClosedOK, WebSocketException
+
 
 from maxapi.utils import get_random_string
 from maxapi.utils import get_dict_value_by_path
 from maxapi.api import MaxClient
-from maxapi.types import Chat, Opcode
-from maxapi.exceptions import LoggingError, LoggingTimeoutError
+from maxapi.types import Chat, Opcode, Video, File, Photo
+from maxapi.exceptions import LoggingError, LoggingTimeoutError, SendMessageError, SendMessageFileError
+from maxapi.mixins import AsyncInitializerMixin
 
 
 # pprint(dir(Connection))
 
 
-class MaxApi:
-    @classmethod
-    async def create(cls, url_callback, device_id: str = None, token: str = None):
-        self = cls(device_id, token)
+class MaxApi(AsyncInitializerMixin):
+    # @classmethod
+    # async def create(cls, url_callback, device_id: str = None, token: str = None):
+    #     self = cls(device_id, token)
+    #     await self.attach()
+    #     await self.login(url_callback)
+    #     await self._authorize()
+    #     return self
+
+    async def _init(self, url_callback, device_id: str = None, token: str = None):
+        self.__init__(device_id, token)
         await self.attach()
         await self.login(url_callback)
         await self._authorize()
-        return self
+
 
     async def reload_if_connection_broke(self, dispatcher):
         while True:
@@ -118,8 +128,8 @@ class MaxApi:
 
     async def login(self, url_callback):
             try:
-                if not self.max_client:
-                    raise LoggingError('dont construct object, use MaxApi.create() method')
+                # if not self.max_client:
+                #     raise LoggingError('dont construct object, use MaxApi.create() method')
 
 
                 self.__logger.info('Start Login')
@@ -137,7 +147,7 @@ class MaxApi:
                     raise LoggingError('Not found attributes in json')
                 self.max_client.websocket.ping_interval = self._polling_interval
 
-                asyncio.create_task(url_callback(url))
+                await asyncio.create_task(url_callback(url))
 
                 try:
                     async with asyncio.timeout(expires_at - time.time()):
@@ -199,6 +209,69 @@ class MaxApi:
 
         self.__logger.info('Got chat info')
         return Chat(response['payload']['chats'][0], self.max_client, id=chat_id)
+
+    async def send_message(self, chat_id, text, attaches: List[Video | File | Photo] = [], file_id_test=0):
+        types_of_attachments = {
+            Video: 'VIDEO',
+            File: 'FILE',
+            Photo: 'PHOTO',
+        }
+
+        required_params_for_type = {
+            'VIDEO': (('videoId', 'video_id'), ('token',)),
+            'FILE': (('fileId', 'file_id'),),
+            'PHOTO': (('photoToken', 'photo_token'),),
+        }
+
+        loaded_attachments = []
+        for attachment in attaches:
+            type_of_attachment = types_of_attachments[type(attachment)]
+
+            payload = {
+                '_type': type_of_attachment,
+            }
+
+            for param in required_params_for_type[type_of_attachment]:
+                if len(param) == 1:
+                    payload[param[0]] = getattr(attachment, param[0])
+                elif len(param) == 2:
+                    payload[param[0]] = getattr(attachment, param[1])
+
+            loaded_attachments.append(payload)
+
+        payload = {
+            'chatId': chat_id,
+            'message': {
+                'cid': -round(time.time() * 1000),
+                'attaches': loaded_attachments,
+            },
+        }
+        if text:
+            payload['message']['text'] = text
+
+        response = await self.max_client.send_and_receive(opcode=Opcode.SEND_MESSAGE.value, payload=payload)
+        while error_if_exist := get_dict_value_by_path('payload error', response):
+            error_message = get_dict_value_by_path("payload message", response)
+            match error_if_exist:
+                case 'attachment.not.ready':
+                    response = await self.max_client.send_and_receive(opcode=Opcode.SEND_MESSAGE.value, payload=payload)
+                    continue
+                case 'proto.payload':
+                    raise SendMessageFileError(
+                        f'''
+                        error: {error_if_exist},
+                        message: {error_message}
+                        '''
+                    )
+                case _:
+                    raise SendMessageError(
+                        f'''
+                        error: {error_if_exist},
+                        message: {error_message}
+                        '''
+                    )
+
+
 
 
 

@@ -32,6 +32,7 @@ class MaxClient:
         self.sec_websocket_key: str = get_random_string(23, string.ascii_uppercase + string.digits)
         self._wait_recv = False
         self.__update_fallback = None
+        self.__message_buffer = {}
 
 
     @property
@@ -83,7 +84,7 @@ class MaxClient:
             # del self.send_message
             # del self.wait_recv
 
-    async def send_message(self, message: dict, send_count: int = 1) -> None:
+    async def send_message(self, message: dict, send_count: int = 1) -> None | int:
         # test = random.random()
         # print(test)
 
@@ -92,38 +93,64 @@ class MaxClient:
         #     raise ProtocolError('Error sending message')
         for _ in range(send_count):
             await self.websocket.send(json.dumps(message))
-        self.counter_increment()
 
 
-    async def wait_recv(self, recv_count: int = 1, return_updates: bool = False) -> list[dict]:
+        return self.counter
+
+
+    async def wait_recv(self, seq: int = None, recv_count: int = 1, return_updates: bool = False) -> list[dict]:
+        if seq is None:
+            seq = self.counter
+
+        if seq in self.__message_buffer:
+            return self.__message_buffer[seq]
         responses = []
+        add_update_to_responses = False
         self._wait_recv = True
         for _ in range(recv_count):
             response = json.loads(await self.websocket.recv())
-            while response['opcode'] == Opcode.PUSH_NOTIFICATION.value and not return_updates:
+            if response['seq'] == seq:
+                responses.append(response)
+                continue
+            while response['opcode'] == Opcode.PUSH_NOTIFICATION.value:
+                if return_updates:
+                    add_update_to_responses = True
+                    break
+                # self.__buffer_of_updates.append(Update(response['payload']))
                 if self.__update_fallback is not None:
-                    await self.__update_fallback(Update(response['payload']))
+                    await self.__update_fallback()
                 response = json.loads(await self.websocket.recv())
-            responses.append(response)
+            if add_update_to_responses:
+                add_update_to_responses = False
+                responses.append(response)
+                continue
+            else:
+                self.__message_buffer[response['seq']] = [response]
         self._wait_recv = False
         return responses
 
 
 
-    async def send_and_receive(self, ver: int = 11, opcode: int = 1, cmd: int = 0, seq: int = None, payload: dict | str = None):
+    async def send_and_receive(self, ver: int = 11, opcode: int = 1, cmd: int = 0, payload: dict | str = None):
         request = {
             'ver': ver,
             'opcode': opcode,
             'cmd': cmd,
+            'seq': self.counter,
         }
 
         if not payload == 'NotSend':
             request['payload'] = payload
-        if not seq == 'NotSend':
-            request['seq'] = seq if seq else self.__counter
-        await self.send_message(request)
+        # if not seq == 'NotSend':
+        #     request['seq'] = seq if seq else self.__counter
+        seq = await self.send_message(request)
 
-        response = await self.wait_recv()
+        response = await self.wait_recv(seq)
+        while not response:
+            response = await self.wait_recv(seq)
+
+        self.counter_increment()
+
         response = response[0]
 
 

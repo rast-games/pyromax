@@ -8,3 +8,9 @@ class Opcode(Enum):
     TRACK_LOGIN = 289
     METADATA_FOR_LOGIN = 288
     GET_USER_DATA = 291
+    CREATE_FILE = 87
+    GET_FILE = 88
+    CREATE_VIDEO = 82
+    GET_VIDEO = 83
+    CREATE_PHOTO = 80
+    SEND_MESSAGE = 64
