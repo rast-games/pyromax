@@ -210,7 +210,7 @@ class MaxApi(AsyncInitializerMixin):
         self.__logger.info('Got chat info')
         return Chat(response['payload']['chats'][0], self.max_client, id=chat_id)
 
-    async def send_message(self, chat_id, text, attaches: List[Video | File | Photo] = [], file_id_test=0):
+    async def send_message(self, chat_id, text, attaches: List[Video | File | Photo] = []):
         types_of_attachments = {
             Video: 'VIDEO',
             File: 'FILE',

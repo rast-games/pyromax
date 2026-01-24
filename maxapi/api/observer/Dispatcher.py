@@ -22,6 +22,8 @@ class Dispatcher(Subject, Router):
 
 
     async def notify(self, update: Update):
+        if not update:
+            return
         for handler in self._handlers:
             if await handler.update(update):
                 args = [self._allowed_args_for_handler[arg] for arg in handler.args if arg in self._allowed_args_for_handler]
@@ -33,7 +35,6 @@ class Dispatcher(Subject, Router):
             update = await max_api.max_client.wait_recv(return_updates=True)
             if not update:
                 return NotFoundFlag()
-            pprint(update)
             self.__logger.debug(f'Dispatcher update: %s', update)
             if update[0]['opcode'] == Opcode.PUSH_NOTIFICATION.value:
                 self.__logger.debug('PUSH_NOTIFICATION')
@@ -45,11 +46,10 @@ class Dispatcher(Subject, Router):
         max_api.max_client.update_fallback = self.notify
         self._allowed_args_for_handler['max_api'] = max_api
         while True:
-            if max_api.max_client and not max_api.max_client._wait_recv:
+            if max_api.max_client:
                 update = await self._check_update(max_api)
-                if update:
-                    self._allowed_args_for_handler['update'] = update
-                    await self.notify(update)
+                self._allowed_args_for_handler['update'] = update
+                await self.notify(update)
 
 
     def include_router(self, router: Router):

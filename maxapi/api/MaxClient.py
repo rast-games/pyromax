@@ -118,7 +118,7 @@ class MaxClient:
                     break
                 # self.__buffer_of_updates.append(Update(response['payload']))
                 if self.__update_fallback is not None:
-                    await self.__update_fallback()
+                    await self.__update_fallback(Update(response.get('payload', {})))
                 response = json.loads(await self.websocket.recv())
             if add_update_to_responses:
                 add_update_to_responses = False
