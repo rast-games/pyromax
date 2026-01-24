@@ -9,7 +9,8 @@ import aiohttp
 
 # from maxapi.api import MaxApi
 from maxapi.mixins import DataBodyMixin, FormDataBodyMixin, AsyncInitializerMixin
-from maxapi.types import Opcode
+from .Opcode import Opcode
+from maxapi.utils import get_dict_value_by_path
 
 
 class BaseFile(AsyncInitializerMixin):
@@ -17,6 +18,7 @@ class BaseFile(AsyncInitializerMixin):
         self.max_client = max_client
         self.url: str | None = None
         self.data: dict = self.get_body(data)
+        self.uploaded: bool = False
         await self.create_cell_for_file()
         await self.upload_data_to_url()
 
@@ -33,6 +35,12 @@ class BaseFile(AsyncInitializerMixin):
 
     @abc.abstractmethod
     async def _parse_response(self, response):
+        ...
+
+
+    @classmethod
+    @abc.abstractmethod
+    def load_attach(self, attach):
         ...
 
 
@@ -62,7 +70,7 @@ class Photo(FormDataBodyMixin, BaseFile):
     async def _init(self, max_client, data):
         self.photo_token: str = ''
         self.opcode: int = Opcode.CREATE_PHOTO.value
-        self.uploaded: bool = False
+        self.base_url: str | None = None
         await super()._init(max_client, data)
 
 
@@ -77,6 +85,16 @@ class Photo(FormDataBodyMixin, BaseFile):
         self.photo_token = photos[photo_id]['token']
         self.uploaded = True
 
+    @classmethod
+    def load_attach(cls, attach: dict):
+        self = object.__new__(cls)
+        self.photo_token = get_dict_value_by_path('photoToken', attach)
+        self.uploaded = True
+        self.opcode = Opcode.CREATE_PHOTO.value
+        self.base_url = get_dict_value_by_path('baseUrl', attach)
+        self.photoId = get_dict_value_by_path('photoId', attach)
+        return self
+
 
 class Video(DataBodyMixin, BaseFile):
     async def _init(self, max_client, data, filename='None.mp4'):
@@ -84,7 +102,7 @@ class Video(DataBodyMixin, BaseFile):
         self.video_id: str = ''
         self.opcode: int = Opcode.CREATE_VIDEO.value
         self.file_size: int = len(data)
-        self.uploaded: bool = False
+        self.video_type: int | None = None
         self._set_headers(self.file_size, filename)
         await super()._init(max_client, data)
 
@@ -95,6 +113,14 @@ class Video(DataBodyMixin, BaseFile):
         self.video_id = root['videoId']
         self.token = root['token']
 
+    @classmethod
+    def load_attach(cls, attach: dict):
+        self = object.__new__(cls)
+        self.token = get_dict_value_by_path('token', attach)
+        self.video_id = get_dict_value_by_path('videoId', attach)
+        self.video_type = get_dict_value_by_path('videoType', attach)
+        self.uploaded = True
+        return self
 
 class File(DataBodyMixin, BaseFile):
     async def _init(self, max_client, data, filename='None'):
@@ -102,16 +128,24 @@ class File(DataBodyMixin, BaseFile):
         self.file_id: str = ''
         self.token: str = ''
         self.file_size: int = len(data)
-        self.uploaded: bool = False
         self._set_headers(self.file_size, filename)
         await super()._init(max_client, data)
 
 
     async def create_cell_for_file(self):
         root = await self._get_payload_info()
-        self.url = root['url']
-        self.file_id = root['fileId']
-        self.file_token = root['token']
+        self.url = get_dict_value_by_path('url', root)
+        self.file_id = get_dict_value_by_path('fileId', root)
+        self.file_token = get_dict_value_by_path('token', root)
+
+
+    @classmethod
+    def load_attach(cls, attach: dict):
+        self = object.__new__(cls)
+        self.file_id = get_dict_value_by_path('fileId', attach)
+        self.file_size = get_dict_value_by_path('size', attach)
+        self.file_token = get_dict_value_by_path('token', attach)
+        return self
 
 
 async def qr_callback(url):

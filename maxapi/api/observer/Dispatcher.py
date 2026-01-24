@@ -1,7 +1,7 @@
 from socket import gaierror
 import logging
 from typing import Iterable
-from pprint import pprint
+
 
 from .ObserverPattern import Subject
 from .Router import Router
@@ -15,8 +15,8 @@ class Dispatcher(Subject, Router):
     def __init__(self):
         super().__init__()
         self._allowed_args_for_handler = {
-            'max_api': None,
-            'update': None,
+            MaxApi: None,
+            Update: None,
         }
         self.__logger = logging.getLogger('MaxDispatcher')
 
@@ -38,17 +38,17 @@ class Dispatcher(Subject, Router):
             self.__logger.debug(f'Dispatcher update: %s', update)
             if update[0]['opcode'] == Opcode.PUSH_NOTIFICATION.value:
                 self.__logger.debug('PUSH_NOTIFICATION')
-                return Update(update[0]['payload'])
+                return Update(update[0]['payload'], max_api)
             self.__logger.debug('Dispatcher update skipped: %s', update)
         return NotFoundFlag()
 
     async def start_polling(self, max_api: MaxApi):
         max_api.max_client.update_fallback = self.notify
-        self._allowed_args_for_handler['max_api'] = max_api
+        self._allowed_args_for_handler[MaxApi] = max_api
         while True:
             if max_api.max_client:
                 update = await self._check_update(max_api)
-                self._allowed_args_for_handler['update'] = update
+                self._allowed_args_for_handler[Update] = update
                 await self.notify(update)
 
 

@@ -12,7 +12,7 @@ from maxapi.utils import get_random_string
 from maxapi.utils import get_dict_value_by_path
 from maxapi.api import MaxClient
 from maxapi.types import Chat, Opcode, Video, File, Photo
-from maxapi.exceptions import LoggingError, LoggingTimeoutError, SendMessageError, SendMessageFileError
+from maxapi.exceptions import LoggingError, LoggingTimeoutError, SendMessageError, SendMessageFileError, SendMessageNotFoundError
 from maxapi.mixins import AsyncInitializerMixin
 
 
@@ -210,7 +210,7 @@ class MaxApi(AsyncInitializerMixin):
         self.__logger.info('Got chat info')
         return Chat(response['payload']['chats'][0], self.max_client, id=chat_id)
 
-    async def send_message(self, chat_id, text, attaches: List[Video | File | Photo] = []):
+    async def send_message(self, chat_id: int, text: str, attaches: List[Video | File | Photo] = [], other_message_elements: dict = None):
         types_of_attachments = {
             Video: 'VIDEO',
             File: 'FILE',
@@ -246,12 +246,16 @@ class MaxApi(AsyncInitializerMixin):
                 'attaches': loaded_attachments,
             },
         }
+        if other_message_elements:
+            payload['message'].update(other_message_elements)
+
         if text:
             payload['message']['text'] = text
 
         response = await self.max_client.send_and_receive(opcode=Opcode.SEND_MESSAGE.value, payload=payload)
         while error_if_exist := get_dict_value_by_path('payload error', response):
             error_message = get_dict_value_by_path("payload message", response)
+            title = get_dict_value_by_path("payload title", response)
             match error_if_exist:
                 case 'attachment.not.ready':
                     response = await self.max_client.send_and_receive(opcode=Opcode.SEND_MESSAGE.value, payload=payload)
@@ -259,6 +263,15 @@ class MaxApi(AsyncInitializerMixin):
                 case 'proto.payload':
                     raise SendMessageFileError(
                         f'''
+                        title: {title},
+                        error: {error_if_exist},
+                        message: {error_message}
+                        '''
+                    )
+                case 'not.found':
+                    raise SendMessageNotFoundError(
+                        f'''
+                        title: {title},
                         error: {error_if_exist},
                         message: {error_message}
                         '''
@@ -266,11 +279,11 @@ class MaxApi(AsyncInitializerMixin):
                 case _:
                     raise SendMessageError(
                         f'''
+                        title: {title},
                         error: {error_if_exist},
                         message: {error_message}
                         '''
                     )
-
 
 
 
