@@ -25,7 +25,7 @@ class Dispatcher(Subject, Router):
         if not update:
             return
         for handler in self._handlers:
-            if await handler.update(update):
+            if await handler.update(update, self._allowed_args_for_handler[MaxApi]):
                 args = [self._allowed_args_for_handler[arg] for arg in handler.args if arg in self._allowed_args_for_handler]
                 await handler.function(*args)
                 break

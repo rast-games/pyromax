@@ -169,17 +169,22 @@ class MaxApi(AsyncInitializerMixin):
                 raise LoggingError('Connection closed')
 
 
+    async def _parse_user_data(self, response: dict) -> None:
+        contact = get_dict_value_by_path('payload profile contact', response)
+        names = get_dict_value_by_path('names', contact)[0]
+        self.id = get_dict_value_by_path('id', contact)
+        self.name = get_dict_value_by_path('name', names)
+        self.first_name = get_dict_value_by_path('firstName', names)
+        self.last_name = get_dict_value_by_path('lastName', names)
+        self.type = get_dict_value_by_path('type', names)
+        self.phone = get_dict_value_by_path('phone', contact)
+        self.update_time = get_dict_value_by_path('updateTime', contact)
+
     async def _get_user_data(self) -> None:
         self.__logger.info('Getting User Data...')
         response = await self.max_client.send_and_receive(opcode=Opcode.GET_USER_DATA.value, payload={'trackId': self._track_id})
-        self.__token = response['payload']['tokenAttrs']['LOGIN']['token']
-        self.id = response['payload']['profile']['contact']['id']
-        self.name = response['payload']['profile']['contact']['names'][0]['name']
-        self.first_name = response['payload']['profile']['contact']['names'][0]['firstName']
-        self.last_name = response['payload']['profile']['contact']['names'][0]['lastName']
-        self.type = response['payload']['profile']['contact']['names'][0]['type']
-        self.phone = response['payload']['profile']['contact']['phone']
-        self.update_time = response['payload']['profile']['contact']['updateTime']
+        self.__token = get_dict_value_by_path('payload tokenAttrs LOGIN token', response)
+        await self._parse_user_data(response)
 
     async def _authorize(self) -> None:
         self.__logger.info('Sending authorize request...')
@@ -190,6 +195,8 @@ class MaxApi(AsyncInitializerMixin):
 
 
         await self.max_client.wait_recv()
+        self.__token = get_dict_value_by_path('payload token', response)
+        await self._parse_user_data(response)
 
 
         data = response['payload']['chats']

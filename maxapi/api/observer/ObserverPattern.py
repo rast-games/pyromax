@@ -2,11 +2,15 @@ from abc import ABC, abstractmethod
 
 
 from maxapi.types import Update
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .. import MaxApi
 
 
 class Observer(ABC):
     @abstractmethod
-    async def update(self, update: Update) -> bool:
+    async def update(self, update: Update, max_api: 'MaxApi') -> bool:
         ...
 
 
