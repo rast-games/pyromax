@@ -2,7 +2,7 @@ from typing import List
 import inspect
 
 from .Handler import Handler
-from maxapi.exceptions import AnnotationHandlerError
+from pyromax.exceptions import AnnotationHandlerError
 
 class Router:
     def __init__(self):

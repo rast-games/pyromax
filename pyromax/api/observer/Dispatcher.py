@@ -5,9 +5,9 @@ from typing import Iterable
 
 from .ObserverPattern import Subject
 from .Router import Router
-from maxapi.types import Update, Opcode
-from maxapi.api import MaxApi
-from maxapi.utils import NotFoundFlag
+from pyromax.types import Update, Opcode
+from pyromax.api import MaxApi
+from pyromax.utils import NotFoundFlag
 
 
 class Dispatcher(Subject, Router):

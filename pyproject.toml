@@ -1,7 +1,17 @@
 [project]
-name = "maxuserbotlib"
+name = "pyromax"
 version = "0.1.0"
-description = "Add your description here"
+authors = [
+  { name="rast-games", email="jggtrrrdg@gmail.com" },
+]
+description = "Асинхронный, модульный фреймворк для юзерботов в MAX Messenger"
+license = { file = "LICENSE" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Framework :: AsyncIO",
+]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -10,3 +20,6 @@ dependencies = [
     "qrcode==8.2",
     "websockets==16.0",
 ]
+[project.urls]
+"Homepage" = "https://github.com/rast-games/MaxUserBotLib"
+"Bug Tracker" = "https://github.com/rast-games/MaxUserBotLib/issues"

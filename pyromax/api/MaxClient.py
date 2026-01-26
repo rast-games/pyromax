@@ -10,8 +10,8 @@ import json
 import asyncio
 import string
 
-from maxapi.utils import get_random_string, NotFoundFlag
-from maxapi.types import Update, Opcode
+from pyromax.utils import get_random_string, NotFoundFlag
+from pyromax.types import Update, Opcode
 
 
 class MaxClient:

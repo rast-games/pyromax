@@ -4,7 +4,7 @@ from .ObserverPattern import Observer
 
 if TYPE_CHECKING:
     from .. import MaxApi
-    from maxapi.types import Update
+    from pyromax.types import Update
 
 
 class Handler(Observer):

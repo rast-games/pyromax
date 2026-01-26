@@ -8,12 +8,12 @@ from typing import List
 from websockets.exceptions import ConnectionClosedOK, WebSocketException
 
 
-from maxapi.utils import get_random_string
-from maxapi.utils import get_dict_value_by_path
-from maxapi.api import MaxClient
-from maxapi.types import Chat, Opcode, Video, File, Photo
-from maxapi.exceptions import LoggingError, LoggingTimeoutError, SendMessageError, SendMessageFileError, SendMessageNotFoundError
-from maxapi.mixins import AsyncInitializerMixin
+from pyromax.utils import get_random_string
+from pyromax.utils import get_dict_value_by_path
+from pyromax.api import MaxClient
+from pyromax.types import Chat, Opcode, Video, File, Photo
+from pyromax.exceptions import LoggingError, LoggingTimeoutError, SendMessageError, SendMessageFileError, SendMessageNotFoundError
+from pyromax.mixins import AsyncInitializerMixin
 
 
 # pprint(dir(Connection))

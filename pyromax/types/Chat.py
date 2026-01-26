@@ -1,6 +1,6 @@
-from maxapi.utils import get_dict_value_by_path, NotFoundFlag
-from maxapi.types import Message
-from maxapi.api import MaxClient
+from pyromax.utils import get_dict_value_by_path, NotFoundFlag
+from pyromax.types import Message
+from pyromax.api import MaxClient
 
 
 class Chat:

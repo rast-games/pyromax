@@ -1,6 +1,6 @@
 from typing import Coroutine
 
-from maxapi.utils.return_self import return_self_after_method
+from pyromax.utils.return_self import return_self_after_method
 
 import abc
 

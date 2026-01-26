@@ -7,10 +7,10 @@ import abc
 import aiohttp
 
 
-# from maxapi.api import MaxApi
-from maxapi.mixins import DataBodyMixin, FormDataBodyMixin, AsyncInitializerMixin
+# from pyromax.api import MaxApi
+from pyromax.mixins import DataBodyMixin, FormDataBodyMixin, AsyncInitializerMixin
 from .Opcode import Opcode
-from maxapi.utils import get_dict_value_by_path
+from pyromax.utils import get_dict_value_by_path
 
 
 class BaseFile(AsyncInitializerMixin):

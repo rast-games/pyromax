@@ -1,4 +1,4 @@
-from maxapi.utils import get_dict_value_by_path
+from pyromax.utils import get_dict_value_by_path
 
 
 class DataBodyMixin:

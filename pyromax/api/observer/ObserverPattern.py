@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-from maxapi.types import Update
+from pyromax.types import Update
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
