@@ -1,6 +1,6 @@
 # "The Official Pyromax Library (available on PyPI)".
 
-# MaxUserBotLib 🚀
+# Pyromax 🚀
 
 **Асинхронный, модульный и современный фреймворк для создания юзерботов в MAX Messenger.**
 
