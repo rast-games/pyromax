@@ -1,24 +1,61 @@
 from .File import Video, Photo, File
+from pyromax.mixins.ReplyMixin import ReplyMixin
+from .Update import Update
+from .OpcodeEnum import Opcode
 
-class Message:
-    def __init__(self, message: dict):
-        self.id = int(message['id'])
-        self.text = message['text']
-        self.sender = message['sender']
-        self.type = message['type']
-        self.time = message['time']
+from pydantic import ConfigDict, field_validator, Field, AliasPath, PrivateAttr, model_validator
+
+from typing import TYPE_CHECKING, ClassVar
+
+if TYPE_CHECKING:
+    from ..api import MaxApi
+
+
+class Message(Update, ReplyMixin):
+    id: str
+    text: str
+    sender: int
+    time: int
+    type: str
+    attaches: list
+
+    type: str = Field(alias='type', validation_alias=AliasPath('link', 'type'), default='USER', exclude=True) # Can be "REPLY", "EDITED" or "USER"
+    status: str | None = Field(default=None, exclude=True)
+
+    opcode: ClassVar[int] = Opcode.PUSH_NOTIFICATION.value
+
+
+    @field_validator('attaches', mode='after')
+    @classmethod
+    def attaches_to_model(cls, attaches: list) -> list[Video | Photo | File]:
         types_of_attaches = {
-            'VIDEO': Video.load_attach,
-            'PHOTO': Photo.load_attach,
-            'FILE': File.load_attach,
+            'VIDEO': Video,
+            'PHOTO': Photo,
+            'FILE': File,
         }
-        attaches = []
-        for attach in message['attaches']:
+
+        attaches_valid = []
+        for attach in attaches:
             if attach['_type'] in types_of_attaches:
-                attaches.append(types_of_attaches[attach['_type']](attach))
+                attaches_valid.append(types_of_attaches[attach['_type']](**attach))
             else:
-                attaches.append(attach)
-        self.attaches = attaches
+                attaches_valid.append(attach)
+        return attaches_valid
+
+    @model_validator(mode='after')
+    def type_of_message(self):
+        if self.status == 'EDITED':
+            self.type = self.status
+
+        return self
+
+    @classmethod
+    def from_update(cls, update: Update) -> 'Message':
+        # self = cls.model_validate(**update.model_dump(), context=dict(max_api = update.max_api, chat_id = update.payload['chatId'], **update.payload['message']))
+        self = cls(**update.model_dump(), **update.payload['message'], chat_id=update.payload['chatId'], max_api=update.max_api)
+        # self.attaches = self.attaches_to_model(self.attaches)
+        return self
+
 
 
 

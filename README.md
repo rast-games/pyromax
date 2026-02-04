@@ -39,16 +39,16 @@ import asyncio
 import logging
 import os
 from pyromax.api import MaxApi
-from pyromax.api.observer import Router as MaxDispatcher
-from pyromax.types import Update
+from pyromax.api.observer import Dispatcher as MaxDispatcher
+from pyromax.types import Message
 
 # Инициализация диспетчера
 dp = MaxDispatcher()
 
 
 # Регистрация хендлера (обрабатываем все сообщения, включая свои)
-@dp.register_handler(pattern=lambda update: True, from_me=True)
-async def echo_handler(update: Update, max_api: MaxApi):
+@dp.message(pattern=lambda update: True, from_me=True)
+async def echo_handler(update: Message, max_api: MaxApi):
     # Отвечаем на сообщение тем же текстом и вложениями
     await update.reply(text=update.text, attaches=update.attaches)
 
@@ -84,15 +84,15 @@ if __name__ == "__main__":
 ```python
 from pyromax.api import MaxApi
 from pyromax.api.observer import Router
-from pyromax.types import Update
+from pyromax.types import Message
 
 # Создаем отдельный роутер
 router = Router()
 
 
 # Регистрируем хендлер в роутер
-@router.register_handler(pattern=lambda update: update.text == '!ping')
-async def ping_handler(update: Update, max_api: MaxApi):
+@router.message(pattern=lambda update: update.text == '!ping', from_me=True)
+async def ping_handler(update: Message, max_api: MaxApi):
     await update.reply("Pong! 🏓")
 ```
 ### 2. Подключите его в главном файле (main.py)

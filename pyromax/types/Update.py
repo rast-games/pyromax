@@ -1,29 +1,25 @@
-from .Message import Message
-from typing import TYPE_CHECKING
+from pydantic import BaseModel, Field, AliasPath
+
+from typing import TYPE_CHECKING, Any
+
 
 if TYPE_CHECKING:
     from ..api.MaxApi import MaxApi
 
 
-class Update(Message):
-    def __init__(self, update: dict, max_api: 'MaxApi'):
-        if not update:
-            return
-        super().__init__(update['message'])
-        self.max_api = max_api
-        self.chat_id = update['chatId']
-        self.mark = update['mark']
-        self.unread = update['unread']
+class Update(BaseModel):
+    max_api: Any = Field(exclude=True)
+    opcode: int
+    type: str = Field(exclude=True, default=None)
+    # chat_id: int = Field(validation_alias=AliasPath('payload', 'chatId'))
+    payload: dict | None = None
+    # def __init__(self, update: dict, max_api: 'MaxApi'):
+    #
+    #     from pprint import pprint
+    #     pprint(update)
+    #
+    #     self.payload = update['payload']
+        # self.mark = update['payload']['mark']
+        # self.unread = update['payload']['unread']
 
 
-    async def answer(self, text="", attaches=[]):
-        await self.max_api.send_message(chat_id=self.chat_id, text=text, attaches=attaches)
-
-
-    async def reply(self, text="", attaches=[]):
-        await self.max_api.send_message(chat_id=self.chat_id, text=text, attaches=attaches, other_message_elements={
-            'link': {
-                'type': 'REPLY',
-                'messageId': self.id,
-            },
-        })

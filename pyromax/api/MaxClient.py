@@ -98,32 +98,43 @@ class MaxClient:
         return self.counter
 
 
-    async def wait_recv(self, seq: int = None, recv_count: int = 1, return_updates: bool = False) -> list[dict]:
+    async def wait_recv(self, seq: int = None, recv_count: int = 1, return_updates: bool = False) -> list[dict] | list[Update]:
         if seq is None:
             seq = self.counter
 
         if seq in self.__message_buffer:
             return self.__message_buffer[seq]
         responses = []
-        add_update_to_responses = False
+        # add_update_to_responses = False
         self._wait_recv = True
         for _ in range(recv_count):
             response = json.loads(await self.websocket.recv())
+            if response['cmd'] == 0:
+                self.counter_increment()
+
+                if return_updates:
+                    responses.append(Update(**response, max_api=self.max_api))
+                    continue
+
             if response['seq'] == seq:
                 responses.append(response)
                 continue
-            while response['opcode'] == Opcode.PUSH_NOTIFICATION.value:
-                if return_updates:
-                    add_update_to_responses = True
-                    break
-                # self.__buffer_of_updates.append(Update(response['payload']))
-                if self.__update_fallback is not None:
-                    await self.__update_fallback(Update(response.get('payload', {}), self.max_api))
-                response = json.loads(await self.websocket.recv())
-            if add_update_to_responses:
-                add_update_to_responses = False
-                responses.append(response)
-                continue
+
+            # while response['opcode'] == Opcode.PUSH_NOTIFICATION.value:
+            #     if return_updates:
+            #         add_update_to_responses = True
+            #         break
+            #     # self.__buffer_of_updates.append(Update(response['payload']))
+            #     if self.__update_fallback is not None:
+            #         await self.__update_fallback(Update(response.get('payload', {}), self.max_api))
+            #     response = json.loads(await self.websocket.recv())
+            # if add_update_to_responses:
+            #     add_update_to_responses = False
+            #     responses.append(response)
+            #     continue
+            # else:
+            if response['seq'] in self.__message_buffer:
+                self.__message_buffer[response['seq']].append(response)
             else:
                 self.__message_buffer[response['seq']] = [response]
         self._wait_recv = False

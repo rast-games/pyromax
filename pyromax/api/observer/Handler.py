@@ -1,4 +1,4 @@
-from typing import List, Any, TYPE_CHECKING
+from typing import List, Any, TYPE_CHECKING, Awaitable, Callable
 
 from .ObserverPattern import Observer
 
@@ -8,9 +8,9 @@ if TYPE_CHECKING:
 
 
 class Handler(Observer):
-    def __init__(self, function, pattern = lambda update: True, args: List[Any] = [], from_me=False):
+    def __init__(self, function, pattern = lambda update: True, args: List[Any] = [], from_me=False, filters=[]):
         self.args = args
-        self.function = function
+        self.function: Callable[[Any], Awaitable] = function
         self.pattern = pattern
         self.from_me = from_me
 

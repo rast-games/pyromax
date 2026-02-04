@@ -1,21 +1,34 @@
 from typing import List
-import inspect
+from pyromax.api.observer.event import MaxEventObserver
 
-from .Handler import Handler
-from pyromax.exceptions import AnnotationHandlerError
+from pyromax.types import Opcode
+
 
 class Router:
     def __init__(self):
-        self._handlers: List[Handler] = []
         self._allowed_args_for_handler = {}
 
 
-    def register_handler(self, pattern=lambda update: True, from_me: bool = False):
-        def decorator(func):
-            signature = inspect.signature(func)
-            args = [param.annotation for param in signature.parameters.values()]
-            if inspect._empty in args:
-                raise AnnotationHandlerError('need annotation all params in handler')
-            self._handlers.append(Handler(func, pattern, args, from_me=from_me))
-        return decorator
+        self.message = MaxEventObserver(self, 'USER', opcode=Opcode.PUSH_NOTIFICATION.value)
+        self.edited_message = MaxEventObserver(self, 'EDITED', opcode=Opcode.PUSH_NOTIFICATION.value)
+        self.events = {
+            'MESSAGE': self.message,
+            'USER': self.edited_message,
+        }
 
+        # for name, event in self.events.items():
+        #     self.__dict__[name] = event
+
+        # from pprint import pprint
+        # pprint(self.__dict__)
+
+
+    def include_router(self, router):
+        for name, event in self.events.items():
+            event: MaxEventObserver
+            event.include_event(router.events.pop(name))
+
+
+    def include_routers(self, routers):
+        for router in routers:
+            self.include_router(router)

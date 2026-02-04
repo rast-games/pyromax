@@ -2,8 +2,7 @@ import asyncio
 import logging
 import time
 import string
-from typing import List
-
+from typing import List, TypeVar
 
 from websockets.exceptions import ConnectionClosedOK, WebSocketException
 
@@ -18,18 +17,14 @@ from pyromax.mixins import AsyncInitializerMixin
 
 # pprint(dir(Connection))
 
+T = TypeVar('T')
+
 
 class MaxApi(AsyncInitializerMixin):
-    # @classmethod
-    # async def create(cls, url_callback, device_id: str = None, token: str = None):
-    #     self = cls(device_id, token)
-    #     await self.attach()
-    #     await self.login(url_callback)
-    #     await self._authorize()
-    #     return self
-
-    async def _init(self, url_callback, device_id: str = None, token: str = None):
-        self.__init__(device_id, token)
+    async def _init(self, url_callback, *args, device_id: str = None, token: str = None, global_context: dict[type[T], T] = None, **kwargs):
+        if not global_context:
+            default_args = {}
+        self.__init__(device_id, token, default_args, *args, **kwargs)
         await self.attach()
         await self.login(url_callback)
         await self._authorize()
@@ -46,24 +41,10 @@ class MaxApi(AsyncInitializerMixin):
                 await self.send_user_agent()
                 await self._authorize()
 
-    # async def _recreate_client_for_exception(self, method):
-    #     async def wrapper(*args, **kwargs):
-    #         while True:
-    #             try:
-    #                 return await  method(*args, **kwargs)
-    # 
-    #             except WebSocketException as e:
-    #                 self.__logger.info('connection closed by websocket exception %s, reconnecting', e)
-    #                 await self.detach()
-    #                 await self.attach()
-    #                 await self._authorize()
-    #     return wrapper
 
-
-
-
-
-    def __init__(self, device_id: str = None, token: str = None):
+    def __init__(self, device_id: str = None, token: str = None, global_context=None, *args, **kwargs) -> None:
+        if not global_context:
+            global_context = {}
         self.max_client: MaxClient | None = None
         self._polling_interval: int = 5
         self._track_id: int | None = None
@@ -81,6 +62,12 @@ class MaxApi(AsyncInitializerMixin):
         self.__token = token if token else None
         self.device_id = device_id if device_id else self.get_random_device_id()
         self.client_is_login: bool = True if self.__token else False
+        self.base_data = {
+            MaxApi: self
+        }
+        self.base_data.update(
+            global_context
+        )
 
 
     async def attach(self) -> None:
@@ -188,22 +175,27 @@ class MaxApi(AsyncInitializerMixin):
 
     async def _authorize(self) -> None:
         self.__logger.info('Sending authorize request...')
+
         response = await self.max_client.send_and_receive(opcode=Opcode.AUTHORIZE.value, payload = {
             'interactive': False,
             'token': self.__token,
         })
 
 
+
+
         await self.max_client.wait_recv()
-        self.__token = get_dict_value_by_path('payload token', response)
+        token = get_dict_value_by_path('payload token', response)
+        if token:
+            self.__token = get_dict_value_by_path('payload token', response)
         await self._parse_user_data(response)
 
 
-        data = response['payload']['chats']
-        chats = []
+        json_chats = response['payload']['chats']
 
-        for json_chat in data:
-            chats.append(Chat(json_chat, self.max_client))
+        chats = Chat.from_json(json_chats, self)
+
+
         self.chats = chats
         self.__logger.info('Authorized')
 
@@ -215,7 +207,7 @@ class MaxApi(AsyncInitializerMixin):
         })
 
         self.__logger.info('Got chat info')
-        return Chat(response['payload']['chats'][0], self.max_client, id=chat_id)
+        return Chat(response['payload']['chats'][0], max_api=self, id=chat_id)
 
     async def send_message(self, chat_id: int, text: str, attaches: List[Video | File | Photo] = [], other_message_elements: dict = None):
         types_of_attachments = {

@@ -1,83 +1,86 @@
-import asyncio
 import abc
-# import os
-# import time
-
-
+from typing import Any, ClassVar
 import aiohttp
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+
+from .OpcodeEnum import Opcode
+from pyromax.mixins import DataBodyMixin, FormDataBodyMixin
 
 
-# from pyromax.api import MaxApi
-from pyromax.mixins import DataBodyMixin, FormDataBodyMixin, AsyncInitializerMixin
-from .Opcode import Opcode
-from pyromax.utils import get_dict_value_by_path
+class BaseFile(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
 
+    max_client: Any | None = Field(default=None, exclude=True)
+    url: str | None = None
+    uploaded: bool = Field(default=False)
 
-class BaseFile(AsyncInitializerMixin):
-    async def _init(self, max_client, data, headers = None):
-        self.max_client = max_client
-        self.url: str | None = None
-        self.data: dict = self.get_body(data)
-        self.uploaded: bool = False
-        await self.create_cell_for_file()
-        await self.upload_data_to_url()
+    _data_to_upload: Any = PrivateAttr(default=None)
+    _filename: str | None = PrivateAttr(default=None)
+    headers: dict | None = Field(default=None, exclude=True)
 
+    async def send_create_request(self):
+        return await self.max_client.send_and_receive(opcode=self._opcode, payload={"count": 1})
+
+    @classmethod
+    async def upload_new(cls, max_client, data, filename=None) -> 'BaseFile':
+        """
+        Create object, get URL from server and load bytes
+        """
+
+        instance = cls(max_client=max_client, uploaded=False)
+        instance._data_to_upload = data
+        instance._filename = filename
+
+        await instance.create_cell_for_file()
+
+        await instance.upload_data_to_url()
+
+        return instance
+
+    async def upload_data_to_url(self):
+        if not self.url or self._data_to_upload is None:
+            return
+
+        try:
+            headers = None
+            if self.headers:
+                headers = self.headers
+            elif hasattr(self, '_set_headers') and self._filename:
+                self.file_size = len(self._data_to_upload)
+                self._set_headers(self.file_size, self._filename)
+                headers = self.headers
+
+            async with aiohttp.ClientSession() as session:
+                if hasattr(self, 'get_body'):
+                    data = self.get_body(self._data_to_upload)
+                else:
+                    data = self._data_to_upload
+
+                async with session.post(url=self.url, data=data, headers=headers) as response:
+                    await self._parse_response(response)
+
+        finally:
+            self._data_to_upload = None
 
     @abc.abstractmethod
     async def create_cell_for_file(self):
-        ...
-
-
-    @abc.abstractmethod
-    def get_body(self, data):
-        ...
-
+        pass
 
     @abc.abstractmethod
     async def _parse_response(self, response):
-        ...
-
-
-    @classmethod
-    @abc.abstractmethod
-    def load_attach(self, attach):
-        ...
-
-
-    async def send_create_request(self):
-        return await self.max_client.send_and_receive(opcode=self.opcode, payload={
-            "count": 1
-        })
-
-
-    async def upload_data_to_url(self):
-        if not self.url:
-            return
-        if 'headers' in dir(self):
-            headers = self.headers
-        else:
-            headers = None
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url=self.url, data=self.data, headers=headers) as response:
-                await self._parse_response(response)
-
-
-    def __repr__(self):
-        return (type(self), self.__dict__)
+        pass
 
 
 class Photo(FormDataBodyMixin, BaseFile):
-    async def _init(self, max_client, data):
-        self.photo_token: str = ''
-        self.opcode: int = Opcode.CREATE_PHOTO.value
-        self.base_url: str | None = None
-        await super()._init(max_client, data)
+    photo_token: str = Field(default='', validation_alias='photoToken')
+    base_url: str | None = Field(default=None, validation_alias='baseUrl')
+    photo_id: int | None = Field(default=None, validation_alias='photoId')
 
+    _opcode: ClassVar[int] = Opcode.CREATE_PHOTO.value
 
     async def create_cell_for_file(self):
         response = await self.send_create_request()
         self.url = response.get('payload', {}).get('url')
-
 
     async def _parse_response(self, response):
         photos = (await response.json())['photos']
@@ -85,121 +88,46 @@ class Photo(FormDataBodyMixin, BaseFile):
         self.photo_token = photos[photo_id]['token']
         self.uploaded = True
 
-    @classmethod
-    def load_attach(cls, attach: dict):
-        self = object.__new__(cls)
-        self.photo_token = get_dict_value_by_path('photoToken', attach)
-        self.uploaded = True
-        self.opcode = Opcode.CREATE_PHOTO.value
-        self.base_url = get_dict_value_by_path('baseUrl', attach)
-        self.photoId = get_dict_value_by_path('photoId', attach)
-        return self
-
 
 class Video(DataBodyMixin, BaseFile):
-    async def _init(self, max_client, data, filename='None.mp4'):
-        self.token: str = ''
-        self.video_id: str = ''
-        self.opcode: int = Opcode.CREATE_VIDEO.value
-        self.file_size: int = len(data)
-        self.video_type: int | None = None
-        self._set_headers(self.file_size, filename)
-        await super()._init(max_client, data)
+    token: str = Field(default='', validation_alias='token')
+    video_id: int = Field(default='', validation_alias='videoId')
+    video_type: int | None = Field(default=None, validation_alias='videoType')
 
+    _opcode: ClassVar[int] = Opcode.CREATE_VIDEO.value
+
+    file_size: int | None = Field(default=None, exclude=True)
 
     async def create_cell_for_file(self):
-        root = await self._get_payload_info()
+        if hasattr(self, '_get_payload_info'):
+            root = await self._get_payload_info()
+        else:
+            raise NotImplementedError("Implement _get_payload_info or logic here")
+
         self.url = root['url']
         self.video_id = root['videoId']
         self.token = root['token']
 
-    @classmethod
-    def load_attach(cls, attach: dict):
-        self = object.__new__(cls)
-        self.token = get_dict_value_by_path('token', attach)
-        self.video_id = get_dict_value_by_path('videoId', attach)
-        self.video_type = get_dict_value_by_path('videoType', attach)
+    async def _parse_response(self, response):
         self.uploaded = True
-        return self
+
 
 class File(DataBodyMixin, BaseFile):
-    async def _init(self, max_client, data, filename='None'):
-        self.opcode: int = Opcode.CREATE_FILE.value
-        self.file_id: str = ''
-        self.token: str = ''
-        self.file_size: int = len(data)
-        self._set_headers(self.file_size, filename)
-        await super()._init(max_client, data)
+    file_id: int = Field(default='', validation_alias='fileId')
+    file_size: int | None = Field(default=None, validation_alias='size')
+    file_token: str = Field(default='', validation_alias='token')
 
+    _opcode: ClassVar[int] = Opcode.CREATE_FILE.value
 
     async def create_cell_for_file(self):
-        root = await self._get_payload_info()
-        self.url = get_dict_value_by_path('url', root)
-        self.file_id = get_dict_value_by_path('fileId', root)
-        self.file_token = get_dict_value_by_path('token', root)
+        if hasattr(self, '_get_payload_info'):
+            root = await self._get_payload_info()
+        else:
+            raise NotImplementedError("Implement _get_payload_info")
 
+        self.url = root.get('url')
+        self.file_id = root.get('fileId')
+        self.file_token = root.get('token')
 
-    @classmethod
-    def load_attach(cls, attach: dict):
-        self = object.__new__(cls)
-        self.file_id = get_dict_value_by_path('fileId', attach)
-        self.file_size = get_dict_value_by_path('size', attach)
-        self.file_token = get_dict_value_by_path('token', attach)
-        return self
-
-
-async def qr_callback(url):
-    """just blank"""
-    ...
-
-
-async def main():
-    #Just test
-    # token = os.getenv('token')
-    # max_api = await MaxApi.create(qr_callback, token=token)
-    # f = open('../../test_video.mp4', 'rb')
-    # file = await File(max_api.max_client, f.read(), filename='test_v')
-    # print(file.url)
-    # # print(file.video_id)
-    # # print(file.video_token)
-    # f.close()
-    # stime = round(time.time() * 1000)
-    # print(stime)
-    # response = await max_api.max_client.send_and_receive(opcode=64, payload={
-    #     "chatId": -69642481385536,
-    #     "message": {
-    #         "cid": -stime,
-    #         "attaches": [
-    #             {
-    #                 "_type": "FILE",
-    #                 'fileId': file.file_id,
-    #             }
-    #         ]
-    #     },
-    #     "notify": True
-    # })
-    #
-    # while response.get('payload', {}).get('error'):
-    #     response = await max_api.max_client.send_and_receive(opcode=64, payload={
-    #         "chatId": -69642481385536,
-    #         "message": {
-    #             "cid": -stime,
-    #             "attaches": [
-    #                 {
-    #                     "_type": "FILE",
-    #                     'fileId': file.file_id,
-    #                 }
-    #             ]
-    #         },
-    #         "notify": True
-    #     })
-    #     # await asyncio.sleep(5)
-    #     # pprint(response)
-    #
-    # # pprint(response)
-    # print(file.uploaded)
-    ...
-
-
-if __name__ == '__main__':
-    asyncio.run(main())
+    async def _parse_response(self, response):
+        self.uploaded = True

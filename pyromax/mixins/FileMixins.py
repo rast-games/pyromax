@@ -1,5 +1,7 @@
 from pyromax.utils import get_dict_value_by_path
 
+from typing import Any, Callable
+
 
 class DataBodyMixin:
     def _set_headers(self, file_size, filename):

@@ -1,6 +1,6 @@
 [project]
 name = "pyromax"
-version = "0.1.0"
+version = "0.3"
 authors = [
   { name="rast-games", email="jggtrrrdg@gmail.com" },
 ]
@@ -17,6 +17,7 @@ requires-python = ">=3.10"
 dependencies = [
     "aiohttp>=3.13.3",
     "pillow==12.1.0",
+    "pydantic>=2.12.5",
     "qrcode==8.2",
     "websockets==16.0",
 ]
