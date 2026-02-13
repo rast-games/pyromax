@@ -18,6 +18,8 @@ class Message(Update, ReplyMixin):
     time: int
     type: str
     attaches: list
+    chat_id: int = Field(alias='chatId')
+    has_sender_info: bool = True
 
     type: str = Field(alias='type', validation_alias=AliasPath('link', 'type'), default='USER', exclude=True) # Can be "REPLY", "EDITED" or "USER"
     status: str | None = Field(default=None, exclude=True)
@@ -42,21 +44,25 @@ class Message(Update, ReplyMixin):
                 attaches_valid.append(attach)
         return attaches_valid
 
+
     @model_validator(mode='after')
     def type_of_message(self):
-        if self.status == 'EDITED':
+        if self.status == 'EDITED_MESSAGE':
             self.type = self.status
-
         return self
+
 
     @classmethod
     def from_update(cls, update: Update) -> 'Message':
-        # self = cls.model_validate(**update.model_dump(), context=dict(max_api = update.max_api, chat_id = update.payload['chatId'], **update.payload['message']))
-        self = cls(**update.model_dump(), **update.payload['message'], chat_id=update.payload['chatId'], max_api=update.max_api)
-        # self.attaches = self.attaches_to_model(self.attaches)
+        from pprint import pprint
+        pprint(update.payload)
+        self = cls(**update.model_dump(), **update.payload, **update.payload['message'], max_api=update.max_api)
         return self
 
 
+    def edit_data(self, data: dict) -> dict:
+        data[type(self)] = self
+        return data
 
 
     def __repr__(self):

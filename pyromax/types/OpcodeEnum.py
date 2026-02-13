@@ -1,8 +1,11 @@
 from enum import Enum
 
 class Opcode(Enum):
+    PING = 1
+    SEND_USER_AGENT = 6
     PUSH_NOTIFICATION = 128
     CHAT_INFO = 48
+    GET_CHAT_MESSAGES_PER_CHUNK = 49
     AUTHORIZE = 19
     GET_CHAT = 48
     TRACK_LOGIN = 289
@@ -14,3 +17,4 @@ class Opcode(Enum):
     GET_VIDEO = 83
     CREATE_PHOTO = 80
     SEND_MESSAGE = 64
+    MESSAGE_REACTION_UPDATE = 156

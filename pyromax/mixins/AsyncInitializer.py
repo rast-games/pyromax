@@ -8,8 +8,8 @@ import abc
 class AsyncInitializerMixin(abc.ABC):
     """
     Added async initializer in class, for begin you need inherit from AsyncInitializerMixin and create a method with
-    _init name.
-    You can nothing return in _init, and in default it be return self
+    _async_init name.
+    You can nothing return in _async_init, and in default it be return self
     or
     You can return anything except None
     Coroutines can be awaited in this init(in example: await asyncio.sleep(1))
@@ -45,7 +45,7 @@ class AsyncInitializerMixin(abc.ABC):
 
     def __new__(cls, *args, **kwargs) -> Coroutine:
         self = object.__new__(cls)
-        init = return_self_after_method(cls._init)
+        init = return_self_after_method(cls._async_init)
         return init(self, *args, **kwargs)
 
     def __await__(self):
@@ -54,5 +54,5 @@ class AsyncInitializerMixin(abc.ABC):
         return self
 
     @abc.abstractmethod
-    async def _init(self, *args, **kwargs):
+    async def _async_init(self, *args, **kwargs):
         ...

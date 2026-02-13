@@ -103,10 +103,10 @@ class Video(DataBodyMixin, BaseFile):
             root = await self._get_payload_info()
         else:
             raise NotImplementedError("Implement _get_payload_info or logic here")
-
         self.url = root['url']
         self.video_id = root['videoId']
         self.token = root['token']
+
 
     async def _parse_response(self, response):
         self.uploaded = True
@@ -119,15 +119,16 @@ class File(DataBodyMixin, BaseFile):
 
     _opcode: ClassVar[int] = Opcode.CREATE_FILE.value
 
+
     async def create_cell_for_file(self):
         if hasattr(self, '_get_payload_info'):
             root = await self._get_payload_info()
         else:
             raise NotImplementedError("Implement _get_payload_info")
-
         self.url = root.get('url')
         self.file_id = root.get('fileId')
         self.file_token = root.get('token')
+
 
     async def _parse_response(self, response):
         self.uploaded = True

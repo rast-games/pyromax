@@ -20,7 +20,8 @@ class MaxEventObserver(ObserverPattern.Observer):
         This observer will stop event propagation when first handler is pass.
         """
 
-    def __init__(self, router: 'Router', event_name: str, opcode: int) -> None:
+    def __init__(self, router: 'Router', event_name: str, opcode: int, type_of_update) -> None:
+        self.type_of_update = type_of_update
         self.opcode = opcode
         self.router: Router = router
         self.event_name: str = event_name
@@ -33,8 +34,7 @@ class MaxEventObserver(ObserverPattern.Observer):
         # with dummy callback which never will be used
         # self._handler = Handler(pattern=lambda: True, filters=[])
 
-    async def update(self, update: 'Update', max_api: 'MaxApi') -> Union['Handler',  bool]:
-
+    async def update(self, update, max_api: 'MaxApi') -> Union['Handler',  bool]:
         for handler in self.handlers:
             if await handler.update(update, max_api):
                 return handler

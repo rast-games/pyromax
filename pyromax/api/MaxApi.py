@@ -21,32 +21,93 @@ T = TypeVar('T')
 
 
 class MaxApi(AsyncInitializerMixin):
-    async def _init(self, url_callback, *args, device_id: str = None, token: str = None, global_context: dict[type[T], T] = None, **kwargs):
+    async def _async_init(self, url_callback, *args, device_id: str = None, token: str = None, global_context: dict[type[T], T] = None, ping_interval = 30, **kwargs):
         if not global_context:
             default_args = {}
-        self.__init__(device_id, token, default_args, *args, **kwargs)
-        await self.attach()
-        await self.login(url_callback)
-        await self._authorize()
+        self.__init__(device_id=device_id, token=token, global_context=global_context, ping_interval=ping_interval, *args, **kwargs)
+
+        # tasks = []
+        # while True:
+        #     try:
+        #         tasks.append(self.attach())
+        #         tasks.append(self._infinite_recv_task)
+        #         tasks.append(self.login(url_callback))
+        #         tasks.append(self._authorize())
+        #
+        #         done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+        #         break
+        #
+        #         for task in done:
+        #             if task.exeption():
+        #                 raise task.exception()
+        #     except WebSocketException:
+        #         for task in tasks:
+        #             if not task.done():
+        #                 task.cancel()
+        #         if tasks:
+        #             await asyncio.gather(*tasks, return_exceptions=True)
+
+        # tasks = []
+        # tasks.append(asyncio.create_task(self.attach()))
+        # tasks.append(asyncio.create_task(self.login(url_callback)))
+        # tasks.append(asyncio.create_task(self._authorize()))
+        #
+        # done, pending = await asyncio.wait(tasks, return_when='ALL_COMPLETED')
+
+        while True:
+            try:
+                await self.attach()
+                await self.login(url_callback)
+                await self._authorize()
+                break
+            except WebSocketException:
+                await self.detach()
+                self.__logger.info('WebSocket cannot init, retrying...')
+        self.__logger.info('MaxApi get ready for use')
 
 
     async def reload_if_connection_broke(self, dispatcher):
         while True:
+            tasks = []
             try:
-                await dispatcher.start_polling(self)
+                tasks.append(asyncio.create_task(dispatcher.start_polling(self)))
+                tasks.append(asyncio.create_task(self._keepalive()))
+
+                done, pending = await asyncio.wait(
+                    tasks,
+                    return_when=asyncio.FIRST_EXCEPTION
+                )
+
+                for task in done:
+                    if task.exception():
+                        raise task.exception()
             except WebSocketException:
+                await self.max_client.kill_pending()
+                # if self._infinite_recv_task:
+                #     self._infinite_recv_task.cancel()
+
+
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                if tasks:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                # if self._inited_websocket:
+                #     self._inited_websocket.clear()
                 self.__logger.warning('WebSocket connection broke')
                 await self.detach()
+                print('test')
                 await self.attach()
                 await self.send_user_agent()
                 await self._authorize()
 
 
-    def __init__(self, device_id: str = None, token: str = None, global_context=None, *args, **kwargs) -> None:
+
+    def __init__(self, device_id: str = None, token: str = None, ping_interval = 30, global_context=None, *args, **kwargs) -> None:
         if not global_context:
             global_context = {}
-        self.max_client: MaxClient | None = None
-        self._polling_interval: int = 5
+        self.__max_client: MaxClient | None = None
+        self._ping_interval: int = ping_interval
         self._track_id: int | None = None
         self.first_name: str | None = None
         self.last_name: str | None = None
@@ -68,19 +129,39 @@ class MaxApi(AsyncInitializerMixin):
         self.base_data.update(
             global_context
         )
+        self._infinite_recv_task: asyncio.Task | None = None
 
+
+    @property
+    def max_client(self) -> MaxClient:
+        return self.__max_client
+
+    @max_client.setter
+    def max_client(self, value: MaxClient) -> None:
+        self.__max_client = value
 
     async def attach(self) -> None:
         if not self.max_client:
-            self.max_client = await MaxClient.create_client(self)
+            self.max_client = await MaxClient(max_api = self)
             self.start_time = time.time()
+
 
     async def detach(self):
         if self.max_client:
             await self.max_client.close_websocket()
             self.max_client = None
-        return self.__token, self.device_id, self._polling_interval
+        return self.__token, self.device_id, self._ping_interval
 
+
+    async def _keepalive(self):
+        self.__logger.info('Starting keepalive')
+        while True:
+            self.__logger.debug('Sending keep-alive ping')
+            ping = await self.max_client.send_and_receive(opcode=Opcode.PING.value, payload={
+                'interactive': False,
+            })
+            self.__logger.debug('Received keep-alive pong')
+            await asyncio.sleep(self._ping_interval)
 
     @staticmethod
     def get_random_device_id():
@@ -93,7 +174,7 @@ class MaxApi(AsyncInitializerMixin):
 
 
     async def send_user_agent(self) -> tuple[int, int, int, str] | None:
-        await self.max_client.send_and_receive(opcode=6, payload={
+        await self.max_client.send_and_receive(opcode=Opcode.SEND_USER_AGENT.value, payload={
             "userAgent": {"deviceType": "WEB", "locale": "ru", "deviceLocale": "ru", "osVersion": "Alpha",
                           "deviceName": "MaxBot",
                           "headerUserAgent": 'Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0',
@@ -114,46 +195,42 @@ class MaxApi(AsyncInitializerMixin):
 
 
     async def login(self, url_callback):
+
+        try:
+            self.__logger.info('Start Login')
+
             try:
-                # if not self.max_client:
-                #     raise LoggingError('dont construct object, use MaxApi.create() method')
+                metadata = await self.send_user_agent()
 
+                if metadata:
+                    self._polling_interval, self._track_id, expires_at, url = metadata
+                else:
+                    return True
+            except KeyError:
+                self.__logger.error('Not found attributes in json')
+                raise LoggingError('Not found attributes in json')
+            self.max_client.websocket.ping_interval = self._polling_interval
 
-                self.__logger.info('Start Login')
+            await asyncio.create_task(url_callback(url))
 
-                try:
-                    metadata = await self.send_user_agent()
+            try:
+                async with asyncio.timeout(expires_at - time.time()):
+                    while not self.client_is_login:
+                        response = await self.max_client.send_and_receive(opcode=Opcode.TRACK_LOGIN.value, payload={"trackId": self._track_id})
+                        if get_dict_value_by_path('payload status loginAvailable', response) == True:
+                            self.__logger.info('Login Successful')
+                            self.client_is_login = True
+                            break
+                        await asyncio.sleep(self._polling_interval)
+            except asyncio.TimeoutError:
+                self.__logger.error('Login Timeout')
+                raise LoggingTimeoutError('Login Timeout')
+            await self._get_user_data()
 
-                    if metadata:
-                        self._polling_interval, self._track_id, expires_at, url = metadata
-                    else:
-                        return True
-                    # self.__logger.info('got metadata')
-                except KeyError:
-                    self.__logger.error('Not found attributes in json')
-                    raise LoggingError('Not found attributes in json')
-                self.max_client.websocket.ping_interval = self._polling_interval
-
-                await asyncio.create_task(url_callback(url))
-
-                try:
-                    async with asyncio.timeout(expires_at - time.time()):
-                        while not self.client_is_login:
-                            response = await self.max_client.send_and_receive(opcode=Opcode.TRACK_LOGIN.value, payload={"trackId": self._track_id})
-                            if get_dict_value_by_path('payload status loginAvailable', response) == True:
-                                self.__logger.info('Login Successful')
-                                self.client_is_login = True
-                                break
-                            await asyncio.sleep(self._polling_interval)
-                except asyncio.TimeoutError:
-                    self.__logger.error('Login Timeout')
-                    raise LoggingTimeoutError('Login Timeout')
-                await self._get_user_data()
-
-                return True
-            except ConnectionClosedOK:
-                self.__logger.info('Login Failed')
-                raise LoggingError('Connection closed')
+            return True
+        except ConnectionClosedOK:
+            self.__logger.info('Login Failed')
+            raise LoggingError('Connection closed')
 
 
     async def _parse_user_data(self, response: dict) -> None:
@@ -176,22 +253,19 @@ class MaxApi(AsyncInitializerMixin):
     async def _authorize(self) -> None:
         self.__logger.info('Sending authorize request...')
 
-        response = await self.max_client.send_and_receive(opcode=Opcode.AUTHORIZE.value, payload = {
+        response, seq = await self.max_client.send_and_receive(opcode=Opcode.AUTHORIZE.value, payload = {
             'interactive': False,
             'token': self.__token,
         })
 
 
-
-
-        await self.max_client.wait_recv()
+        await self.max_client.wait_recv(seq - 1, cmd = 0)
         token = get_dict_value_by_path('payload token', response)
         if token:
             self.__token = get_dict_value_by_path('payload token', response)
-        await self._parse_user_data(response)
+        await self._parse_user_data(response[0])
 
-
-        json_chats = response['payload']['chats']
+        json_chats = response[0]['payload']['chats']
 
         chats = Chat.from_json(json_chats, self)
 
@@ -206,8 +280,11 @@ class MaxApi(AsyncInitializerMixin):
             'chatIds': [chat_id],
         })
 
+        response = response[0]
+
         self.__logger.info('Got chat info')
-        return Chat(response['payload']['chats'][0], max_api=self, id=chat_id)
+
+        return Chat(**response['payload']['chats'][0], max_api=self)
 
     async def send_message(self, chat_id: int, text: str, attaches: List[Video | File | Photo] = [], other_message_elements: dict = None):
         types_of_attachments = {
@@ -289,17 +366,6 @@ class MaxApi(AsyncInitializerMixin):
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-
-
-
-    # max_api = await MaxApi.create()
-
-
-    # chat = await max_api.get_chat_per_id(-69642481385536)
-    # messages = [(inx + 1, message.text, message.attaches) for inx, message in enumerate(await chat.get_all_messages(chat.last_message.time))]
-    # pprint(messages)
-    #
-    # await max_api.max_client.close_websocket()
 
 
 
