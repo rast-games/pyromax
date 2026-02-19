@@ -6,9 +6,10 @@ from pyromax.exceptions import AnnotationHandlerError
 from pyromax.api.observer import ObserverPattern
 
 from pyromax.api.observer import Handler
+from pyromax.api.observer import Router
 
 if TYPE_CHECKING:
-    from pyromax.api.observer import Router
+    from pyromax.filters import Filter
     from pyromax.api import MaxApi
     from pyromax.types import Update
 
@@ -34,11 +35,14 @@ class MaxEventObserver(ObserverPattern.Observer):
         # with dummy callback which never will be used
         # self._handler = Handler(pattern=lambda: True, filters=[])
 
-    async def update(self, update, max_api: 'MaxApi') -> Union['Handler',  bool]:
+    async def update(self, update, max_api: 'MaxApi', data: dict = None) -> tuple['Handler',  dict] | tuple[bool, dict]:
+        if data is None:
+            raise ValueError('data cannot be None')
         for handler in self.handlers:
-            if await handler.update(update, max_api):
-                return handler
-        return False
+            if await handler.update(update, max_api, data=data):
+                return handler, data
+        return False, data
+
 
     def include_event(self, event: 'MaxEventObserver'):
         self.handlers += event.handlers
@@ -49,13 +53,14 @@ class MaxEventObserver(ObserverPattern.Observer):
             self.include_event(event)
 
 
-    def __call__(self, pattern=lambda update: True, from_me: bool = False):
+    def __call__(self, *filters: 'Filter', pattern=None, from_me: bool = False):
         def decorator(func):
             signature = inspect.signature(func)
             args = [param.annotation for param in signature.parameters.values()]
             if inspect._empty in args:
                 raise AnnotationHandlerError('Need annotation all params in handler')
-            self.handlers.append(Handler(func, pattern, args, from_me=from_me))
+            handler = Handler(func, filters=filters, pattern=pattern, args=args, from_me=from_me)
+            self.handlers.append(handler)
         return decorator
 
 

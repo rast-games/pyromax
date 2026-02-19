@@ -6,7 +6,7 @@ from typing import Iterable
 
 from websockets import WebSocketException
 
-from .ObserverPattern import Subject
+# from .ObserverPattern import Subject
 from .Router import Router
 from pyromax.types import Update, Message, Opcode
 from pyromax.api import MaxApi
@@ -14,24 +14,24 @@ from pyromax.utils import NotFoundFlag
 from pyromax.utils import get_dict_value_by_path
 
 
-class Dispatcher(Subject, Router):
+class Dispatcher(Router):
     def __init__(self):
         super().__init__()
 
         self.__logger = logging.getLogger('MaxDispatcher')
 
 
-    async def notify(self, update, data: dict):
-        if not update:
-            return
-        for event in self.events.values():
-            if event.opcode != update.opcode:
-                continue
-            handler = await event.update(update, data[MaxApi])
-            if handler and event.event_name == update.type:
-                args = [data[arg] for arg in handler.args if arg in data]
-                await handler.function(*args)
-                break
+    # async def notify(self, update, data: dict):
+    #     if not update:
+    #         return
+    #     result = await Router.notify(self, update, data)
+    #     if result:
+    #         return
+    #     for router in self.sub_routers:
+    #         for sub_router in router.chain_head:
+    #             result = await router.notify(update=update, data=data)
+    #             if result:
+    #                 break
 
 
     async def _check_update(self, max_api: MaxApi):
@@ -60,7 +60,8 @@ class Dispatcher(Subject, Router):
         while True:
             if max_api.max_client:
                 update, data = await self._check_update(max_api)
-                await self.notify(update, data)
+                if isinstance(update, Update):
+                    await self.notify(update, data)
             else:
-                raise WebSocketException('MaxApi.MaxClient instance not exist')
+                raise AttributeError('MaxApi.MaxClient instance not exist')
 

@@ -54,8 +54,6 @@ class Message(Update, ReplyMixin):
 
     @classmethod
     def from_update(cls, update: Update) -> 'Message':
-        from pprint import pprint
-        pprint(update.payload)
         self = cls(**update.model_dump(), **update.payload, **update.payload['message'], max_api=update.max_api)
         return self
 
