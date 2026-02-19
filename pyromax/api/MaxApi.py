@@ -26,34 +26,6 @@ class MaxApi(AsyncInitializerMixin):
             default_args = {}
         self.__init__(device_id=device_id, token=token, global_context=global_context, ping_interval=ping_interval, *args, **kwargs)
 
-        # tasks = []
-        # while True:
-        #     try:
-        #         tasks.append(self.attach())
-        #         tasks.append(self._infinite_recv_task)
-        #         tasks.append(self.login(url_callback))
-        #         tasks.append(self._authorize())
-        #
-        #         done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
-        #         break
-        #
-        #         for task in done:
-        #             if task.exeption():
-        #                 raise task.exception()
-        #     except WebSocketException:
-        #         for task in tasks:
-        #             if not task.done():
-        #                 task.cancel()
-        #         if tasks:
-        #             await asyncio.gather(*tasks, return_exceptions=True)
-
-        # tasks = []
-        # tasks.append(asyncio.create_task(self.attach()))
-        # tasks.append(asyncio.create_task(self.login(url_callback)))
-        # tasks.append(asyncio.create_task(self._authorize()))
-        #
-        # done, pending = await asyncio.wait(tasks, return_when='ALL_COMPLETED')
-
         while True:
             try:
                 await self.attach()
@@ -83,8 +55,6 @@ class MaxApi(AsyncInitializerMixin):
                         raise task.exception()
             except WebSocketException:
                 await self.max_client.kill_pending()
-                # if self._infinite_recv_task:
-                #     self._infinite_recv_task.cancel()
 
 
                 for task in tasks:
@@ -92,11 +62,8 @@ class MaxApi(AsyncInitializerMixin):
                         task.cancel()
                 if tasks:
                     await asyncio.gather(*tasks, return_exceptions=True)
-                # if self._inited_websocket:
-                #     self._inited_websocket.clear()
                 self.__logger.warning('WebSocket connection broke')
                 await self.detach()
-                print('test')
                 await self.attach()
                 await self.send_user_agent()
                 await self._authorize()
@@ -131,6 +98,8 @@ class MaxApi(AsyncInitializerMixin):
         )
         self._infinite_recv_task: asyncio.Task | None = None
 
+    # def me(self):
+    #     return
 
     @property
     def max_client(self) -> MaxClient:

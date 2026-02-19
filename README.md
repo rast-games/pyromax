@@ -41,6 +41,7 @@ import os
 from pyromax.api import MaxApi
 from pyromax.api.observer import Dispatcher as MaxDispatcher
 from pyromax.types import Message
+import qrcode
 
 # Инициализация диспетчера
 dp = MaxDispatcher()
@@ -56,9 +57,23 @@ async def echo_handler(update: Message, max_api: MaxApi):
 async def url_callback_for_login_url(url: str):
     """
     Отрабатывает если пользователь не авторизован(т.е не передается token)
-     и в него попадает авторизационная ссылка
-     """
-    print(f'Авторизуйтесь в Max с помощью ссылки: {url}')
+    и в него попадает авторизационная ссылка
+    Необходимо привести эту ссылку к виду qr кода, и отсканировать с приложения Макса
+    К примеру можно использовать модуль qrcode
+    т.е pip install qrcode
+    """
+    
+    qr = qrcode.QRCode()
+    qr.add_data(url)
+
+    img = qr.make_image()
+    img.save('qr.jpg')
+    
+    """
+    После этого появится в домашнем каталоге проекта сам файл qr кода,
+    его нужно будет отсканировать, и далее бот начнет работать дальше
+    """   
+    
 
 
 async def main():
@@ -84,6 +99,7 @@ if __name__ == "__main__":
 ```python
 from pyromax.api import MaxApi
 from pyromax.api.observer import Router
+from pyromax.filters import Command, CommandStart, CommandObject
 from pyromax.types import Message
 
 # Создаем отдельный роутер
@@ -91,15 +107,47 @@ router = Router()
 
 
 # Регистрируем хендлер в роутер
-@router.message(pattern=lambda update: update.text == '!ping', from_me=True)
-async def ping_handler(update: Message, max_api: MaxApi):
-    await update.reply("Pong! 🏓")
+@router.message(Command('ping'), from_me=True)
+async def ping_handler(message: Message, max_api: MaxApi):
+    await message.reply("Pong! 🏓")
+
+
+@router.message(CommandStart())
+async def start(message: Message):
+    await message.answer(text='Ну начинаем?')
+    
+@router.message(Command('sum'), from_me=True)
+async def sum_handler(message: Message, command: CommandObject) -> None:
+    """
+    В чате:
+        >>>/sum 8 8
+        
+        >>>Ответ: 16
+        
+        
+        >>>/sum 3 string
+        
+        >>>В аргументах могут быть только цифры
+    """
+    if command.args is None:
+        return
+    args = command.args.split()
+    nums = []
+    for arg in args:
+        if not arg.isdigit():
+            await message.reply(text = 'В аргументах могут быть только цифры')
+            return
+        nums.append(int(arg))
+    await message.reply(text = f'Ответ: {sum(nums)}')
+
+
 ```
 ### 2. Подключите его в главном файле (main.py)
 
 ```python
 from pyromax.api.observer import Dispatcher as MaxDispatcher
 from handlers.admin import router as admin_router
+
 
 dp = MaxDispatcher()
 
@@ -129,6 +177,9 @@ dp.include_router(admin_router)
 - [ ] **Плагины:** Готовые модули для администрирования чатов.
 
 ---
+
+## 📞 Контакты
+Telegram разработчика: [ТЫК](https://t.me/Nonamegodman)
 
 ## 🤝 Contributing
 
