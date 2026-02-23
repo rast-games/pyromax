@@ -36,24 +36,24 @@ class Dispatcher(Router):
 
     async def _check_update(self, max_api: MaxApi):
         update = await max_api.max_client.wait_recv(cmd=0)
-        update = Update(**(update[0]), max_api=max_api)
-        data = {
-            Opcode: update.opcode,
-            Update: update,
-        }
-        data.update(max_api.base_data)
+        if update:
+            update = Update(**(update[0]), max_api=max_api)
+            data = {
+                Opcode: update.opcode,
+                Update: update,
+            }
+            data.update(max_api.base_data)
 
 
-        self.__logger.debug(f'Dispatcher update: %s', update)
-        for event in self.events.values():
-            if event.opcode == update.opcode:
+            self.__logger.debug(f'Dispatcher update: %s', update)
+            for event in self.events.values():
+                if event.opcode == update.opcode:
 
-                parsed_update = event.type_of_update.from_update(update)
-                data = parsed_update.edit_data(data)
-                return parsed_update, data
-        else:
-            self.__logger.debug('Dispatcher update skipped: %s', update)
-            return NotFoundFlag(), NotFoundFlag()
+                    parsed_update = event.type_of_update.from_update(update)
+                    data = parsed_update.edit_data(data)
+                    return parsed_update, data
+        self.__logger.debug('Dispatcher update skipped: %s', update)
+        return NotFoundFlag(), NotFoundFlag()
 
 
     async def start_polling(self, max_api: MaxApi):

@@ -1,31 +1,25 @@
-import random
-from asyncio import Future
-from typing import Any, TYPE_CHECKING
+import asyncio
+import json
+import logging
 import re
+import string
+from typing import TYPE_CHECKING
 
 from websockets import connect
 from websockets.typing import Origin
-from websockets.exceptions import ProtocolError, WebSocketException
-
-import logging
-import json
-import asyncio
-import string
-
 
 from pyromax.mixins import AsyncInitializerMixin
-from pyromax.utils import get_random_string, NotFoundFlag
-from pyromax.types import Update, Opcode
+from pyromax.utils import get_random_string
 
 if TYPE_CHECKING:
-    from pyromax.api import MaxApi
+    pass
+
 
 class MaxClient(AsyncInitializerMixin):
     async def _async_init(self, max_api):
         self.__init__(max_api)
         self._recv_task = asyncio.create_task(self.infinite_recv())
         await self._init_websocket()
-
 
     def __init__(self, max_api):
         self.max_api = max_api
@@ -48,33 +42,26 @@ class MaxClient(AsyncInitializerMixin):
     def counter(self):
         return self.__counter
 
-
     def counter_increment(self):
         self.__counter += 1
         return self.__counter
-
 
     @property
     def polling_interval(self):
         return self.__polling_interval
 
-
     @polling_interval.setter
     def polling_interval(self, value):
         self.__polling_interval = value
-
 
     async def _init_websocket(self):
         if not self.websocket:
             self.__logger.info('Initializing Max WebSocket Client')
             self.websocket = await connect("wss://ws-api.oneme.ru/websocket",
-                                     origin=Origin('https://web.max.ru'),
-                                     user_agent_header='Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0',
+                                           origin=Origin('https://web.max.ru'),
+                                           user_agent_header='Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0',
                                            ping_interval=self.__polling_interval)
         self._websocket_inited.set()
-
-
-
 
     async def close_websocket(self):
         if self.websocket:
@@ -84,11 +71,8 @@ class MaxClient(AsyncInitializerMixin):
             self.__logger.info('WebSocket Closed')
         self._websocket_inited.clear()
 
-
-
     def receive_is_locked(self) -> bool:
         return self.__running_lock.locked()
-
 
     async def kill_pending(self):
         for requests in self.__pending_requests.values():
@@ -97,7 +81,6 @@ class MaxClient(AsyncInitializerMixin):
 
             if requests:
                 await asyncio.gather(*requests, return_exceptions=True)
-
 
     async def infinite_recv(self):
 
@@ -129,27 +112,35 @@ class MaxClient(AsyncInitializerMixin):
         finally:
             pass
 
-
     async def send_message(self, message: dict, send_count: int = 1) -> None | int:
         for _ in range(send_count):
             await self.websocket.send(json.dumps(message))
         return message['seq']
 
-
-    async def wait_recv(self, seq: int = None, cmd = 1, opcode: int | None = None) -> list[dict]:
+    async def wait_recv(self, seq: int = None, cmd: int = 1, opcode: int | None = None) -> list[dict]:
+        """
+        Package 01292 is static, and code 292 is sending a banner.
+        It stops all authorization, so it is immediately deleted and is an empty package.
+        Args:
+            seq:
+            cmd:
+            opcode:
+        """
         loop = asyncio.get_running_loop()
         response_future = loop.create_future()
 
-        if not opcode:
-            opcode = r'[0-9]'
-        if not seq:
-            seq = r'[0-9]'
+        opcode_pattern = str(opcode) if opcode is not None else r'[0-9]+'
+        seq_pattern = str(seq) if seq is not None else r'[0-9]+'
+        pattern = f'{cmd}{seq_pattern}{opcode_pattern}'
 
-        pattern = f'{cmd}{seq}{opcode}'
-        for request in self.__message_buffer.keys():
-            if re.search(pattern, request):
-                response_future.set_result(self.__message_buffer[request])
-                del self.__message_buffer[request]
+        for key in list(self.__message_buffer.keys()):
+            if key == "01292":
+                self.__message_buffer.pop(key)
+                return []
+
+            if re.search(pattern, key) or key.endswith("288") or key.endswith("289"):
+                messages = self.__message_buffer.pop(key)
+                response_future.set_result(messages)
                 return response_future.result()
 
         if pattern not in self.__pending_requests:
@@ -163,23 +154,15 @@ class MaxClient(AsyncInitializerMixin):
             raise ConnectionError("Websocket reader is not running")
 
         try:
-            done, pending = await asyncio.wait(
-                [response_future, self._recv_task],
-                return_when=asyncio.FIRST_COMPLETED
-            )
-
-
-            if self._recv_task in done:
-                response_future.cancel()
-                exc = self._recv_task.exception()
-                if exc:
-                    print(type(exc), exc)
-                    raise exc
-                raise ConnectionError("Websocket connection closed unexpectedly")
-
-            return response_future.result()
+            result = await asyncio.wait_for(response_future, timeout=60)
+            return result
+        except asyncio.TimeoutError:
+            return []
         finally:
-            pass
+            if response_future.cancelled():
+                for requests in self.__pending_requests.values():
+                    if response_future in requests:
+                        requests.remove(response_future)
 
     async def send_and_receive(self, ver: int = 11, opcode: int = 1, cmd: int = 0, payload: dict | str = None):
         request = {
@@ -195,17 +178,15 @@ class MaxClient(AsyncInitializerMixin):
 
         response = await self.wait_recv(seq=seq, cmd=int(not cmd), opcode=opcode)
 
-
         await asyncio.sleep(self.__polling_interval)
         return response, seq
-
 
 
 async def main():
     max_client = await MaxClient.create_client()
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     asyncio.run(main())

@@ -41,7 +41,6 @@ import os
 from pyromax.api import MaxApi
 from pyromax.api.observer import Dispatcher as MaxDispatcher
 from pyromax.types import Message
-import qrcode
 
 # Инициализация диспетчера
 dp = MaxDispatcher()
@@ -54,27 +53,6 @@ async def echo_handler(update: Message, max_api: MaxApi):
     await update.reply(text=update.text, attaches=update.attaches)
 
 
-async def url_callback_for_login_url(url: str):
-    """
-    Отрабатывает если пользователь не авторизован(т.е не передается token)
-    и в него попадает авторизационная ссылка
-    Необходимо привести эту ссылку к виду qr кода, и отсканировать с приложения Макса
-    К примеру можно использовать модуль qrcode
-    т.е pip install qrcode
-    """
-    
-    qr = qrcode.QRCode()
-    qr.add_data(url)
-
-    img = qr.make_image()
-    img.save('qr.jpg')
-    
-    """
-    После этого появится в домашнем каталоге проекта сам файл qr кода,
-    его нужно будет отсканировать, и далее бот начнет работать дальше
-    """   
-    
-
 
 async def main():
     logging.basicConfig(level=logging.INFO)
@@ -83,7 +61,7 @@ async def main():
     token = os.getenv('MaxApiToken')
 
     # Создаем экземпляр API
-    bot = await MaxApi(url_callback_for_login_url, token=token)
+    bot = await MaxApi()
 
     # Запускаем бота с диспетчером
     await bot.reload_if_connection_broke(dp)

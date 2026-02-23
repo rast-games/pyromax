@@ -3,9 +3,8 @@ import logging
 import time
 import string
 from typing import List, TypeVar
-
 from websockets.exceptions import ConnectionClosedOK, WebSocketException
-
+import qrcode
 
 from pyromax.utils import get_random_string
 from pyromax.utils import get_dict_value_by_path
@@ -13,7 +12,7 @@ from pyromax.api import MaxClient
 from pyromax.types import Chat, Opcode, Video, File, Photo
 from pyromax.exceptions import LoggingError, LoggingTimeoutError, SendMessageError, SendMessageFileError, SendMessageNotFoundError
 from pyromax.mixins import AsyncInitializerMixin
-
+from pyromax.utils.write_token import read_token, write_token
 
 # pprint(dir(Connection))
 
@@ -21,15 +20,17 @@ T = TypeVar('T')
 
 
 class MaxApi(AsyncInitializerMixin):
-    async def _async_init(self, url_callback, *args, device_id: str = None, token: str = None, global_context: dict[type[T], T] = None, ping_interval = 30, **kwargs):
+    async def _async_init(self, *args, device_id: str = None, token: str = None, global_context: dict[type[T], T] = None, ping_interval = 30, **kwargs):
         if not global_context:
             default_args = {}
+
+        token = await read_token()
         self.__init__(device_id=device_id, token=token, global_context=global_context, ping_interval=ping_interval, *args, **kwargs)
 
         while True:
             try:
                 await self.attach()
-                await self.login(url_callback)
+                await self.login()
                 await self._authorize()
                 break
             except WebSocketException:
@@ -155,15 +156,31 @@ class MaxApi(AsyncInitializerMixin):
 
         response = await self.max_client.send_and_receive(opcode=Opcode.METADATA_FOR_LOGIN.value, payload='NotSend')
 
-        polling_interval = response['payload']['pollingInterval'] / 1000
-        track_id = response['payload']['trackId']
-        expires_at = response['payload']['expiresAt'] / 1000
-        url = response['payload']['qrLink']
+        payload = response[0][0]["payload"]
+
+        polling_interval = payload['pollingInterval'] / 1000
+        track_id = payload['trackId']
+        expires_at = payload['expiresAt'] / 1000
+        url = payload['qrLink']
 
         return polling_interval, track_id, expires_at, url
 
 
-    async def login(self, url_callback):
+    async def login(self):
+        async def url_callback_for_login_url(url: str):
+            """
+            Creating a QR code scanned by max. It is displayed immediately in the console
+
+            Args:
+                url - authorization url
+
+            """
+
+            qr = qrcode.QRCode()
+            qr.add_data(url)
+
+            qr.make(fit=True)
+            qr.print_ascii(invert=True)
 
         try:
             self.__logger.info('Start Login')
@@ -180,13 +197,14 @@ class MaxApi(AsyncInitializerMixin):
                 raise LoggingError('Not found attributes in json')
             self.max_client.websocket.ping_interval = self._polling_interval
 
-            await asyncio.create_task(url_callback(url))
+            await asyncio.create_task(url_callback_for_login_url(url))
 
             try:
                 async with asyncio.timeout(expires_at - time.time()):
                     while not self.client_is_login:
+
                         response = await self.max_client.send_and_receive(opcode=Opcode.TRACK_LOGIN.value, payload={"trackId": self._track_id})
-                        if get_dict_value_by_path('payload status loginAvailable', response) == True:
+                        if response[0][0]["payload"]["status"].get("loginAvailable") is True:
                             self.__logger.info('Login Successful')
                             self.client_is_login = True
                             break
@@ -204,7 +222,7 @@ class MaxApi(AsyncInitializerMixin):
 
     async def _parse_user_data(self, response: dict) -> None:
         contact = get_dict_value_by_path('payload profile contact', response)
-        names = get_dict_value_by_path('names', contact)[0]
+        names = get_dict_value_by_path('names', contact)
         self.id = get_dict_value_by_path('id', contact)
         self.name = get_dict_value_by_path('name', names)
         self.first_name = get_dict_value_by_path('firstName', names)
@@ -216,7 +234,7 @@ class MaxApi(AsyncInitializerMixin):
     async def _get_user_data(self) -> None:
         self.__logger.info('Getting User Data...')
         response = await self.max_client.send_and_receive(opcode=Opcode.GET_USER_DATA.value, payload={'trackId': self._track_id})
-        self.__token = get_dict_value_by_path('payload tokenAttrs LOGIN token', response)
+        self.__token = get_dict_value_by_path('payload tokenAttrs LOGIN token', response[0][0])
         await self._parse_user_data(response)
 
     async def _authorize(self) -> None:
@@ -227,17 +245,16 @@ class MaxApi(AsyncInitializerMixin):
             'token': self.__token,
         })
 
-
         await self.max_client.wait_recv(seq - 1, cmd = 0)
-        token = get_dict_value_by_path('payload token', response)
+        token = get_dict_value_by_path('payload token', response[0])
         if token:
-            self.__token = get_dict_value_by_path('payload token', response)
+            self.__token = str(token)
+            await write_token(self.__token)
         await self._parse_user_data(response[0])
 
         json_chats = response[0]['payload']['chats']
 
         chats = Chat.from_json(json_chats, self)
-
 
         self.chats = chats
         self.__logger.info('Authorized')
@@ -343,3 +360,5 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
+

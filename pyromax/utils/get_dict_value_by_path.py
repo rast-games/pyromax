@@ -6,21 +6,22 @@ from typing import Any
 from .not_found_flag import NotFoundFlag
 
 
-def get_dict_value_by_path(path: str, data: dict[str, Any]) -> dict[str, Any] | NotFoundFlag:
+def get_dict_value_by_path(path: str, data: dict[str, Any]) -> dict[str, Any] | NotFoundFlag | None:
     """
     Navigate through a nested dictionary using a space-separated path and return the value.
-    
+
     This function traverses a dictionary structure by following a path of keys
     separated by spaces. If all keys in the path exist, the final value is returned.
     If any key in the path is missing, NotFoundFlag is returned.
-    
+
     Args:
         path: Space-separated string of keys representing the path to navigate
               (e.g., "payload other_directory last_dir")
         data: Dictionary to search in
-        
+
     Returns:
         The value found at the end of the path, or NotFoundFlag() if the path doesn't exist
+        :rtype: dict[str, Any] | NotFoundFlag | None
     """
     layers = path.split()
     current = data
@@ -34,14 +35,14 @@ def get_dict_value_by_path(path: str, data: dict[str, Any]) -> dict[str, Any] | 
 def has_dict_path(path: str, data: dict[str, Any]) -> bool:
     """
     Check if a path exists in a nested dictionary.
-    
+
     This function checks whether all keys in a space-separated path exist
     in the provided dictionary structure.
-    
+
     Args:
         path: Space-separated string of keys representing the path to check
         data: Dictionary to search in
-        
+
     Returns:
         True if the path exists in the dictionary, False otherwise
     """
