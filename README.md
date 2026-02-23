@@ -57,9 +57,6 @@ async def echo_handler(update: Message, max_api: MaxApi):
 async def main():
     logging.basicConfig(level=logging.INFO)
 
-    # Получаем токен из переменных окружения
-    token = os.getenv('MaxApiToken')
-
     # Создаем экземпляр API
     bot = await MaxApi()
 
