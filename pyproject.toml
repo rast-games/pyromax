@@ -1,6 +1,6 @@
 [project]
 name = "pyromax"
-version = "0.4"
+version = "0.5.1"
 authors = [
   { name="rast-games", email="jggtrrrdg@gmail.com" },
 ]
@@ -13,8 +13,9 @@ classifiers = [
     "Framework :: AsyncIO",
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
+    "aiofiles>=25.1.0",
     "aiohttp>=3.13.3",
     "pillow==12.1.0",
     "pydantic>=2.12.5",
