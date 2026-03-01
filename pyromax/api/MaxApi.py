@@ -357,8 +357,20 @@ class MaxApi(AsyncInitializerMixin):
     @classmethod
     async def __preparation_data(cls, file: Union[File, Video, Photo, Audio], chat_id: int, message_id: str) -> tuple[
                                                                                                              str, int, dict] | None:
+        """
+        Prepares data for sending message
+        Args:
+            file:
+            chat_id:
+            message_id:
+
+        Returns:
+            None if Photo or Audio
+            Tuple if File or Video
+        """
 
         if isinstance(file, Photo) or isinstance(file, Audio):
+            # Всё есть уже в объекте
             return None
 
 
@@ -370,6 +382,7 @@ class MaxApi(AsyncInitializerMixin):
                 "chatId": chat_id,
                 "messageId": message_id
             }
+
         elif isinstance(file, Video):
             path_for_url = "payload MP4_720"
 
@@ -421,10 +434,12 @@ class MaxApi(AsyncInitializerMixin):
                 if path_for_upload:
                     pth_upload = pathlib.Path(path_for_upload)
                     filename = response.headers.get("X-File-Name")
+
                     if filename is None or pathlib.Path.exists(pth_upload / filename):
                         filename_first = f"{uuid.uuid4()}"
                     else:
                         filename_first = filename
+                    # Файл уже получает расширение без нативного расширения. Костыль, но можно изменить
                     async with aiofiles.open(pth_upload / filename_first, 'wb') as f:
                         async for chunk in response.content.iter_chunked(8192):
                             await f.write(chunk)
