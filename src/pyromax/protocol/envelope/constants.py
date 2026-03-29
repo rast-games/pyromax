@@ -1,0 +1,27 @@
+# from enum import Enum
+#
+#
+# class Opcode(Enum):
+#     PING = 1
+#     SEND_USER_AGENT = 6
+#     PUSH_NOTIFICATION = 128
+#     CHAT_INFO = 48
+#     GET_CHAT_MESSAGES_PER_CHUNK = 49
+#     AUTHORIZE = 19
+#     GET_CHAT = 48
+#     TRACK_LOGIN = 289
+#     METADATA_FOR_LOGIN = 288
+#     GET_USER_DATA = 291
+#     CREATE_FILE = 87
+#     GET_FILE = 88
+#     CREATE_VIDEO = 82
+#     GET_VIDEO = 83
+#     CREATE_PHOTO = 80
+#     SEND_MESSAGE = 64
+#     MESSAGE_REACTION_UPDATE = 156
+#
+#
+#
+# class Cmd(Enum):
+#     REQUEST = 0
+#     RESPONSE = 1

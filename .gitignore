@@ -2,4 +2,5 @@
 *.egg-info/
 pyromax.egg-info/*
 __pycache__
-bot.py
+../pyromax_old/bot.py
+pyromax_old
