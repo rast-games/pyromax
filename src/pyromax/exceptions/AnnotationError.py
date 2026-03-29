@@ -1,5 +1,5 @@
 from .BaseMaxApiException import BaseMaxApiException
 
 
-class AnnotationHandlerError(BaseMaxApiException):
+class AnnotationError(BaseMaxApiException):
     """Exception raised when param in handler not annotated"""

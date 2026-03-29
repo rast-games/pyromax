@@ -5,6 +5,6 @@ from src.pyromax.protocol.bases.request_response import Request
 
 T = TypeVar('T', bound=Request)
 
-class BaseMaxMethod(Protocol):
+class BaseMaxProtocolMethod(Protocol):
     async def __call__(self, request: T) -> T:
         pass

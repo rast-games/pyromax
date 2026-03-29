@@ -3,7 +3,7 @@
 # from pyromax_old.api.observer.Router import Router
 
 from .Router import Router
-from .Handler import Handler
+from src.pyromax.dispatcher.event.Handler import Handler
 from .Dispatcher import Dispatcher
 
 

@@ -1,32 +1,26 @@
 from collections.abc import Generator
-from typing import List, Optional
+from typing import Optional
 
-from pyromax_old.api.observer.event import MaxEventObserver
-from pyromax_old.api.observer import ObserverPattern
-from pyromax_old.api import MaxApi
-from pyromax_old.types import (
-    Message,
-    MessageReactionUpdate,
-    Opcode, Update
-)
+from .ObserverPattern import Subject
+from .event import StandardMaxEventObserver, MessageEventObserver, ReplyToMessageEventObserver, Update
+from src.pyromax.models import Message
 
-
-class Router(ObserverPattern.Subject):
+class Router(Subject):
     def __init__(self):
         self.sub_routers: list[Router] = []
         self._parent_router = None
 
-        self.message = MaxEventObserver(self, 'USER', opcode=Opcode.PUSH_NOTIFICATION.value, type_of_update=Message)
-        self.edited_message = MaxEventObserver(self, 'EDITED_MESSAGE', opcode=Opcode.PUSH_NOTIFICATION.value, type_of_update=Message)
-        self.reply_to_message = MaxEventObserver(self, 'REPLY', opcode=Opcode.PUSH_NOTIFICATION.value, type_of_update=Message)
-        self.message_added_reaction = MaxEventObserver(self, 'MESSAGE_ADDED_REACTION', opcode=Opcode.MESSAGE_REACTION_UPDATE.value, type_of_update=MessageReactionUpdate)
-        self.message_deleted_reaction = MaxEventObserver(self, 'MESSAGE_DELETED_REACTION', opcode=Opcode.MESSAGE_REACTION_UPDATE.value, type_of_update=MessageReactionUpdate)
+        self.message = MessageEventObserver(self, 'USER', type_of_update=Message)
+        self.edited_message = MessageEventObserver(self, 'EDITED', type_of_update=Message)
+        self.reply_to_message = ReplyToMessageEventObserver(self, 'REPLY', type_of_update=Message)
+        # self.message_added_reaction = MaxEventObserver(self, 'MESSAGE_ADDED_REACTION', opcode=Opcode.MESSAGE_REACTION_UPDATE.value, type_of_update=MessageReactionUpdate)
+        # self.message_deleted_reaction = MaxEventObserver(self, 'MESSAGE_DELETED_REACTION', opcode=Opcode.MESSAGE_REACTION_UPDATE.value, type_of_update=MessageReactionUpdate)
         self.events = {
             'MESSAGE': self.message,
             'EDITED_MESSAGE': self.edited_message,
             'REPLY_TO_MESSAGE': self.reply_to_message,
-            'MESSAGE_ADDED_REACTION': self.message_added_reaction,
-            'MESSAGE_DELETED_REACTION': self.message_deleted_reaction,
+            # 'MESSAGE_ADDED_REACTION': self.message_added_reaction,
+            # 'MESSAGE_DELETED_REACTION': self.message_deleted_reaction,
         }
 
 
@@ -34,7 +28,6 @@ class Router(ObserverPattern.Subject):
     @property
     def chain_head(self) -> Generator['Router', None, None]:
         router: Router | None = self
-        print(self.sub_routers)
         while router:
             yield router
             router = router.parent_router
@@ -107,29 +100,18 @@ class Router(ObserverPattern.Subject):
         router.parent_router = self
         return router
 
-    async def notify(self, update: Update, data = None) -> None:
+    async def notify(self, update: Update, data = None) -> bool:
         if data is None:
             raise ValueError("data cannot be None")
 
         for event in self.events.values():
-            if event.opcode != update.opcode:
-                continue
-            handler, data = await event.update(update, data[MaxApi], data=data)
-            if handler and event.event_name == update.type:
-                args = [data[arg] for arg in handler.args if arg in data]
-                return await handler.function(*args)
+            if event.is_my_update(update):
+                handled = await event.update(update, data=data)
+                if handled:
+                    return True
 
         for router in self.sub_routers:
-            return await router.notify(update=update, data=data)
-            # router.notify(update=update, data=data)
-
-
-    # def include_router(self, router):
-    #     for name, event in self.events.items():
-    #         event: MaxEventObserver
-    #         event.include_event(router.events.pop(name))
-    #
-    #
-    # def include_routers(self, routers):
-    #     for router in routers:
-    #         self.include_router(router)
+            handled = await router.notify(update=update, data=data)
+            if handled:
+                return True
+        return False

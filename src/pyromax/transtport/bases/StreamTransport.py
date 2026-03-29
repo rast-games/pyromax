@@ -1,9 +1,7 @@
 from abc import abstractmethod
-from collections.abc import Awaitable
 from typing import Any
 
 from .base import BaseTransport
-# from ...protocol.bases.request_response import Response, Request
 
 
 class StreamTransport(BaseTransport):

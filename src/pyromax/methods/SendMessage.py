@@ -1,0 +1,27 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+from .Base import BaseMaxApiMethod
+from ..models import Message
+
+if TYPE_CHECKING:
+    from ..models import BaseFileAttachment
+
+
+class SendMessageMethod(BaseMaxApiMethod[Message]):
+    async def __call__(
+            self,
+            *,
+            chat_id: int = None,
+            text: str = None,
+            attaches: list[BaseFileAttachment] = None,
+            **kwargs
+    ) -> Message:
+        if not attaches:
+            attaches = []
+        return await self._max_api.mapper.send_message(
+            chat_id=chat_id,
+            text=text,
+            attaches=attaches,
+            **kwargs
+        )

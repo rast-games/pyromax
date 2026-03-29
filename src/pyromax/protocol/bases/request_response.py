@@ -1,8 +1,4 @@
-from typing import Any
-
 from abc import ABC, abstractmethod
-
-from pydantic import BaseModel
 
 
 class Response(ABC):

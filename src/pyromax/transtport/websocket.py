@@ -1,13 +1,13 @@
 import asyncio
-from asyncio import Future
 import logging
 import json
 from xmlrpc.client import Binary
 
+
 import websockets
 from websockets import Origin
 
-from src.pyromax.protocol.bases.request_response import Request
+
 from src.pyromax.transtport.bases.StreamTransport import StreamTransport
 from .registry import register_transport
 
@@ -19,7 +19,7 @@ WebSocketClosedException = websockets.ConnectionClosed
 WebSocketException = websockets.WebSocketException
 
 
-@register_transport('websocket')
+@register_transport('Websocket')
 class WebSocketTransport(StreamTransport):
 
     def __init__(
@@ -38,10 +38,12 @@ class WebSocketTransport(StreamTransport):
 
     async def _async_init(self, url):
         await asyncio.to_thread(self.__init__, url=url)
+        self.__logger.info('Initializing WebSocket Transport')
 
+        self.__logger.info('WebSocket was initialized')
         await self.connect()
+        self.__logger.info('WebSocket connected to %s', self.url)
 
-        self.__logger.info('websocket connected')
 
 
     async def connect(self):
@@ -55,7 +57,9 @@ class WebSocketTransport(StreamTransport):
         if self.ws is not None:
             await self.ws.close()
             self.ws = None
-            self.__logger.info('websocket closed')
+            self.__logger.info('Websocket closed')
+        else:
+            self.__logger.info('Websocket already closed')
 
     async def send(self, data) -> None:
         if not isinstance(data, (Binary, str, bytes, dict)):

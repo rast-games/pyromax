@@ -13,4 +13,3 @@ class StreamMaxProtocol(BaseMaxProtocol):
 
     @abstractmethod
     async def close(self) -> None: pass
-

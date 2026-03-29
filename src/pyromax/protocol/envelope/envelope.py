@@ -2,16 +2,17 @@ import asyncio
 import json
 import logging
 from asyncio import Event
-from typing import Any, AsyncGenerator, Iterable
+from typing import Any, Iterable
 
 from src.pyromax.protocol.bases.StreamProtocol import StreamMaxProtocol
-from src.pyromax.protocol.bases.methods import BaseMaxMethod
+from src.pyromax.protocol.bases.methods import BaseMaxProtocolMethod
 from src.pyromax.protocol.bases.request_response import Response, Request
 from src.pyromax.routing.event_router import EventRouter, FutureLikeObject
 
 from pydantic import BaseModel
 
 from ...transtport.bases import StreamTransport
+from ..registry import register_protocol
 
 
 class Envelope(BaseModel, Request, Response):
@@ -28,9 +29,10 @@ class Envelope(BaseModel, Request, Response):
     def is_my_response(self, response: 'Envelope') -> bool:
         if not isinstance(response, Response):
             raise TypeError('response must be Response instance')
-        return response.seq == self.seq and response.cmd == int(not self.cmd) and response.opcode == self.opcode
+        return response.seq == self.seq and response.cmd != self.cmd and response.opcode == self.opcode
 
 
+@register_protocol('EnvelopeProtocol')
 class EnvelopeProtocol(StreamMaxProtocol):
     def __init__(self, transport: StreamTransport, ping_interval=30) -> None:
         self.event_router = EventRouter()
@@ -51,9 +53,8 @@ class EnvelopeProtocol(StreamMaxProtocol):
 
     async def connect(self) -> None:
         await self.__transport.connect()
-        self.__logger.debug('websocket connected')
         self._reader_task = asyncio.create_task(self.receive_reader())
-        self.__logger.debug('background tasks started')
+        self.__logger.info('background tasks started')
         del self.event_router
         self.event_router = EventRouter()
         self.running.set()
@@ -62,27 +63,28 @@ class EnvelopeProtocol(StreamMaxProtocol):
 
 
     async def close(self):
-        self.__logger.debug('closing protocol')
-        self.__logger.debug('terminated keepalive task')
+        self.__logger.info('closing protocol')
         self._reader_task.cancel()
         self._reader_task = None
-        self.__logger.debug('terminated reader task')
+        self.__logger.info('terminated reader task')
         await self.__transport.close()
         self.__transport_inited.clear()
-        self.__logger.debug('transport closed')
-        self.__logger.debug('protocol closed')
+        self.__logger.info('transport closed')
+        self.__logger.info('protocol closed')
         self.running.clear()
         self.failed.clear()
 
 
-    async def send(self, method: BaseMaxMethod, data: dict) -> FutureLikeObject:
+    async def send(self, method: BaseMaxProtocolMethod, data: dict = None) -> FutureLikeObject:
+        if not data:
+            data = {}
         if not isinstance(data, dict):
             raise TypeError('data must be dict instance')
         envelope = await self.from_request(request=data)
         request = await method(request=envelope)
         await self.__transport_inited.wait()
         await self.__transport.send(request.model_dump(by_alias=True))
-        self.__logger.debug(f'send request: {envelope}')
+        self.__logger.debug(f'send request: {envelope.model_dump(by_alias=True)}')
         return await self.event_router.create_record(envelope)
 
 
@@ -133,16 +135,3 @@ class EnvelopeProtocol(StreamMaxProtocol):
 
     def from_response(self, data: dict) -> Envelope:
         return Envelope(**data)
-
-
-# async def main():
-#     logging.basicConfig(level=logging.DEBUG)
-#     transport = await WebSocketTransport("wss://ws-api.oneme.ru/websocket")
-#     protocol = await EnvelopeProtocol(transport=transport)
-#
-#     await protocol.close()
-#
-#
-# if __name__ == '__main__':
-#     asyncio.run(main())
-
