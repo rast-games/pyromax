@@ -2,25 +2,29 @@ from collections.abc import Generator
 from typing import Optional
 
 from .ObserverPattern import Subject
-from .event import StandardMaxEventObserver, MessageEventObserver, ReplyToMessageEventObserver, Update
+from .event import StandardMaxEventObserver, MessageEventObserver, ReplyToMessageEventObserver, EmojiReactionAddObserver, EmojiReactionRemoveObserver, Update
 from src.pyromax.models import Message
+
+from ..models import EmojiReaction
 
 class Router(Subject):
     def __init__(self):
         self.sub_routers: list[Router] = []
         self._parent_router = None
 
+
+
         self.message = MessageEventObserver(self, 'USER', type_of_update=Message)
         self.edited_message = MessageEventObserver(self, 'EDITED', type_of_update=Message)
         self.reply_to_message = ReplyToMessageEventObserver(self, 'REPLY', type_of_update=Message)
-        # self.message_added_reaction = MaxEventObserver(self, 'MESSAGE_ADDED_REACTION', opcode=Opcode.MESSAGE_REACTION_UPDATE.value, type_of_update=MessageReactionUpdate)
-        # self.message_deleted_reaction = MaxEventObserver(self, 'MESSAGE_DELETED_REACTION', opcode=Opcode.MESSAGE_REACTION_UPDATE.value, type_of_update=MessageReactionUpdate)
+        self.message_added_reaction = EmojiReactionAddObserver(self, 'MESSAGE_ADDED_REACTION', type_of_update=EmojiReaction)
+        self.message_deleted_reaction = EmojiReactionRemoveObserver(self, 'MESSAGE_DELETED_REACTION', type_of_update=EmojiReaction)
         self.events = {
             'MESSAGE': self.message,
             'EDITED_MESSAGE': self.edited_message,
             'REPLY_TO_MESSAGE': self.reply_to_message,
-            # 'MESSAGE_ADDED_REACTION': self.message_added_reaction,
-            # 'MESSAGE_DELETED_REACTION': self.message_deleted_reaction,
+            'MESSAGE_ADDED_REACTION': self.message_added_reaction,
+            'MESSAGE_DELETED_REACTION': self.message_deleted_reaction,
         }
 
 

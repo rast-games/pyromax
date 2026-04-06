@@ -26,7 +26,7 @@ class StandardMaxEventObserver(Observer, Generic[Update]):
         self.type_of_update = type_of_update
         self.router: Router = router
         self.event_name: str = event_name
-        self.handlers: list['Handler'] = []
+        self.handlers: list[Handler] = []
 
         # self.middleware = MiddlewareManager()
         # self.outer_middleware = MiddlewareManager()
