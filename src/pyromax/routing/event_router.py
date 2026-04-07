@@ -1,10 +1,11 @@
+from __future__ import annotations
 import asyncio
 from asyncio import CancelledError, Event, Task
-from typing import Any, Protocol, Awaitable
+from typing import Any, Protocol, Awaitable, TYPE_CHECKING
 
-from src.pyromax.protocol.bases.request_response import Request, Response
-from src.pyromax.utils import Correlator
-
+from ..utils import Correlator
+if TYPE_CHECKING:
+    from ..protocol import Request, Response
 
 class FutureLikeObject(Protocol, Awaitable):
 

@@ -2,8 +2,8 @@ from typing import cast
 
 from typing_extensions import Literal
 
-from src.pyromax.models import Message
-from src.pyromax.protocol.envelope import Envelope
+from ....models import Message
+from ....protocol import Envelope
 from .constants import Opcode, Cmd
 from .payloads import UserAgentPayload, AuthModel, CreateCellForFileModel, SendMessageModel, \
     MessageModel, MessageLinkModel, TrackLoginPayloadModel

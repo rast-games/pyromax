@@ -2,9 +2,9 @@ from abc import ABC, abstractmethod
 from typing import cast, Any
 from typing_extensions import Self
 
-from src.pyromax.models import BaseMaxObject, Message, EmojiReaction, VideoAttachment, FileAttachment, PhotoAttachment, \
+from ....models import BaseMaxObject, Message, EmojiReaction, VideoAttachment, FileAttachment, PhotoAttachment, \
     BaseFileAttachment, MessageLink
-from src.pyromax.protocol.envelope import Envelope
+from ....protocol import Envelope
 from .constants import Opcode
 from .payloads import PushPayloadModel, EmojiReactionUpdateModel, FileToPayloadModel, PhotoToPayloadModel, \
     VideoToPayloadModel, MessageModel

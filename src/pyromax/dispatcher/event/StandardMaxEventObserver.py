@@ -3,12 +3,12 @@ from typing import TypeVar, Generic, TYPE_CHECKING
 
 from ..ObserverPattern import Observer
 from .Handler import Handler
-from src.pyromax.dispatcher import Router
-from src.pyromax.models import BaseMaxObject
-from src.pyromax.protocol import Response
+from .. import Router
+from ...models import BaseMaxObject
+from ...protocol import Response
 
 if TYPE_CHECKING:
-    from src.pyromax.filters import Filter
+    from ...filters import Filter
 
 
 Update = TypeVar('Update', BaseMaxObject, Response)
@@ -36,7 +36,7 @@ class StandardMaxEventObserver(Observer, Generic[Update]):
         # self._handler = Handler(pattern=lambda: True, filters=[])
 
 
-    def is_my_update(
+    async def is_my_update(
             self,
             update: BaseMaxObject | Response
     ) -> bool:

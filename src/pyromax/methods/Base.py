@@ -3,7 +3,7 @@ from typing import TypeVar, Generic, Any
 
 from pydantic import BaseModel
 
-from src.pyromax.core.MaxApiContextController import ContextController
+from ..core.MaxApiContextController import ContextController
 
 
 

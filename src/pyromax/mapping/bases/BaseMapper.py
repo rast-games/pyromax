@@ -5,13 +5,12 @@ from typing import Any
 
 from typing_extensions import TYPE_CHECKING
 
-from src.pyromax.mixins import AsyncInitializerMixin
+from ...mixins import AsyncInitializerMixin
 
 if TYPE_CHECKING:
-    from src.pyromax.models import BaseFileAttachment
-    from src.pyromax.models import BaseMaxObject
-    from src.pyromax.protocol import Request
-    from src.pyromax import MaxApi, BaseMaxProtocol
+    from ...models import BaseFileAttachment, BaseMaxObject
+    from ...protocol import Request
+    from ...core import MaxApi, BaseMaxProtocol
 
 
 class BaseMapper(AsyncInitializerMixin):
@@ -28,7 +27,7 @@ class BaseMapper(AsyncInitializerMixin):
 
 
     @abstractmethod
-    async def upload_file(self, data: bytes, typeof: type[BaseFileAttachment]) -> BaseFileAttachment: pass
+    async def upload_file(self, data: bytes, typeof: type[BaseFileAttachment], **kwargs) -> BaseFileAttachment: pass
 
 
     @abstractmethod

@@ -4,10 +4,10 @@ import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
-from src.pyromax.dispatcher.event import Update
-from src.pyromax.utils import inspect_and_form
+from ..dispatcher.event import Update
+from ..utils import inspect_and_form
 if TYPE_CHECKING:
-    from src.pyromax import BaseMaxObject
+    from ..models import BaseMaxObject
 
 
 class Filter(ABC):
@@ -29,7 +29,6 @@ class Filter(ABC):
     # else:  # pragma: no cover
 
     async def __call__(self, update: Update, data, *args: Any, **kwargs: Any) -> bool | dict[str, Any]:
-
         if not self.work_with == type(update):
             return False
 

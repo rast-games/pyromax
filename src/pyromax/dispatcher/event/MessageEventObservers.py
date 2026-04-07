@@ -1,9 +1,10 @@
 from collections.abc import Callable
 
 from .StandardMaxEventObserver import StandardMaxEventObserver
-from src.pyromax.models import Message
-from src.pyromax.filters import Filter, FromMeFilter
+from ...models import Message
+from ...filters import Filter, FromMeFilter
 from .Handler import Handler
+from ...filters import MessageForwardFromFilter, ReplyToMessageFilter
 
 
 class MessageEventObserver(StandardMaxEventObserver[Message]):
@@ -18,17 +19,28 @@ class MessageEventObserver(StandardMaxEventObserver[Message]):
             self.handlers.append(handler)
         return decorator
 
-    def is_my_update(
+    async def is_my_update(
             self,
             update: Message
     ) -> bool:
-        return super().is_my_update(update) and update.status == self.event_name
+        return await super().is_my_update(update) and update.status == self.event_name
 
+
+class MessageForwardEventObserver(MessageEventObserver):
+    async def is_my_update(
+            self,
+            update: Message
+    ) -> bool:
+        forward_filter = MessageForwardFromFilter()
+        return await StandardMaxEventObserver.is_my_update(self, update) and await forward_filter(update, data={Message: update})
 
 
 class ReplyToMessageEventObserver(MessageEventObserver):
-    def is_my_update(
+    async def is_my_update(
             self,
             update: Message
     ) -> bool:
-        return super().is_my_update(update) and (update.link.type == self.event_name if update.link else None)
+        reply_filter = ReplyToMessageFilter()
+        return await StandardMaxEventObserver.is_my_update(self, update) and await reply_filter(update, data={Message: update})
+
+

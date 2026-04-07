@@ -1,6 +1,6 @@
 from typing import Coroutine
 
-from src.pyromax.utils import return_self_after_method
+from ..utils import return_self_after_method
 
 import abc
 

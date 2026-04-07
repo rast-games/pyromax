@@ -6,7 +6,7 @@ from typing_extensions import Self
 from pydantic import BaseModel, PrivateAttr
 
 if TYPE_CHECKING:
-    from src.pyromax.core.client import MaxApi
+    from .client import MaxApi
 
 
 class ContextController(BaseModel):

@@ -8,15 +8,13 @@ from typing import Any, TYPE_CHECKING, Coroutine
 
 import qrcode
 
-from src.pyromax.exceptions import SendMessageFileError, SendMessageNotFoundError, SendMessageError
-from src.pyromax.mapping.bases.BaseMapper import BaseMapper
-from src.pyromax.models import BaseMaxObject, BaseFileAttachment
-from src.pyromax.protocol.bases import StreamMaxProtocol
-from src.pyromax.protocol.envelope import Envelope, EnvelopeProtocol
-from src.pyromax.transtport.websocket import WebSocketException
-from src.pyromax.utils import read_token, write_token
-from src.pyromax.utils.debug_tasks import debug_tasks
-from src.pyromax.utils.get_random_string import get_random_device_id
+from ....exceptions import SendMessageFileError, SendMessageNotFoundError, SendMessageError
+from ...bases import BaseMapper
+from ....models import BaseMaxObject, BaseFileAttachment
+from ....protocol import StreamMaxProtocol, Envelope, EnvelopeProtocol
+from ....utils import read_token, write_token
+from ....utils import debug_tasks
+from ....utils import get_random_device_id
 from .methods import SendUserAgentMethod, SendAuthTokenMethod, SendKeepAlivePingMethod, \
     GetUrlToUploadFileMethod, SendMessageMethod, GetMetadataForLogin, TrackLogin, GetUserData
 from .payloads import UserAgentModel, PayloadWithUrlModel, AuthResponseModel, MetadataPayloadModel, \
@@ -551,5 +549,5 @@ class Mapper(BaseMapper):
 
 
 
-        except (asyncio.CancelledError, WebSocketException) as e:
+        except (asyncio.CancelledError, self.protocol.transport.BASE_EXCEPTION_FOR_TRANSPORT) as e:
             self.__logger.error('Error sending message: %s', e)

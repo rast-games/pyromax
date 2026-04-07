@@ -4,10 +4,8 @@ import logging
 from asyncio import Event
 from typing import Any, Iterable
 
-from src.pyromax.protocol.bases.StreamProtocol import StreamMaxProtocol
-from src.pyromax.protocol.bases.methods import BaseMaxProtocolMethod
-from src.pyromax.protocol.bases.request_response import Response, Request
-from src.pyromax.routing.event_router import EventRouter, FutureLikeObject
+from ..bases import StreamMaxProtocol, BaseMaxProtocolMethod, Response, Request
+from ...routing.event_router import EventRouter, FutureLikeObject
 
 from pydantic import BaseModel
 
@@ -50,6 +48,10 @@ class EnvelopeProtocol(StreamMaxProtocol):
         await self.connect()
         self.__logger.info('websocket connected')
 
+
+    @property
+    def transport(self) -> StreamTransport:
+        return self.__transport
 
     async def connect(self) -> None:
         await self.__transport.connect()

@@ -2,10 +2,17 @@ from collections.abc import Generator
 from typing import Optional
 
 from .ObserverPattern import Subject
-from .event import StandardMaxEventObserver, MessageEventObserver, ReplyToMessageEventObserver, EmojiReactionAddObserver, EmojiReactionRemoveObserver, Update
-from src.pyromax.models import Message
+from .event import (
+    StandardMaxEventObserver,
+    MessageEventObserver,
+    ReplyToMessageEventObserver,
+    MessageForwardEventObserver,
+    EmojiReactionAddObserver,
+    EmojiReactionRemoveObserver,
+    Update,
+)
 
-from ..models import EmojiReaction
+from ..models import EmojiReaction, Message
 
 class Router(Subject):
     def __init__(self):
@@ -17,12 +24,14 @@ class Router(Subject):
         self.message = MessageEventObserver(self, 'USER', type_of_update=Message)
         self.edited_message = MessageEventObserver(self, 'EDITED', type_of_update=Message)
         self.reply_to_message = ReplyToMessageEventObserver(self, 'REPLY', type_of_update=Message)
+        self.forward_message = MessageForwardEventObserver(self, 'FORWARD', type_of_update=Message)
         self.message_added_reaction = EmojiReactionAddObserver(self, 'MESSAGE_ADDED_REACTION', type_of_update=EmojiReaction)
         self.message_deleted_reaction = EmojiReactionRemoveObserver(self, 'MESSAGE_DELETED_REACTION', type_of_update=EmojiReaction)
         self.events = {
             'MESSAGE': self.message,
             'EDITED_MESSAGE': self.edited_message,
             'REPLY_TO_MESSAGE': self.reply_to_message,
+            'FORWARD_MESSAGE': self.forward_message,
             'MESSAGE_ADDED_REACTION': self.message_added_reaction,
             'MESSAGE_DELETED_REACTION': self.message_deleted_reaction,
         }
@@ -109,7 +118,7 @@ class Router(Subject):
             raise ValueError("data cannot be None")
 
         for event in self.events.values():
-            if event.is_my_update(update):
+            if await event.is_my_update(update):
                 handled = await event.update(update, data=data)
                 if handled:
                     return True

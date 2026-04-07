@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import Any, TYPE_CHECKING, Awaitable, Callable, Iterable
 
-from src.pyromax.dispatcher.ObserverPattern import Observer
-from src.pyromax.utils import inspect_and_form
+from ..ObserverPattern import Observer
+from ...utils import inspect_and_form
 
 if TYPE_CHECKING:
-    from pyromax_old.filters import Filter
+    from ...filters import Filter
     from .StandardMaxEventObserver import Update
 
 class Handler(Observer):

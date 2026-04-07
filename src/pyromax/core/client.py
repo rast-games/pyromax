@@ -3,10 +3,10 @@ import asyncio
 import logging
 from typing import Any, TYPE_CHECKING
 
-from src.pyromax.mixins import AsyncInitializerMixin
+from ..mixins import AsyncInitializerMixin
 
 if TYPE_CHECKING:
-    from src.pyromax.methods import BaseMaxApiMethod
+    from ..methods import BaseMaxApiMethod
 
 from .context import *
 

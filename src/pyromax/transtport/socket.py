@@ -1,4 +1,4 @@
-from src.pyromax.transtport.bases.StreamTransport import StreamTransport
+from .bases import StreamTransport
 from .registry import register_transport
 
 

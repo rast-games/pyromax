@@ -1,9 +1,7 @@
-# from pyromax_old.api.observer.Handler import Handler
-# from pyromax_old.api.observer.Dispatcher import Dispatcher
-# from pyromax_old.api.observer.Router import Router
+
 
 from .Router import Router
-from src.pyromax.dispatcher.event.Handler import Handler
+from .event import Handler
 from .Dispatcher import Dispatcher
 
 

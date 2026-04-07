@@ -1,5 +1,4 @@
-from abc import abstractmethod, abstractproperty
-from typing import Any
+from abc import abstractmethod
 
 
 from .base import BaseMaxProtocol

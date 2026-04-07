@@ -1,7 +1,7 @@
 from abc import ABC
 
-from src.pyromax import BaseMaxObject
-from src.pyromax.filters import Filter
+from ..models import BaseMaxObject
+from .base import Filter
 
 
 class _logicFilter(Filter, ABC):

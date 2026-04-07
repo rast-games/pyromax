@@ -1,6 +1,6 @@
 from pydantic import ConfigDict
 
-from src.pyromax.core.MaxApiContextController import ContextController
+from ..core.MaxApiContextController import ContextController
 
 
 

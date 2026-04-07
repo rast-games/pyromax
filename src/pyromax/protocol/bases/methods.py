@@ -1,6 +1,6 @@
 from typing import Protocol, TypeVar
 
-from src.pyromax.protocol.bases.request_response import Request
+from .request_response import Request
 
 
 T = TypeVar('T', bound=Request)
