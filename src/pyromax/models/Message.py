@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import Optional, Literal
 
 from .base import BaseMaxObject
-from ..methods import SendMessageMethod
 from .Files import BaseFileAttachment
 
 
@@ -32,6 +31,8 @@ class Message(BaseMaxObject):
             attaches: list[BaseFileAttachment] = None,
             link: MessageLink = None,
     ):
+        from ..methods import SendMessageMethod
+
         return await self._max_api(
             class_of_method=SendMessageMethod,
             text=text,

@@ -27,7 +27,7 @@ class BaseMapper(AsyncInitializerMixin):
 
 
     @abstractmethod
-    async def upload_file(self, data: bytes, typeof: type[BaseFileAttachment], **kwargs) -> BaseFileAttachment: pass
+    async def upload_file(self, data: bytes | None, typeof: type[BaseFileAttachment], **kwargs) -> BaseFileAttachment: pass
 
 
     @abstractmethod

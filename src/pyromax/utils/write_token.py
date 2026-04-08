@@ -6,15 +6,26 @@ import aiofiles
 ROOT_DIR = Path().resolve()
 JSON_FILE = ROOT_DIR / "tokens.json"
 
+
 async def write_token(token: str, name_of_token: str = 'max_token'):
     """Write or overwriting token from json file."""
+    # Читаем существующие данные
+    existing_data = {}
+    if JSON_FILE.exists():
+        try:
+            async with aiofiles.open(JSON_FILE, mode="r") as f:
+                content = await f.read()
+                if content.strip():
+                    existing_data = json.loads(content)
+        except (json.JSONDecodeError, FileNotFoundError):
+            existing_data = {}
 
-    data = {name_of_token: token}
-    async with aiofiles.open(JSON_FILE, mode="w") as f:
-        all_json = json.loads(f.read())
-        all_json[name_of_token] = token
-        await f.write(json.dumps(all_json, indent=4))
+    # Обновляем данные
+    existing_data[name_of_token] = token
 
+    # Записываем обратно
+    async with aiofiles.open(JSON_FILE, mode="w", encoding="utf-8") as f:
+        await f.write(json.dumps(existing_data, indent=4, ensure_ascii=False))
 async def read_token(name_of_token: str = 'max_token') -> str | None:
     """Read token from json file."""
     if not JSON_FILE.exists():

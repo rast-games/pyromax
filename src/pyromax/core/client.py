@@ -1,12 +1,17 @@
 from __future__ import annotations
 import asyncio
 import logging
+from collections.abc import Awaitable
 from typing import Any, TYPE_CHECKING
 
+from typing_extensions import Self
+
 from ..mixins import AsyncInitializerMixin
+from ..methods import SendMessageMethod
 
 if TYPE_CHECKING:
     from ..methods import BaseMaxApiMethod
+    from .. import BaseFileAttachment, MessageLink
 
 from .context import *
 
@@ -69,10 +74,10 @@ class MaxApi(AsyncInitializerMixin):
 
     def __init__(
             self,
-            transport: BaseTransport,
-            protocol: BaseMaxProtocol,
-            transport_options: dict,
-            mapper: BaseMapper,
+            transport: BaseTransport = None,
+            protocol: BaseMaxProtocol = None,
+            mapper: BaseMapper = None,
+            transport_options: dict = None,
             token: str | None = None,
             logger: logging.Logger = None,
             # device_id: str = get_random_device_id(),
@@ -96,6 +101,9 @@ class MaxApi(AsyncInitializerMixin):
 
         if logger is None:
             logger = logging.getLogger('MaxApi')
+
+        if transport is None or protocol is None or mapper is None:
+            raise RuntimeError('transport or protocol or mapper cannot be None')
 
         self.transport = transport
         self.transport_options = transport_options
@@ -122,4 +130,20 @@ class MaxApi(AsyncInitializerMixin):
         return await method(
             *args,
             **kwargs
+        )
+
+
+    async def send_message(
+            self,
+            chat_id: int,
+            text: str = '',
+            attaches: list[BaseFileAttachment] = None,
+            link: MessageLink = None,
+    ):
+        return await self(
+            SendMessageMethod,
+            text=text,
+            chat_id=chat_id,
+            attaches=attaches,
+            link=link,
         )
