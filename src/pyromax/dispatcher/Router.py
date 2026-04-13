@@ -24,15 +24,17 @@ class Router(Subject):
         self.edited_message = MessageEventObserver(self, 'EDITED', type_of_update=Message)
         self.reply_to_message = ReplyToMessageEventObserver(self, 'REPLY', type_of_update=Message)
         self.forward_message = MessageForwardEventObserver(self, 'FORWARD', type_of_update=Message)
+        self.message_reaction = StandardMaxEventObserver(self, 'MESSAGE_REACTION', type_of_update=EmojiReaction)
         self.message_added_reaction = EmojiReactionAddObserver(self, 'MESSAGE_ADDED_REACTION', type_of_update=EmojiReaction)
         self.message_deleted_reaction = EmojiReactionRemoveObserver(self, 'MESSAGE_DELETED_REACTION', type_of_update=EmojiReaction)
         self.events: dict[str, StandardMaxEventObserver[Any]] = {
-            'MESSAGE': self.message,
             'EDITED_MESSAGE': self.edited_message,
             'REPLY_TO_MESSAGE': self.reply_to_message,
             'FORWARD_MESSAGE': self.forward_message,
+            'MESSAGE': self.message,
             'MESSAGE_ADDED_REACTION': self.message_added_reaction,
             'MESSAGE_DELETED_REACTION': self.message_deleted_reaction,
+            'MESSAGE_REACTION': self.message_reaction,
         }
 
 

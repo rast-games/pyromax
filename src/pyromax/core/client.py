@@ -1,13 +1,13 @@
 from __future__ import annotations
 import asyncio
 import logging
-from typing import Any, TYPE_CHECKING
-
+from typing import Any, TYPE_CHECKING, AsyncGenerator
 
 from ..mixins import AsyncInitializerMixin
 from ..methods import SendMessageMethod
 
 if TYPE_CHECKING:
+    from ..dispatcher.event import Update
     from ..methods import BaseMaxApiMethod
     from .. import BaseFileAttachment, MessageLink
 
@@ -137,6 +137,11 @@ class MaxApi(AsyncInitializerMixin):
             *args,
             **kwargs
         )
+
+
+    def listen_updates(self, context: Any) -> AsyncGenerator[Update, None]:
+        """Endless updates reader"""
+        return self.mapper.listen_updates(context=context)
 
 
     async def send_message(

@@ -1,6 +1,7 @@
 from .base import BaseMaxObject
 
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, Literal
+
 
 class Counters(TypedDict):
     count: int
@@ -13,3 +14,4 @@ class EmojiReaction(BaseMaxObject):
     counters: list[Counters] | None
     total_count: int | None
     your_reaction: str | None
+    status: Literal['ADD', 'REMOVE'] = 'ADD'

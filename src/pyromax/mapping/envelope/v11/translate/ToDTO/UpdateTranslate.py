@@ -82,12 +82,20 @@ class EmojiReactionModel(TranslateModel):
 
     def translate(self, context: Any) -> EmojiReaction:
 
+        status = 'REMOVE'\
+            if not (
+                self.payload.reaction_info.counters or
+                self.payload.reaction_info.your_reaction or
+                self.payload.reaction_info.total_count
+        ) else 'ADD'
+
         data = {
             'chat_id': self.payload.chat_id,
             'message_id': self.payload.message_id,
             'counters': self.payload.reaction_info.counters,
             'total_count': self.payload.reaction_info.total_count,
             'your_reaction': self.payload.reaction_info.your_reaction,
+            'status': status,
         }
 
         return EmojiReaction.model_validate(

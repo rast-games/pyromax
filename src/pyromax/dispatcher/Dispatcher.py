@@ -26,7 +26,7 @@ class Dispatcher(Router):
             'max_api': max_api
         }
 
-        async for update in cast(AsyncGenerator[Response | BaseMaxObject, None], max_api.mapper.listen_updates(context=context)):
+        async for update in cast(AsyncGenerator[Response | BaseMaxObject, None], max_api.listen_updates(context=context)):
 
             self.__logger.debug('Received update: %s', update)
 

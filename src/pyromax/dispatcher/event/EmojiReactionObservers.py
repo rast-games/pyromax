@@ -1,4 +1,5 @@
 from .StandardMaxEventObserver import StandardMaxEventObserver
+from ...filters import EmojiReactionAddFilter, EmojiReactionRemoveFilter
 from ...models.EmojiReaction import EmojiReaction
 
 
@@ -7,7 +8,8 @@ class EmojiReactionAddObserver(StandardMaxEventObserver[EmojiReaction]):
             self,
             update: EmojiReaction
     ) -> bool:
-        return bool(await super().is_my_update(update) and update.counters)
+        emoji_filter = EmojiReactionAddFilter()
+        return bool(await super().is_my_update(update) and await emoji_filter(update=update, data={EmojiReaction: update}))
 
 
 class EmojiReactionRemoveObserver(StandardMaxEventObserver[EmojiReaction]):
@@ -15,4 +17,5 @@ class EmojiReactionRemoveObserver(StandardMaxEventObserver[EmojiReaction]):
             self,
             update: EmojiReaction
     ) -> bool:
-        return bool(await super().is_my_update(update) and not (update.counters or update.your_reaction or update.total_count))
+        emoji_filter = EmojiReactionRemoveFilter()
+        return bool(await super().is_my_update(update) and await emoji_filter(update=update, data={EmojiReaction: update}))

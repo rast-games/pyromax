@@ -1,5 +1,6 @@
 from .base import Filter
 from .MessageFilters import FromMeFilter, ReplyToMessageFilter, MessageForwardFromFilter
+from .EmojiReactionFilters import EmojiReactionAddFilter, EmojiReactionRemoveFilter
 
 
 __all__ = [
@@ -7,4 +8,6 @@ __all__ = [
     'FromMeFilter',
     'ReplyToMessageFilter',
     'MessageForwardFromFilter',
+    'EmojiReactionAddFilter',
+    'EmojiReactionRemoveFilter',
 ]
