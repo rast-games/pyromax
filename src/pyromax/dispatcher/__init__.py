@@ -1,8 +1,11 @@
 
 
 from .Router import Router
-from .event import Handler
+# from .event import Handler
 from .Dispatcher import Dispatcher
 
 
-# __all__ = ['Handler', 'Dispatcher', 'Router']
+__all__ = [
+    'Dispatcher',
+    'Router'
+]

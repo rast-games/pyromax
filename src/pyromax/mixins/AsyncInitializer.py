@@ -3,18 +3,19 @@ import asyncio
 from collections.abc import Awaitable, Generator
 from typing import TypeVar, Any, Generic
 
+from typing_extensions import Self
 
 from ..utils import return_self_after_method
 
 import abc
 
 
-T = TypeVar('T', bound='AsyncInitializer')
+# T = TypeVar('T', bound=Any)
 
 
 
 
-class AsyncInitializerMixin(abc.ABC, Generic[T]):
+class AsyncInitializerMixin(abc.ABC):
     """
     Added async initializer in class, for begin you need inherit from AsyncInitializerMixin and create a method with
     _async_init name.
@@ -56,32 +57,32 @@ class AsyncInitializerMixin(abc.ABC, Generic[T]):
             another return
     """
 
-    def __new__(cls: type[T], *args: Any, **kwargs: Any) -> Awaitable[T]:
-        __instance: T = object.__new__(cls)
+    def __new__(cls: type[Self], *args: Any, **kwargs: Any) -> Awaitable[Self]: # type: ignore[misc]
+        __instance = object.__new__(cls)
         __init = return_self_after_method(cls._async_init)
         return __init(__instance, *args, **kwargs)
 
 
-    def __await__(self: T) -> Generator[Any, Any, T]:
+    def __await__(self: Self) -> Generator[Any, Any, Self]:
         """just blank"""
         if False: yield
         return self
 
     @abc.abstractmethod
-    async def _async_init(self, *args, **kwargs):
+    async def _async_init(self, *args: Any, **kwargs: Any) -> Any:
         ...
 
 
-class NeedAsyncInit(AsyncInitializerMixin['NeedAsyncInit']):
-
-    async def _async_init(self):
-        print('_async_init()')
-        await asyncio.sleep(1)
-        self.test_field = 'test_field'
-
-async def main():
-    example = await NeedAsyncInit()
-    print(example.test_field)
-
-if __name__ == '__main__':
-    asyncio.run(main())
+# class NeedAsyncInit(AsyncInitializerMixin['NeedAsyncInit']):
+#
+#     async def _async_init(self):
+#         print('_async_init()')
+#         await asyncio.sleep(1)
+#         self.test_field = 'test_field'
+#
+# async def main():
+#     example = await NeedAsyncInit()
+#     print(example.test_field)
+#
+# if __name__ == '__main__':
+#     asyncio.run(main())

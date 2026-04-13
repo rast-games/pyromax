@@ -1,23 +1,22 @@
 from collections.abc import Generator
-from typing import Optional
+from typing import Optional, Any
 
 from .ObserverPattern import Subject
 from .event import (
-    StandardMaxEventObserver,
     MessageEventObserver,
     ReplyToMessageEventObserver,
     MessageForwardEventObserver,
     EmojiReactionAddObserver,
     EmojiReactionRemoveObserver,
-    Update,
+    Update, StandardMaxEventObserver,
 )
+from ..models import EmojiReaction, Message, BaseMaxObject
 
-from ..models import EmojiReaction, Message
 
 class Router(Subject):
-    def __init__(self):
+    def __init__(self) -> None:
         self.sub_routers: list[Router] = []
-        self._parent_router = None
+        self._parent_router: None | Router = None
 
 
 
@@ -27,7 +26,7 @@ class Router(Subject):
         self.forward_message = MessageForwardEventObserver(self, 'FORWARD', type_of_update=Message)
         self.message_added_reaction = EmojiReactionAddObserver(self, 'MESSAGE_ADDED_REACTION', type_of_update=EmojiReaction)
         self.message_deleted_reaction = EmojiReactionRemoveObserver(self, 'MESSAGE_DELETED_REACTION', type_of_update=EmojiReaction)
-        self.events = {
+        self.events: dict[str, StandardMaxEventObserver[Any]] = {
             'MESSAGE': self.message,
             'EDITED_MESSAGE': self.edited_message,
             'REPLY_TO_MESSAGE': self.reply_to_message,
@@ -113,7 +112,7 @@ class Router(Subject):
         router.parent_router = self
         return router
 
-    async def notify(self, update: Update, data = None) -> bool:
+    async def notify(self, update: Update, data: dict[Any, Any] | None = None) -> bool:
         if data is None:
             raise ValueError("data cannot be None")
 

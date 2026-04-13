@@ -12,4 +12,4 @@ T = TypeVar('T', bound=Any)
 class BaseMaxApiMethod(ContextController, BaseModel, Generic[T], abc.ABC):
 
     @abc.abstractmethod
-    async def __call__(self, *args, **kwargs) -> T: pass
+    async def __call__(self, *args: Any, **kwargs: Any) -> T | Any: pass

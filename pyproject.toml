@@ -25,3 +25,16 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/rast-games/MaxUserBotLib"
 "Bug Tracker" = "https://github.com/rast-games/MaxUserBotLib/issues"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.20.0",
+    "mypy-upgrade>=0.0.1b6",
+    "ruff>=0.15.9",
+    "types-aiofiles>=25.1.0.20260408",
+    "types-qrcode>=8.2.0.20260408",
+]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true

@@ -1,13 +1,15 @@
 import asyncio
 import json
 from pathlib import Path
+from typing import cast
+
 import aiofiles
 
 ROOT_DIR = Path().resolve()
 JSON_FILE = ROOT_DIR / "tokens.json"
 
 
-async def write_token(token: str, name_of_token: str = 'max_token'):
+async def write_token(token: str, name_of_token: str = 'max_token') -> None:
     """Write or overwriting token from json file."""
     # Читаем существующие данные
     existing_data = {}
@@ -26,6 +28,7 @@ async def write_token(token: str, name_of_token: str = 'max_token'):
     # Записываем обратно
     async with aiofiles.open(JSON_FILE, mode="w", encoding="utf-8") as f:
         await f.write(json.dumps(existing_data, indent=4, ensure_ascii=False))
+
 async def read_token(name_of_token: str = 'max_token') -> str | None:
     """Read token from json file."""
     if not JSON_FILE.exists():
@@ -36,11 +39,11 @@ async def read_token(name_of_token: str = 'max_token') -> str | None:
             return None
         try:
             data = json.loads(content)
-            return data.get(name_of_token)
+            return cast(str | None, data.get(name_of_token))
         except json.JSONDecodeError:
             return None
 
-async def main():
+async def main() -> None:
     await write_token("test")
 
     token = await read_token()

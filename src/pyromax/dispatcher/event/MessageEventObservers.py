@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import Any
 
 from .StandardMaxEventObserver import StandardMaxEventObserver
 from ...models import Message
@@ -9,13 +10,15 @@ from ...filters import MessageForwardFromFilter, ReplyToMessageFilter
 
 class MessageEventObserver(StandardMaxEventObserver[Message]):
 
-    def __call__(self, *filters: Filter, pattern: Callable[[Message], bool] = None, from_me: bool = False):
+    def __call__(self, *filters: Filter, pattern: Callable[[Message], bool] | None = None, from_me: bool = False)\
+            -> Callable[[Callable[..., Any]], None]:
+        filters_list = []
+        filters_list += list(filters)
         if not from_me:
-            filters = list(filters)
-            filters.append(~FromMeFilter())
+            filters_list.append(~FromMeFilter())
 
-        def decorator(func):
-            handler = Handler(func, filters=filters, pattern=pattern)
+        def decorator(func: Callable[..., Any]) -> None:
+            handler = Handler(func, filters=filters_list, pattern=pattern)
             self.handlers.append(handler)
         return decorator
 
@@ -32,7 +35,7 @@ class MessageForwardEventObserver(MessageEventObserver):
             update: Message
     ) -> bool:
         forward_filter = MessageForwardFromFilter()
-        return await StandardMaxEventObserver.is_my_update(self, update) and await forward_filter(update, data={Message: update})
+        return await StandardMaxEventObserver.is_my_update(self, update) and bool(await forward_filter(update, data={Message: update}))
 
 
 class ReplyToMessageEventObserver(MessageEventObserver):
@@ -41,6 +44,6 @@ class ReplyToMessageEventObserver(MessageEventObserver):
             update: Message
     ) -> bool:
         reply_filter = ReplyToMessageFilter()
-        return await StandardMaxEventObserver.is_my_update(self, update) and await reply_filter(update, data={Message: update})
+        return await StandardMaxEventObserver.is_my_update(self, update) and bool(await reply_filter(update, data={Message: update}))
 
 

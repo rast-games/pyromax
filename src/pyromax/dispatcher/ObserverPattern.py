@@ -1,16 +1,16 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    from .event import Update
-    from .. import MaxApi
+# if TYPE_CHECKING:
+#     from .event import Update
+#     from .. import MaxApi
 
 
 class Observer(ABC):
     @abstractmethod
-    async def update(self, update: Update, max_api: MaxApi) -> bool:
+    async def update(self, update: Any, data: dict[Any, Any] | None = None) -> bool:
         ...
 
 
@@ -29,7 +29,7 @@ class Subject(ABC):
 
 
     @abstractmethod
-    async def notify(self, update: Update) -> None:
+    async def notify(self, update: Any, data: dict[Any, Any] | None = None) -> bool:
         ...
 
 

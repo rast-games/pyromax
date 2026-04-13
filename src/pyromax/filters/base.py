@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Awaitable
 
-from ..dispatcher.event import Update
+
 from ..utils import inspect_and_form
 if TYPE_CHECKING:
     from ..models import BaseMaxObject
+    from ..dispatcher.event import Update
 
 
 class Filter(ABC):
@@ -17,7 +19,7 @@ class Filter(ABC):
     method and adding filter attributes.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._logger = logging.getLogger(f'{self.__class__.__name__}')
 
 
@@ -28,11 +30,11 @@ class Filter(ABC):
     #     __call__: Callable[Update, Awaitable[bool | dict[str, Any]]]
     # else:  # pragma: no cover
 
-    async def __call__(self, update: Update, data, *args: Any, **kwargs: Any) -> bool | dict[str, Any]:
+    async def __call__(self, update: Update, data: dict[Any, Any], *args: Any, **kwargs: Any) -> bool | dict[str, Any]:
         if not self.work_with == type(update):
             return False
 
-        kwargs.update(
+        data.update(
             {
                 type(elem): elem
                 for
@@ -58,7 +60,7 @@ class Filter(ABC):
 
 
     @property
-    def callback(self):
+    def callback(self) -> Callable[..., Awaitable[bool | dict[str, Any]]]:
         return self._check
 
 

@@ -3,24 +3,27 @@ from __future__ import annotations
 from abc import abstractmethod
 from asyncio import Event
 from collections.abc import Awaitable, Iterable
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, TypeVar, Generic
 
 from ...mixins import AsyncInitializerMixin
+from .request_response import Request, Response
 if TYPE_CHECKING:
     from .methods import BaseMaxProtocolMethod
-    from ...transtport import BaseTransport
+    from ...transport import BaseTransport
 
-class BaseMaxProtocol(AsyncInitializerMixin):
+T = TypeVar('T', bound=Request[Any], contravariant=True)
+R = TypeVar('R', bound=Response, covariant=True)
+
+class BaseMaxProtocol(AsyncInitializerMixin, Generic[T, R]):
     running: Event
     failed: Event
-    transport: BaseTransport
 
     @abstractmethod
-    async def send(self, method: BaseMaxProtocolMethod, data: Any) -> Awaitable: pass
+    async def send(self, method: BaseMaxProtocolMethod[T], data: Any | None = None) -> Awaitable[R]: pass
 
 
     @abstractmethod
-    async def get_updates(self) -> Iterable: pass
+    async def get_updates(self) -> Iterable[Any]: pass
 
 
     @property

@@ -14,7 +14,7 @@ class FromMeFilter(Filter):
     def work_with(self) -> type[Message]:
         return Message
 
-    async def _check(self, msg: Message, max_api: MaxApi = None) -> bool | dict[str, Any]:
+    async def _check(self, msg: Message, max_api: MaxApi) -> bool | dict[str, Any]:
         if not max_api:
             self._logger.warn('Required argument(max_api) not provided')
         if max_api.id == msg.sender_id:

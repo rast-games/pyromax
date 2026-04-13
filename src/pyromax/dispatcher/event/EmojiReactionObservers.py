@@ -7,7 +7,7 @@ class EmojiReactionAddObserver(StandardMaxEventObserver[EmojiReaction]):
             self,
             update: EmojiReaction
     ) -> bool:
-        return await super().is_my_update(update) and update.counters
+        return bool(await super().is_my_update(update) and update.counters)
 
 
 class EmojiReactionRemoveObserver(StandardMaxEventObserver[EmojiReaction]):
@@ -15,4 +15,4 @@ class EmojiReactionRemoveObserver(StandardMaxEventObserver[EmojiReaction]):
             self,
             update: EmojiReaction
     ) -> bool:
-        return await super().is_my_update(update) and not (update.counters or update.your_reaction or update.total_count)
+        return bool(await super().is_my_update(update) and not (update.counters or update.your_reaction or update.total_count))

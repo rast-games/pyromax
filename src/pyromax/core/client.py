@@ -1,10 +1,8 @@
 from __future__ import annotations
 import asyncio
 import logging
-from collections.abc import Awaitable
 from typing import Any, TYPE_CHECKING
 
-from typing_extensions import Self
 
 from ..mixins import AsyncInitializerMixin
 from ..methods import SendMessageMethod
@@ -16,18 +14,23 @@ if TYPE_CHECKING:
 from .context import *
 
 
+if TYPE_CHECKING:
+    from ..protocol import BaseMaxProtocol
+    from ..transport import BaseTransport
+    from ..mapping import BaseMapper
+
 
 
 class MaxApi(AsyncInitializerMixin):
     async def _async_init(
             self,
-            token: str = None,
+            token: str | None = None,
             transport: str = 'Websocket',
-            transport_options: dict = None,
             protocol: str = 'EnvelopeProtocol',
             mapper: str = 'EnvelopeV11',
-            **kwargs
-    ):
+            transport_options: dict[str, Any] | None = None,
+            **kwargs: Any
+    ) -> None:
 
         logger = logging.getLogger('MaxApi')
 
@@ -47,24 +50,26 @@ class MaxApi(AsyncInitializerMixin):
 
         logger.info('Start initialization...')
         logger.info('Initializing transport...')
-        transport = await TRANSPORTS[transport](**transport_options)
+        max_transport = await TRANSPORTS[transport](**transport_options)
         logger.info('Transport initialized.')
         logger.info('Initializing protocol...')
-        protocol = await PROTOCOLS[protocol](transport=transport)
+        protocol_res: Any = await PROTOCOLS[protocol](transport=max_transport)
+        max_protocol: BaseMaxProtocol[Any, Any] = protocol_res
+        # max_protocol: BaseMaxProtocol[Any, Any] = await PROTOCOLS[protocol](transport=max_transport) # type: ignore
         logger.info('Protocol initialized.')
         logger.info('Initializing mapper...')
-        max_mapper = await MAPPERS[mapper](self, protocol=protocol)
+        max_mapper = await MAPPERS[mapper](self, protocol=max_protocol)
         logger.info('Mapper initialized.')
-
         await asyncio.to_thread(
-            self.__init__,
-            protocol=protocol,
-            transport=transport,
-            transport_options=transport_options,
+            self.__init__, # type: ignore[misc]
+            protocol=max_protocol,
+            transport=max_transport,
             mapper=max_mapper,
+            transport_options=transport_options,
             token=token,
             logger=logger
         )
+
 
         await self.mapper.initialize_client(
             token=token,
@@ -74,12 +79,12 @@ class MaxApi(AsyncInitializerMixin):
 
     def __init__(
             self,
-            transport: BaseTransport = None,
-            protocol: BaseMaxProtocol = None,
-            mapper: BaseMapper = None,
-            transport_options: dict = None,
+            transport: BaseTransport | None = None,
+            protocol: BaseMaxProtocol[Any, Any] | None = None,
+            mapper: BaseMapper[Any] | None = None,
+            transport_options: dict[str, Any] | None = None,
             token: str | None = None,
-            logger: logging.Logger = None,
+            logger: logging.Logger | None = None,
             # device_id: str = get_random_device_id(),
             # protocol_version='v11',
             # device_type: str = 'WEB',
@@ -97,7 +102,7 @@ class MaxApi(AsyncInitializerMixin):
             # chats_sync: int = 0,
             # contacts_sync: int = 0,
             # drafts_sync: int = 0,
-    ):
+    ) -> None:
 
         if logger is None:
             logger = logging.getLogger('MaxApi')
@@ -112,18 +117,19 @@ class MaxApi(AsyncInitializerMixin):
         self.token = token
         self.id: int | None = None
         self.phone: str | None = None
-        self.names: list[dict] | None = None
+        self.names: list[dict[str, Any]] | None = None
         self.__logger: logging.Logger | None = logger
 
 
 
     async def __call__(
             self,
-            class_of_method: type[BaseMaxApiMethod],
-            *args,
-            **kwargs
+            class_of_method: type[BaseMaxApiMethod[Any]],
+            *args: Any,
+            **kwargs: Any
     ) -> Any:
-
+        if self.__logger is None:
+            raise RuntimeError('Try a call method before initialization, because logger has not been initialized')
         self.__logger.debug('Calling MaxApi method: %s', class_of_method.__name__)
         method = class_of_method().as_(self)
 
@@ -137,9 +143,9 @@ class MaxApi(AsyncInitializerMixin):
             self,
             chat_id: int,
             text: str = '',
-            attaches: list[BaseFileAttachment] = None,
-            link: MessageLink = None,
-    ):
+            attaches: list[BaseFileAttachment] | None = None,
+            link: MessageLink | None = None,
+    ) -> Any:
         return await self(
             SendMessageMethod,
             text=text,

@@ -1,3 +1,5 @@
+from typing import Any
+
 from src.pyromax.mixins import AsyncInitializerMixin
 
 

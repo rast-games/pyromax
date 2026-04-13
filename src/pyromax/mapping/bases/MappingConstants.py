@@ -1,5 +1,5 @@
 class MappingConstantsMeta(type):
-    def __repr__(cls):
+    def __repr__(cls) -> str:
 
         attrs = {}
 
@@ -17,7 +17,7 @@ class MappingConstantsMeta(type):
 
 
 class MappingConstants(metaclass=MappingConstantsMeta):
-    def __repr__(self):
+    def __repr__(self) -> str:
 
         attrs = {}
 

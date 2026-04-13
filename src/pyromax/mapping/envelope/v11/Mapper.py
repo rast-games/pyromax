@@ -3,45 +3,47 @@ import asyncio
 import logging
 import time
 from asyncio import Task, Lock
-from collections.abc import AsyncGenerator
-from typing import Any, TYPE_CHECKING, Coroutine
+from collections.abc import AsyncGenerator, Callable
+from typing import Any, TYPE_CHECKING, Coroutine, Sequence, cast
 
 import qrcode
+
 
 from ....exceptions import SendMessageFileError, SendMessageNotFoundError, SendMessageError
 from ...bases import BaseMapper
 from ....models import BaseMaxObject, BaseFileAttachment
 from ....protocol import StreamMaxProtocol, Envelope, EnvelopeProtocol
-from ....utils import read_token, write_token
-from ....utils import debug_tasks
-from ....utils import get_random_device_id
+from ....utils import read_token, write_token, get_random_device_id
 from .methods import SendUserAgentMethod, SendAuthTokenMethod, SendKeepAlivePingMethod, \
-    GetUrlToUploadFileMethod, SendMessageMethod, GetMetadataForLogin, TrackLogin, GetUserData
-from .payloads import UserAgentModel, PayloadWithUrlModel, AuthResponseModel, MetadataPayloadModel, \
-    TrackLoginResponseModel, SuccessLoginModel
-from .translate import translate, upload_file, FILE_OPCODES, FALLBACK_FILE_OPCODE, BaseFile
+    GetUrlToUploadFileMethod, SendMessageMethod, GetMetadataForLoginMethod, TrackLoginMethod, GetUserDataMethod
+from .payloads.responses import AuthResponse, TrackLoginResponse, MetadataResponse, SuccessLoginResponse, ResponseWithUrl
+from .payloads.models import UserAgentMappingModel
+from .translate.ToDTO import update_translate, upload_file, FILE_OPCODES, FALLBACK_FILE_OPCODE, BaseFileMapping
 from ...registry import register_mapper
+from ....dispatcher.event.UpdateType import Update
 
 if TYPE_CHECKING:
-    from src.pyromax import MaxApi
+    from .... import BaseMaxProtocol
+    from ....models import MessageLink
+    from ....core import MaxApi
 
 @register_mapper('EnvelopeV11')
-class Mapper(BaseMapper):
+class Mapper(BaseMapper[EnvelopeProtocol]):
 
     def __init__(
             self,
             protocol: EnvelopeProtocol,
             keepalive_ping_interval: int
-    ):
+    ) -> None:
         self.protocol = protocol
         self._keepalive_ping_interval = keepalive_ping_interval
         self.__logger = logging.getLogger('MapperV11')
-        self._keepalive_task: None  | Task = None
-        self._update_listener_task: None | Task = None
-        self.token = None
+        self._keepalive_task: Task[Any] | None = None
+        self._update_listener_task: Task[Any] | None = None
+        self.token: str | None = None
         self.TOKEN_NAME = 'ENVELOPE_MAX_TOKEN_V11'
         self.max_api: MaxApi | None = None
-        self._manage_lifecycle_task: None | Task = None
+        self._manage_lifecycle_task: Task[Any] | None = None
         self._update_listener_lock: Lock = Lock()
 
 
@@ -49,18 +51,18 @@ class Mapper(BaseMapper):
             self,
             max_api: MaxApi,
             protocol: EnvelopeProtocol,
-            *args,
+            *args: Any,
             keepalive_ping_interval: int = 30,
-            **kwargs,
-    ):
+            **kwargs: Any,
+    ) -> None:
         from src.pyromax import MaxApi
 
         if not isinstance(max_api, MaxApi):
             raise TypeError('max_api must be an instance of MaxApi')
 
-        if not isinstance(protocol, StreamMaxProtocol):
-            raise TypeError("protocol must be an instance of BaseMaxProtocol")
-        await asyncio.to_thread(self.__init__, protocol=protocol, keepalive_ping_interval=keepalive_ping_interval)
+        if not isinstance(protocol, EnvelopeProtocol):
+            raise TypeError("protocol must be an instance of EnvelopeProtocol")
+        await asyncio.to_thread(self.__init__, protocol=protocol, keepalive_ping_interval=keepalive_ping_interval) # type: ignore[misc]
         await self.connect()
         self._manage_lifecycle_task = asyncio.create_task(self._manage_lifecycle())
         self.__logger.info("Mapper initialized")
@@ -82,7 +84,7 @@ class Mapper(BaseMapper):
     ) -> None:
         await self.protocol.send(method=SendUserAgentMethod(
             device_id=device_id,
-            user_agent=UserAgentModel(
+            user_agent=UserAgentMappingModel(
                 device_type=device_type,
                 timezone=timezone,
                 screen=screen,
@@ -99,13 +101,13 @@ class Mapper(BaseMapper):
     async def listen_updates(
             self,
             context: Any,
-    ) -> AsyncGenerator[BaseMaxObject, None]:
+    ) -> AsyncGenerator[Update, None]:
         """Endless updates reader"""
         async with self._update_listener_lock:
             while True:
                 updates = await self.protocol.get_updates()
                 for update in updates:
-                    yield translate(update, context=context)
+                    yield cast(Update, update_translate(update, context=context))
 
 
     async def _send_auth_token(
@@ -118,7 +120,7 @@ class Mapper(BaseMapper):
             contacts_sync: int,
             drafts_sync: int
     ) -> None:
-        response = await self.protocol.send(method=SendAuthTokenMethod(
+        response_future = await self.protocol.send(method=SendAuthTokenMethod(
             token=token,
             chats_count=chats_count,
             interactive=interactive,
@@ -128,11 +130,14 @@ class Mapper(BaseMapper):
             drafts_sync=drafts_sync,
         ))
 
-        response = await response
+        response = await response_future
 
-        auth_model = AuthResponseModel(
+        auth_model = AuthResponse(
             **response.payload
         )
+
+        if self.max_api is None:
+            raise RuntimeError('You try a send auth token, but not bound MaxApi instance to mapper')
 
         self.max_api.id = auth_model.profile.contact.id
         self.max_api.phone = str(auth_model.profile.contact.phone)
@@ -142,11 +147,13 @@ class Mapper(BaseMapper):
 
     async def _manage_lifecycle(
             self,
-    ):
+    ) -> None:
         while True:
             # debug_tasks()
             await self.protocol.failed.wait()
             await self.close()
+            if self.token is None:
+                raise RuntimeError('Try a connect without token')
             await self.connect()
             await self._auth(
                 token = self.token
@@ -155,7 +162,7 @@ class Mapper(BaseMapper):
 
     async def connect(
             self,
-    ):
+    ) -> None:
         await self.protocol.connect()
         if self._keepalive_task:
             self._keepalive_task.cancel()
@@ -164,7 +171,7 @@ class Mapper(BaseMapper):
 
     async def close(
             self,
-    ):
+    ) -> None:
         await self.protocol.close()
 
         if self._keepalive_task:
@@ -173,9 +180,9 @@ class Mapper(BaseMapper):
 
     async def initialize_client(
             self,
-            token: str = None,
+            token: str | None = None,
             device_id: str = get_random_device_id(),
-            protocol_version='v11',
+            protocol_version: str='v11',
             device_type: str = 'WEB',
             timezone: str = 'Europe/Moscow',
             screen: str = '1440x2560 1.0x',
@@ -191,8 +198,9 @@ class Mapper(BaseMapper):
             chats_sync: int = 0,
             contacts_sync: int = 0,
             drafts_sync: int = 0,
-            url_callback = None
-    ):
+            url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
+            **kwargs: Any
+    ) -> None:
         if not token:
 
             token = await read_token(
@@ -253,52 +261,62 @@ class Mapper(BaseMapper):
 
     async def _track_login(
             self,
-            track_id,
-            polling_interval,
-    ):
+            track_id: str,
+            polling_interval: int | float,
+    ) -> None:
 
         not_logged = True
         while not_logged:
             await asyncio.sleep(polling_interval)
 
-            response = await self.protocol.send(
-                method=TrackLogin(
+            response_future = await self.protocol.send(
+                method=TrackLoginMethod(
                     track_id=track_id
                 )
             )
 
-            response = await response
+            response = await response_future
 
-            track_data = TrackLoginResponseModel(
+            track_data = TrackLoginResponse(
                 **response.payload
             )
 
+            if track_data is None:
+                raise RuntimeError('Track login failed.')
+
+            if track_data.status is None:
+                raise RuntimeError("Track status is missing in response")
+
+
             if track_data.status and track_data.status.expires_at < time.time() or track_data.error or track_data.error_message or track_data.localized_message:
-                msg = f'''
+                msg = '''
                 Time for login expired
                     '''
                 raise TimeoutError(msg)
 
 
-            if track_data.status.login_available == True:
+            if track_data.status.login_available:
                 not_logged = False
 
 
     async def _get_user_data(
             self,
-            track_id
-    ) -> SuccessLoginModel:
+            track_id: str
+    ) -> SuccessLoginResponse:
 
-        response = await self.protocol.send(
-            method=GetUserData(
+        response_future = await self.protocol.send(
+            method=GetUserDataMethod(
                 track_id=track_id
             )
         )
 
-        response = await response
-        user = SuccessLoginModel(
+        response = await response_future
+        user = SuccessLoginResponse(
             **response.payload
         )
+
+        if self.max_api is None:
+            raise RuntimeError('Mapper not bound to MaxApi instance')
 
         self.max_api.token = self.token = user.token_attrs.token
 
@@ -317,11 +335,11 @@ class Mapper(BaseMapper):
             app_version: str,
             header_user_agent: str,
             device_name: str,
-            url_callback: Coroutine = None,
-    ) -> SuccessLoginModel:
+            url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
+    ) -> SuccessLoginResponse:
 
         if not url_callback:
-            async def url_callback(url: str):
+            async def url_callback(url: str) -> None:
                 """
                 Creating a QR code scanned by max. It is displayed immediately in the console
 
@@ -349,13 +367,13 @@ class Mapper(BaseMapper):
             device_name=device_name,
         )
 
-        response = await self.protocol.send(
-            method=GetMetadataForLogin()
+        response_future = await self.protocol.send(
+            method=GetMetadataForLoginMethod()
         )
 
-        response = await response
+        response = await response_future
 
-        metadata = MetadataPayloadModel(**response.payload)
+        metadata = MetadataResponse(**response.payload)
 
         await url_callback(metadata.qr_link)
 
@@ -390,7 +408,7 @@ class Mapper(BaseMapper):
             chats_sync: int = 0,
             contacts_sync: int = 0,
             drafts_sync: int = 0,
-    ):
+    ) -> None:
         while True:
             try:
                 await self._send_user_agent(
@@ -422,7 +440,7 @@ class Mapper(BaseMapper):
 
     async def _keepalive(
             self
-    ):
+    ) -> None:
         try:
             while True:
                 await self.protocol.running.wait()
@@ -438,27 +456,37 @@ class Mapper(BaseMapper):
             self,
             opcode: int,
             count: int = 1,
-    ):
-        response = await self.protocol.send(
+    ) -> dict[str, Any]:
+        response_future = await self.protocol.send(
             method=GetUrlToUploadFileMethod(type_of_file_opcode=opcode, count=count)
         )
 
-        return await response
+        response = await response_future
+
+        payload = ResponseWithUrl(
+            **response.payload
+        ).model_dump(exclude_none=True)
+
+        return payload
 
 
-    async def upload_file(self, data: bytes, typeof: type[BaseFileAttachment], count = 1, file_name: str = None, uploaded: bool = False, **kwargs) -> BaseFileAttachment:
-
-
+    async def upload_file(
+            self,
+            data: bytes | None,
+            typeof: type[BaseFileAttachment],
+            count: int = 1,
+            file_name: str | None = None,
+            uploaded: bool = False,
+            **kwargs: Any
+    ) -> BaseFileMapping[Any]:
         payload = {}
+        # if data is None:
+        #     raise RuntimeError('data cannot be None')
         if not uploaded:
-            response: Envelope = await self._create_cell_for_file(
+            payload = await self._create_cell_for_file(
                 opcode=FILE_OPCODES.get(typeof, FALLBACK_FILE_OPCODE),
                 count=count,
             )
-
-            payload = PayloadWithUrlModel(
-                **response.payload
-            ).model_dump(exclude_none=True)
 
         uploaded_file = await upload_file(
             data=data,
@@ -472,14 +500,14 @@ class Mapper(BaseMapper):
         return uploaded_file
 
 
-    async def send_message(
+    async def send_message( # type: ignore[override]
             self,
             chat_id: int,
-            text: str = None,
-            attaches: list[BaseFile] = None,
-            elements=None,
-            link=None,
-    ):
+            text: str | None = None,
+            attaches: Sequence[BaseFileMapping[Any]] | None = None,
+            elements: Any = None,
+            link: MessageLink | None=None,
+    ) -> None:
 
         if not attaches:
             attaches = []
@@ -492,7 +520,7 @@ class Mapper(BaseMapper):
 
         try:
 
-            response = await self.protocol.send(
+            response_future = await self.protocol.send(
                 method=SendMessageMethod(
                     chat_id=chat_id,
                     text=text,
@@ -503,14 +531,14 @@ class Mapper(BaseMapper):
                 ),
             )
 
-            response: Envelope = await response
+            response = await response_future
 
-            while error_if_exist := response.model_dump().get('payload').get('error'):
-                error_message = response.model_dump().get('payload').get('message')
-                title = response.model_dump().get('payload').get('title')
+            while error_if_exist := response.model_dump().get('payload', {}).get('error'):
+                error_message = response.model_dump().get('payload', {}).get('message')
+                title = response.model_dump().get('payload', {}).get('title')
                 match error_if_exist:
                     case 'attachment.not.ready':
-                        response = await self.protocol.send(
+                        response_future = await self.protocol.send(
                             method=SendMessageMethod(
                                 chat_id=chat_id,
                                 text=text,
@@ -520,7 +548,7 @@ class Mapper(BaseMapper):
                                 link=link,
                             ),
                         )
-                        response: Envelope = await response
+                        response = await response_future
                         continue
                     case 'proto.payload':
                         raise SendMessageFileError(
