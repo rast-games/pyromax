@@ -4,6 +4,9 @@ from .return_self import return_self_after_method
 from .inspect_func_and_form_args import inspect_and_form
 from .write_token import *
 from .get_random_string import *
+from .backoff import Backoff, BackoffConfig
+from .html_parser import DeepestTagScanner
+from .clean_and_map import clean_and_map
 
 
 __all__ = [
@@ -14,5 +17,8 @@ __all__ = [
     'write_token',
     'read_token',
     'get_random_string',
-    'get_random_device_id'
+    'get_random_device_id',
+    'Backoff',
+    'BackoffConfig',
+    'clean_and_map'
 ]

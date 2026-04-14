@@ -11,9 +11,9 @@ import qrcode
 
 from ....exceptions import SendMessageFileError, SendMessageNotFoundError, SendMessageError
 from ...bases import BaseMapper
-from ....models import BaseMaxObject, BaseFileAttachment
-from ....protocol import StreamMaxProtocol, Envelope, EnvelopeProtocol
-from ....utils import read_token, write_token, get_random_device_id
+from ....models import BaseFileAttachment
+from ....protocol import EnvelopeProtocol
+from ....utils import read_token, write_token, get_random_device_id, Backoff, BackoffConfig, clean_and_map
 from .methods import SendUserAgentMethod, SendAuthTokenMethod, SendKeepAlivePingMethod, \
     GetUrlToUploadFileMethod, SendMessageMethod, GetMetadataForLoginMethod, TrackLoginMethod, GetUserDataMethod
 from .payloads.responses import AuthResponse, TrackLoginResponse, MetadataResponse, SuccessLoginResponse, ResponseWithUrl
@@ -21,11 +21,14 @@ from .payloads.models import UserAgentMappingModel
 from .translate.ToDTO import update_translate, upload_file, FILE_OPCODES, FALLBACK_FILE_OPCODE, BaseFileMapping
 from ...registry import register_mapper
 from ....dispatcher.event.UpdateType import Update
+from ....exceptions import BackoffError
 
 if TYPE_CHECKING:
-    from .... import BaseMaxProtocol
     from ....models import MessageLink
     from ....core import MaxApi
+
+
+DEFAULT_BACKOFF_CONFIG = BackoffConfig(min_delay=1.0, max_delay=5.0, factor=1.3, jitter=0.1)
 
 @register_mapper('EnvelopeV11')
 class Mapper(BaseMapper[EnvelopeProtocol]):
@@ -505,8 +508,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             chat_id: int,
             text: str | None = None,
             attaches: Sequence[BaseFileMapping[Any]] | None = None,
-            elements: Any = None,
-            link: MessageLink | None=None,
+            link: MessageLink | None = None,
     ) -> None:
 
         if not attaches:
@@ -518,7 +520,17 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             attachments.extend(attach.to_payload)
 
 
+        backoff = Backoff(config=DEFAULT_BACKOFF_CONFIG)
+        text, elements = clean_and_map(
+            text if text else '',
+            [
+                'STRONG', 'EMPHASIZED', 'UNDERLINE', 'STRIKETHROUGH', 'QUOTE', 'LINK'
+            ]
+        )
+
         try:
+
+
 
             response_future = await self.protocol.send(
                 method=SendMessageMethod(
@@ -533,47 +545,52 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
 
             response = await response_future
 
-            while error_if_exist := response.model_dump().get('payload', {}).get('error'):
-                error_message = response.model_dump().get('payload', {}).get('message')
-                title = response.model_dump().get('payload', {}).get('title')
-                match error_if_exist:
-                    case 'attachment.not.ready':
-                        response_future = await self.protocol.send(
-                            method=SendMessageMethod(
-                                chat_id=chat_id,
-                                text=text,
-                                cid=-round(time.time() * 1000),
-                                attaches=attachments,
-                                elements=elements,
-                                link=link,
-                            ),
-                        )
-                        response = await response_future
-                        continue
-                    case 'proto.payload':
-                        raise SendMessageFileError(
-                            f'''
-                            title: {title},
-                            error: {error_if_exist},
-                            message: {error_message}
-                            '''
-                        )
-                    case 'not.found':
-                        raise SendMessageNotFoundError(
-                            f'''
-                            title: {title},
-                            error: {error_if_exist},
-                            message: {error_message}
-                            '''
-                        )
-                    case _:
-                        raise SendMessageError(
-                            f'''
-                            title: {title},
-                            error: {error_if_exist},
-                            message: {error_message}
-                            '''
-                        )
+            try:
+                while error_if_exist := response.model_dump().get('payload', {}).get('error'):
+                    error_message = response.model_dump().get('payload', {}).get('message')
+                    title = response.model_dump().get('payload', {}).get('title')
+                    match error_if_exist:
+                        case 'attachment.not.ready':
+                            response_future = await self.protocol.send(
+                                method=SendMessageMethod(
+                                    chat_id=chat_id,
+                                    text=text,
+                                    cid=-round(time.time() * 1000),
+                                    attaches=attachments,
+                                    elements=elements,
+                                    link=link,
+                                ),
+                            )
+                            await backoff.asleep()
+                            response = await response_future
+                            continue
+                        case 'proto.payload':
+                            raise SendMessageFileError(
+                                f'''
+                                title: {title},
+                                error: {error_if_exist},
+                                message: {error_message}
+                                '''
+                            )
+                        case 'not.found':
+                            raise SendMessageNotFoundError(
+                                f'''
+                                title: {title},
+                                error: {error_if_exist},
+                                message: {error_message}
+                                '''
+                            )
+                        case _:
+                            raise SendMessageError(
+                                f'''
+                                title: {title},
+                                error: {error_if_exist},
+                                message: {error_message}
+                                '''
+                            )
+            except BackoffError:
+                raise SendMessageError('Max attempts to send message exceeded')
+
 
 
 

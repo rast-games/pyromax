@@ -5,6 +5,7 @@ from typing import Any, TYPE_CHECKING, AsyncGenerator
 
 from ..mixins import AsyncInitializerMixin
 from ..methods import SendMessageMethod
+from ..exceptions import SendMessageError
 
 if TYPE_CHECKING:
     from ..dispatcher.event import Update
@@ -151,10 +152,15 @@ class MaxApi(AsyncInitializerMixin):
             attaches: list[BaseFileAttachment] | None = None,
             link: MessageLink | None = None,
     ) -> Any:
-        return await self(
-            SendMessageMethod,
-            text=text,
-            chat_id=chat_id,
-            attaches=attaches,
-            link=link,
-        )
+        try:
+            return await self(
+                SendMessageMethod,
+                text=text,
+                chat_id=chat_id,
+                attaches=attaches,
+                link=link,
+            )
+        except SendMessageError as e:
+            if self.__logger is None:
+                raise AttributeError('logger not initialized in MaxApi instance')
+            self.__logger.warning('Failed to send message: %s', e)
