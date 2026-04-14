@@ -49,10 +49,10 @@ class MessageLinkMappingModel(CamelCaseModel):
     message_id: str | None = None
 
 
-StatusType = Literal['EDITED', 'REPLY', 'USER']
+StatusType = Literal['EDITED', 'REPLY', 'USER', 'REMOVED']
 
 def validate_status(v: Any) -> Any:
-    if v not in ('EDITED', 'REPLY', 'USER'):
+    if v not in ('EDITED', 'REPLY', 'USER', 'REMOVED'):
         return 'USER'
     return v
 

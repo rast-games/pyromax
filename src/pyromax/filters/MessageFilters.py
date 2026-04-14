@@ -52,3 +52,14 @@ class MessageForwardFromFilter(Filter):
             return False
 
         return True
+
+
+class MessageRemovedFilter(Filter):
+    @property
+    def work_with(self) -> type[Message]:
+        return Message
+
+    async def _check(self, message: Message) -> bool | dict[str, Any]:
+        if message.status == 'REMOVED':
+            return True
+        return False

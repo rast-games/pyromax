@@ -17,7 +17,7 @@ class Message(BaseMaxObject):
     time: int
     type: str | None
     sender_id: int | None = None
-    status: Literal['EDITED', 'REPLY', 'USER', 'OTHER'] = 'USER'
+    status: Literal['EDITED', 'REPLY', 'USER', 'REMOVED', 'OTHER'] = 'USER'
     text: str | None
     cid: int | None
     attaches: list[BaseFileAttachment] | None = None

@@ -3,9 +3,8 @@ from typing import Any
 
 from .StandardMaxEventObserver import StandardMaxEventObserver
 from ...models import Message
-from ...filters import Filter, FromMeFilter
+from ...filters import Filter, FromMeFilter, MessageForwardFromFilter, ReplyToMessageFilter, MessageRemovedFilter
 from .Handler import Handler
-from ...filters import MessageForwardFromFilter, ReplyToMessageFilter
 
 
 class MessageEventObserver(StandardMaxEventObserver[Message]):
@@ -47,3 +46,11 @@ class ReplyToMessageEventObserver(MessageEventObserver):
         return await StandardMaxEventObserver.is_my_update(self, update) and bool(await reply_filter(update, data={Message: update}))
 
 
+
+class RemovedMessageEventObserver(MessageEventObserver):
+    async def is_my_update(
+            self,
+            update: Message
+    ) -> bool:
+        removed_filter = MessageRemovedFilter()
+        return await StandardMaxEventObserver.is_my_update(self, update) and bool(await removed_filter(update, data={Message: update}))

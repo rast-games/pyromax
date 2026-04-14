@@ -6,6 +6,7 @@ from .event import (
     MessageEventObserver,
     ReplyToMessageEventObserver,
     MessageForwardEventObserver,
+    RemovedMessageEventObserver,
     EmojiReactionAddObserver,
     EmojiReactionRemoveObserver,
     Update, StandardMaxEventObserver,
@@ -21,6 +22,7 @@ class Router(Subject):
 
 
         self.message = MessageEventObserver(self, 'USER', type_of_update=Message)
+        self.message_removed = RemovedMessageEventObserver(self, 'REMOVED', type_of_update=Message)
         self.edited_message = MessageEventObserver(self, 'EDITED', type_of_update=Message)
         self.reply_to_message = ReplyToMessageEventObserver(self, 'REPLY', type_of_update=Message)
         self.forward_message = MessageForwardEventObserver(self, 'FORWARD', type_of_update=Message)
@@ -31,6 +33,7 @@ class Router(Subject):
             'EDITED_MESSAGE': self.edited_message,
             'REPLY_TO_MESSAGE': self.reply_to_message,
             'FORWARD_MESSAGE': self.forward_message,
+            'MESSAGE_REMOVED': self.message_removed,
             'MESSAGE': self.message,
             'MESSAGE_ADDED_REACTION': self.message_added_reaction,
             'MESSAGE_DELETED_REACTION': self.message_deleted_reaction,
