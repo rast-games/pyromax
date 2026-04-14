@@ -31,7 +31,7 @@ class Filter(ABC):
     # else:  # pragma: no cover
 
     async def __call__(self, update: Update, data: dict[Any, Any], *args: Any, **kwargs: Any) -> bool | dict[str, Any]:
-        if not self.work_with == type(update):
+        if not type(update) in self.work_with:
             return False
 
         data.update(
@@ -56,7 +56,7 @@ class Filter(ABC):
 
     @property
     @abstractmethod
-    def work_with(self) -> type[BaseMaxObject]: pass
+    def work_with(self) -> tuple[type[BaseMaxObject]]: pass
 
 
     @property
@@ -65,7 +65,7 @@ class Filter(ABC):
 
 
     @abstractmethod
-    async def _check(self, *args: Any, **kwargs: Any) -> bool | dict[str, Any]:
+    async def _check(self, *args: Any, **kwargs: Any) -> bool | dict[Any, Any]:
         """
         This method should be overridden.
 

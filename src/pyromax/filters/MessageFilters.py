@@ -11,8 +11,8 @@ if TYPE_CHECKING:
 class FromMeFilter(Filter):
 
     @property
-    def work_with(self) -> type[Message]:
-        return Message
+    def work_with(self) -> tuple[type[Message]]:
+        return (Message,)
 
     async def _check(self, msg: Message, max_api: MaxApi) -> bool | dict[str, Any]:
         if not max_api:
@@ -25,8 +25,8 @@ class FromMeFilter(Filter):
 class ReplyToMessageFilter(Filter):
 
     @property
-    def work_with(self) -> type[Message]:
-        return Message
+    def work_with(self) -> tuple[type[Message]]:
+        return (Message,)
 
 
     async def _check(self, message: Message) -> bool | dict[str, Any]:
@@ -41,8 +41,8 @@ class ReplyToMessageFilter(Filter):
 
 class MessageForwardFromFilter(Filter):
     @property
-    def work_with(self) -> type[Message]:
-        return Message
+    def work_with(self) -> tuple[type[Message]]:
+        return (Message,)
 
     async def _check(self, message: Message) -> bool | dict[str, Any]:
         if not message.link:
@@ -56,8 +56,8 @@ class MessageForwardFromFilter(Filter):
 
 class MessageRemovedFilter(Filter):
     @property
-    def work_with(self) -> type[Message]:
-        return Message
+    def work_with(self) -> tuple[type[Message]]:
+        return (Message,)
 
     async def _check(self, message: Message) -> bool | dict[str, Any]:
         if message.status == 'REMOVED':

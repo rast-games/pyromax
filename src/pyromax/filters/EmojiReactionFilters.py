@@ -7,8 +7,8 @@ from ..models import EmojiReaction
 class EmojiReactionAddFilter(Filter):
 
     @property
-    def work_with(self) -> type[EmojiReaction]:
-        return EmojiReaction
+    def work_with(self) -> tuple[type[EmojiReaction]]:
+        return (EmojiReaction,)
 
     async def _check(self, emoji_reaction: EmojiReaction) -> bool | dict[str, Any]:
         return emoji_reaction.status == 'ADD'
@@ -17,8 +17,8 @@ class EmojiReactionAddFilter(Filter):
 class EmojiReactionRemoveFilter(Filter):
 
     @property
-    def work_with(self) -> type[EmojiReaction]:
-        return EmojiReaction
+    def work_with(self) -> tuple[type[EmojiReaction]]:
+        return (EmojiReaction,)
 
     async def _check(self, emoji_reaction: EmojiReaction) -> bool | dict[str, Any]:
         return emoji_reaction.status == 'REMOVE'

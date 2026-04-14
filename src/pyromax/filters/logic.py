@@ -22,7 +22,7 @@ class _invertFilter(_logicFilter):
         return self.target.callback
 
     @property
-    def work_with(self) -> type[BaseMaxObject]:
+    def work_with(self) -> tuple[type[BaseMaxObject]]:
         return self.target.work_with
 
     async def _check(self, *args: Any, **kwargs: Any) -> bool:

@@ -28,6 +28,8 @@ class Handler(Observer, Generic[Update]):
         for f in self.filters:
 
             check = await f(update, data=data)
+            if isinstance(check, dict):
+                data.update(check)
             if not check:
                 return False
 
