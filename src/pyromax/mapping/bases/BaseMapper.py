@@ -25,6 +25,7 @@ class BaseMapper(AsyncInitializerMixin, Generic[T_protocol]):
     @abstractmethod
     async def _async_init(self, max_api: MaxApi, protocol: T_protocol, *args: Any, **kwargs: Any) -> None: pass
 
+
     @abstractmethod
     async def initialize_client(self, **kwargs: Any) -> None: pass
 
@@ -38,7 +39,7 @@ class BaseMapper(AsyncInitializerMixin, Generic[T_protocol]):
 
 
     @abstractmethod
-    async def download_file(self, file: BaseFileAttachment, **kwargs) -> tuple[bytes, dict] | tuple[None, None]: pass
+    async def download_file(self, file: BaseFileAttachment, **kwargs: Any) -> tuple[bytes, dict[str, str]] | tuple[None, None]: pass
 
 
     @abstractmethod

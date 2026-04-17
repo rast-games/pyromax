@@ -1,16 +1,11 @@
-from typing import cast, Any
+from typing import Any
 
-from typing_extensions import Literal
-
-from ....models import Message
 from ....protocol import Envelope
 from .constants import Opcode, Cmd
 from .payloads.models import TrackLoginModel, MessageMappingModel, AuthMappingModel, MessageLinkMappingModel
 from .payloads.requests import UserAgentRequest, CreateCellForFileRequest, SendMessageRequest, GetFileLinkRequest
 from .translate.FromDTO import reverse_translate_message
 from ....protocol import BaseMaxProtocolMethod
-# from .payloads_old import UserAgentPayload, AuthModel, CreateCellForFileModel, SendMessageModel, \
-#     MessageModel, MessageLinkModel, TrackLoginPayloadModel
 
 import abc
 
@@ -91,44 +86,6 @@ class SendMessageMethod(BaseMethod):
         request.opcode = Opcode.SEND_MESSAGE
         request.cmd = Cmd.REQUEST
 
-
-        from pprint import pprint
-        pprint(self.args)
-
-        # def reverse_translate_message(message: Message) -> MessageMappingModel | None:
-        #     if not message:
-        #         return None
-        #     message_link = message.message_link
-        #     if message.status not in ('USER', 'EDITED', 'REPLY'):
-        #         status = 'USER'
-        #     else:
-        #         status = message.status
-        #     if message_link:
-        #         return MessageMappingModel(
-        #             id=str(message.message_id),
-        #             status=cast(Literal['USER', 'EDITED', 'REPLY'], status),
-        #             time = message.time,
-        #             type = message.type,
-        #             text = message.text,
-        #             elements = message.elements,
-        #             chat_id=message.chat_id,
-        #             link=MessageLinkMappingModel(
-        #                 type=message_link.type,
-        #                 message=reverse_translate_message(message_link.message),
-        #             )
-        #         )
-        #     return MessageMappingModel(
-        #         id=str(message.message_id),
-        #         status=cast(Literal['USER', 'EDITED', 'REPLY'], status),
-        #         time=message.time,
-        #         type=message.type,
-        #         text=message.text,
-        #         elements=message.elements,
-        #         chat_id=message.chat_id,
-        #     )
-
-
-
         main_link = self.args.get('link')
         request.payload = SendMessageRequest(
             chat_id=self.args['chat_id'],
@@ -153,6 +110,4 @@ class GetFileLinkMethod(BaseMethod):
         request.opcode = self.args['opcode']
         request.cmd = Cmd.REQUEST
         request.payload = self.args['file'].get_payload_to_get_link
-
         return request
-

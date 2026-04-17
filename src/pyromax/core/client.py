@@ -170,5 +170,5 @@ class MaxApi(AsyncInitializerMixin):
     async def download_file(
             self,
             file: BaseFileAttachment
-    ) -> tuple[bytes, dict] | tuple[None, None]:
+    ) -> tuple[bytes, dict[str, str]] | tuple[None, None]:
         return await self.mapper.download_file(file)

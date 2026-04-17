@@ -78,7 +78,10 @@ class PhotoMappingModel(BaseFileMappingModel, PhotoAttachment):
     preview_data: Any | None = None
 
 
-    def get_payload_to_get_link(self) -> None: return None
+
+    # never will be called
+    @property
+    def get_payload_to_get_link(self) -> dict[str, Any] | None: return None
 
 
     @property
@@ -117,8 +120,10 @@ class VideoMappingModel(BaseFileMappingModel, VideoAttachment):
 
 
     @property
-    def get_payload_to_get_link(self) -> dict[str, Any]:
+    def get_payload_to_get_link(self) -> dict[str, Any] | None:
         res = super().get_payload_to_get_link
+        if res is None:
+            raise RuntimeError('get_payload_to_get_link should return dict')
         res.update(
             {
                 'videoId': self.video_id,
@@ -148,8 +153,10 @@ class FileMappingModel(BaseFileMappingModel, FileAttachment):
         ]
 
     @property
-    def get_payload_to_get_link(self) -> dict[str, Any]:
+    def get_payload_to_get_link(self) -> dict[str, Any] | None:
         res = super().get_payload_to_get_link
+        if res is None:
+            raise RuntimeError('get_payload_to_get_link should return dict')
         res.update(
             {
                 'fileId': self.file_id,

@@ -9,6 +9,7 @@ from typing import Any, TYPE_CHECKING, Coroutine, Sequence, cast
 import aiohttp
 import qrcode
 
+from ....protocol import BaseMaxProtocol
 from ....exceptions import SendMessageFileError, SendMessageNotFoundError, SendMessageError, DownloadFileError
 from ...bases import BaseMapper
 from ....models import BaseFileAttachment
@@ -502,24 +503,22 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
         return uploaded_file
 
 
-    async def download_file(
+    async def download_file( # type: ignore[override]
             self,
             file: BaseFileMappingModel,
             cookies_to_download: dict[str, str] | None = None,
             headers_to_download: dict[str, str] | None = None,
             **kwargs: Any
-    ) -> tuple[bytes, dict] | tuple[None, None]:
-
-        url = await get_file_url(file=file, mapper=self, **kwargs)
-
+    ) -> tuple[bytes, dict[str, str]] | tuple[None, None]:
+        url = await get_file_url(file=file, mapper=cast(BaseMapper[BaseMaxProtocol[Any, Any]], self), **kwargs)
         if url is None:
             self.__logger.warning('cannot get a download url for file')
             return None, None
-
-
-        user_agent_header = self.max_api.transport_options.get('user_agent_header', None)
-        if user_agent_header is None:
-            user_agent_header = 'Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0'
+        api = self.max_api
+        if api is None:
+            raise RuntimeError('max_api must be set')
+        opts = api.transport_options or {}
+        user_agent_header = opts.get('user_agent_header') or 'Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0'
 
         headers: dict[str, str]
         if headers_to_download is None:
@@ -543,13 +542,13 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                 if response.status > 299:
                     self.__logger.warning('Download failed for file')
                     raise DownloadFileError('Download failed for file')
-
                 chunks = []
-                from pprint import pprint
-                pprint(dict(response.headers))
                 async for chunk in response.content.iter_chunked(8192):
                     chunks.append(chunk)
                 return b''.join(chunks), dict(response.headers)
+        return None, None
+
+
 
     async def send_message( # type: ignore[override]
             self,
@@ -558,19 +557,12 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             attaches: Sequence[BaseFileMappingModel] | None = None,
             link: MessageLink | None = None,
     ) -> MessageMappingModel | None:
-
         original_attaches = attaches
-
         if not attaches:
             attaches = []
-
         attachments = []
-
-
         for attach in attaches:
             attachments.extend(attach.to_payload)
-
-
         backoff = Backoff(config=DEFAULT_BACKOFF_CONFIG)
         text, elements = clean_and_map(
             text if text else '',
@@ -578,9 +570,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                 'STRONG', 'EMPHASIZED', 'UNDERLINE', 'STRIKETHROUGH', 'QUOTE', 'LINK'
             ]
         )
-
         try:
-
             response_future = await self.protocol.send(
                 method=SendMessageMethod(
                     chat_id=chat_id,
@@ -591,9 +581,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                     link=link,
                 ),
             )
-
             response = await response_future
-
             try:
                 while error_if_exist := response.model_dump().get('payload', {}).get('error'):
                     error_message = response.model_dump().get('payload', {}).get('message')
@@ -639,31 +627,19 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                             )
             except BackoffError:
                 raise SendMessageError('Max attempts to send message exceeded')
-
-            from pprint import pprint
-            pprint(response.payload)
-
             response_parsed = SendMessageResponse(
                 **response.payload
             )
-
             for attach in response_parsed.message.attaches:
                 attach.message_id = response_parsed.message.id
                 attach.chat_id = response_parsed.chat_id
                 attach.uploaded = True
-
-            for i, attach in enumerate(original_attaches):
+            for i, attach in enumerate(original_attaches or []):
                 recv_attach = response_parsed.message.attaches[i]
                 for attr, value in recv_attach.__dict__.items():
                     setattr(attach, attr, value)
-
             return response_parsed.message
-
-            # for attach in attaches:
-            #     attach.message_id =
-
-
-
 
         except (asyncio.CancelledError, self.protocol.transport.BASE_EXCEPTION_FOR_TRANSPORT) as e:
             self.__logger.error('Error sending message: %s', e)
+            return None
