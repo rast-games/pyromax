@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from collections.abc import Iterable
 from typing import Any, TYPE_CHECKING
 
 from .base import Filter
@@ -63,3 +65,20 @@ class MessageRemovedFilter(Filter):
         if message.status == 'REMOVED':
             return True
         return False
+
+
+class FromChatFilter(Filter):
+    def __init__(self, chat_ids: int | Iterable[int]) -> None:
+        super().__init__()
+        if isinstance(chat_ids, int):
+            chat_ids = (chat_ids,)
+        self.chat_ids = chat_ids
+
+
+    @property
+    def work_with(self) -> tuple[type[Message]]:
+        return (Message,)
+
+
+    async def _check(self, msg: Message) -> bool | dict[str, Any]:
+        return msg.chat_id in self.chat_ids
