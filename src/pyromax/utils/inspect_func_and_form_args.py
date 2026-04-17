@@ -1,7 +1,7 @@
 import inspect
 from typing import Any, Callable, TypeVar
 
-from src.pyromax.exceptions import AnnotationError
+from ..exceptions import AnnotationError
 
 T = TypeVar('T')
 

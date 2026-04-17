@@ -6,19 +6,19 @@ from asyncio import Task, Lock
 from collections.abc import AsyncGenerator, Callable
 from typing import Any, TYPE_CHECKING, Coroutine, Sequence, cast
 
+import aiohttp
 import qrcode
 
-
-from ....exceptions import SendMessageFileError, SendMessageNotFoundError, SendMessageError
+from ....exceptions import SendMessageFileError, SendMessageNotFoundError, SendMessageError, DownloadFileError
 from ...bases import BaseMapper
 from ....models import BaseFileAttachment
 from ....protocol import EnvelopeProtocol
 from ....utils import read_token, write_token, get_random_device_id, Backoff, BackoffConfig, clean_and_map
 from .methods import SendUserAgentMethod, SendAuthTokenMethod, SendKeepAlivePingMethod, \
-    GetUrlToUploadFileMethod, SendMessageMethod, GetMetadataForLoginMethod, TrackLoginMethod, GetUserDataMethod
-from .payloads.responses import AuthResponse, TrackLoginResponse, MetadataResponse, SuccessLoginResponse, ResponseWithUrl
-from .payloads.models import UserAgentMappingModel
-from .translate.ToDTO import update_translate, upload_file, FILE_OPCODES, FALLBACK_FILE_OPCODE, BaseFileMapping
+    GetUrlToUploadFileMethod, SendMessageMethod, GetMetadataForLoginMethod, TrackLoginMethod, GetUserDataMethod, GetFileLinkMethod
+from .payloads.responses import AuthResponse, TrackLoginResponse, MetadataResponse, SuccessLoginResponse, ResponseWithUrl, SendMessageResponse
+from .payloads.models import UserAgentMappingModel, BaseFileMappingModel, MessageMappingModel
+from .translate.ToDTO import update_translate, upload_file, FILE_OPCODES, FALLBACK_FILE_OPCODE, BaseFileMapping, get_file_url
 from ...registry import register_mapper
 from ....dispatcher.event.UpdateType import Update
 from ....exceptions import BackoffError
@@ -58,7 +58,8 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             keepalive_ping_interval: int = 30,
             **kwargs: Any,
     ) -> None:
-        from src.pyromax import MaxApi
+        from ....core import MaxApi
+
 
         if not isinstance(max_api, MaxApi):
             raise TypeError('max_api must be an instance of MaxApi')
@@ -481,10 +482,8 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             file_name: str | None = None,
             uploaded: bool = False,
             **kwargs: Any
-    ) -> BaseFileMapping[Any]:
+    ) -> list[BaseFileMappingModel]:
         payload = {}
-        # if data is None:
-        #     raise RuntimeError('data cannot be None')
         if not uploaded:
             payload = await self._create_cell_for_file(
                 opcode=FILE_OPCODES.get(typeof, FALLBACK_FILE_OPCODE),
@@ -503,18 +502,70 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
         return uploaded_file
 
 
+    async def download_file(
+            self,
+            file: BaseFileMappingModel,
+            cookies_to_download: dict[str, str] | None = None,
+            headers_to_download: dict[str, str] | None = None,
+            **kwargs: Any
+    ) -> tuple[bytes, dict] | tuple[None, None]:
+
+        url = await get_file_url(file=file, mapper=self, **kwargs)
+
+        if url is None:
+            self.__logger.warning('cannot get a download url for file')
+            return None, None
+
+
+        user_agent_header = self.max_api.transport_options.get('user_agent_header', None)
+        if user_agent_header is None:
+            user_agent_header = 'Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0'
+
+        headers: dict[str, str]
+        if headers_to_download is None:
+            headers = {
+                "User-Agent": user_agent_header,
+                "Accept": "*/*",
+                "Referer": "https://ok.ru/"
+            }
+        else:
+            headers = headers_to_download
+
+        cookies: dict[str, str]
+        if cookies_to_download is None:
+            cookies = {
+                "tstc": "p"
+            }
+        else:
+            cookies = cookies_to_download
+        async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
+            async with session.get(url=url) as response:
+                if response.status > 299:
+                    self.__logger.warning('Download failed for file')
+                    raise DownloadFileError('Download failed for file')
+
+                chunks = []
+                from pprint import pprint
+                pprint(dict(response.headers))
+                async for chunk in response.content.iter_chunked(8192):
+                    chunks.append(chunk)
+                return b''.join(chunks), dict(response.headers)
+
     async def send_message( # type: ignore[override]
             self,
             chat_id: int,
             text: str | None = None,
-            attaches: Sequence[BaseFileMapping[Any]] | None = None,
+            attaches: Sequence[BaseFileMappingModel] | None = None,
             link: MessageLink | None = None,
-    ) -> None:
+    ) -> MessageMappingModel | None:
+
+        original_attaches = attaches
 
         if not attaches:
             attaches = []
 
         attachments = []
+
 
         for attach in attaches:
             attachments.extend(attach.to_payload)
@@ -529,8 +580,6 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
         )
 
         try:
-
-
 
             response_future = await self.protocol.send(
                 method=SendMessageMethod(
@@ -590,6 +639,28 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                             )
             except BackoffError:
                 raise SendMessageError('Max attempts to send message exceeded')
+
+            from pprint import pprint
+            pprint(response.payload)
+
+            response_parsed = SendMessageResponse(
+                **response.payload
+            )
+
+            for attach in response_parsed.message.attaches:
+                attach.message_id = response_parsed.message.id
+                attach.chat_id = response_parsed.chat_id
+                attach.uploaded = True
+
+            for i, attach in enumerate(original_attaches):
+                recv_attach = response_parsed.message.attaches[i]
+                for attr, value in recv_attach.__dict__.items():
+                    setattr(attach, attr, value)
+
+            return response_parsed.message
+
+            # for attach in attaches:
+            #     attach.message_id =
 
 
 

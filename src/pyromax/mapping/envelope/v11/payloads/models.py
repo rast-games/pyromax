@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from abc import abstractmethod, ABC
 from typing import Annotated, Literal, Any
 
-from pydantic import Field, BeforeValidator
+from pydantic import Field, BeforeValidator, AliasChoices, AliasPath
 
+from .....models import BaseFileAttachment, PhotoAttachment, VideoAttachment, FileAttachment
 from .shared import CamelCaseModel
 
 import time
@@ -32,7 +34,7 @@ class AuthMappingModel(CamelCaseModel):
 
 class ContactMappingModel(CamelCaseModel):
     account_status: int
-    country: str
+    country: str | None = None
     id: int
     names: list[Any]
     options: list[str]
@@ -42,6 +44,121 @@ class ContactMappingModel(CamelCaseModel):
 class ProfileMappingModel(CamelCaseModel):
     contact: ContactMappingModel
     profile_options: list[Any]
+
+
+class BaseFileMappingModel(BaseFileAttachment, CamelCaseModel, ABC):
+    message_id: str | None = None
+    uploaded: bool = False
+    chat_id: int | None = None
+    type: str = Field(serialization_alias='_type', validation_alias=AliasChoices(
+        AliasPath('type'),
+        AliasPath('_type')
+    ))
+
+
+    @property
+    @abstractmethod
+    def get_payload_to_get_link(self) -> dict[str, Any] | None:
+        return {
+            'messageId': self.message_id,
+            'chatId': self.chat_id,
+        }
+
+    @property
+    @abstractmethod
+    def to_payload(self) -> list[dict[str, Any]]: pass
+
+
+class PhotoMappingModel(BaseFileMappingModel, PhotoAttachment):
+    photo_token: str
+    photo_id: int | str | None = None
+    base_url: str | None = None
+    height: int | None = None
+    width: int | None = None
+    preview_data: Any | None = None
+
+
+    def get_payload_to_get_link(self) -> None: return None
+
+
+    @property
+    def to_payload(self) -> list[dict[str, Any]]:
+        from .requests import PhotoToPayloadRequest
+        photos = []
+        photos.append(
+            PhotoToPayloadRequest(
+                type='PHOTO',
+                photo_token=self.photo_token
+            ).model_dump(by_alias=True)
+        )
+        return photos
+
+class VideoMappingModel(BaseFileMappingModel, VideoAttachment):
+    token: str
+    video_id: int
+    video_type: int | None = None
+    duration: int | None = None
+    height: int | None = None
+    width: int | None = None
+    preview_data: Any | None = None
+    trumbnail: str | None = None
+
+
+    @property
+    def to_payload(self) -> list[dict[str, Any]]:
+        from .requests import VideoToPayloadRequest
+        return [
+            VideoToPayloadRequest(
+                type='VIDEO',
+                video_id=self.video_id,
+                token=self.token
+            ).model_dump(by_alias=True),
+        ]
+
+
+    @property
+    def get_payload_to_get_link(self) -> dict[str, Any]:
+        res = super().get_payload_to_get_link
+        res.update(
+            {
+                'videoId': self.video_id,
+                'token': self.token,
+            }
+        )
+
+        return res
+
+
+class FileMappingModel(BaseFileMappingModel, FileAttachment):
+    token: str | None = None
+    file_id: int
+    size: int | None = None
+    name: str | None = None
+
+
+    @property
+    def to_payload(self) -> list[dict[str, Any]]:
+        from .requests import FileToPayloadRequest
+
+        return [
+            FileToPayloadRequest(
+                type='FILE',
+                file_id=self.file_id,
+            ).model_dump(by_alias=True),
+        ]
+
+    @property
+    def get_payload_to_get_link(self) -> dict[str, Any]:
+        res = super().get_payload_to_get_link
+        res.update(
+            {
+                'fileId': self.file_id,
+            }
+        )
+
+        return res
+
+
 
 class MessageLinkMappingModel(CamelCaseModel):
     type: str | None = None
@@ -58,7 +175,7 @@ def validate_status(v: Any) -> Any:
 
 class MessageMappingModel(CamelCaseModel):
     cid: int = -round(time.time() * 1000)
-    attaches: list[Any] = []
+    attaches: list[VideoMappingModel | PhotoMappingModel | FileMappingModel] = []
     sender: int | None = None
     chat_id: int | None = None
     id: str | None = Field(default=None, serialization_alias='message_id')
@@ -70,12 +187,13 @@ class MessageMappingModel(CamelCaseModel):
     link: MessageLinkMappingModel | None = None
 
 
-class ReactionInfoModel(CamelCaseModel):
+class ReactionInfoMappingModel(CamelCaseModel):
     your_reaction: str | None = None
     total_count: int | None = None
     counters: list[dict[str, Any]] | None = None
 
 MessageLinkMappingModel.model_rebuild()
+
 
 
 

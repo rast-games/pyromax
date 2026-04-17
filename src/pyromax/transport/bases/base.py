@@ -1,6 +1,6 @@
 from typing import Any
 
-from src.pyromax.mixins import AsyncInitializerMixin
+from ...mixins import AsyncInitializerMixin
 
 
 class BaseTransport(AsyncInitializerMixin):

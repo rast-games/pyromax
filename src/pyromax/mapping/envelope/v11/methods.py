@@ -6,7 +6,7 @@ from ....models import Message
 from ....protocol import Envelope
 from .constants import Opcode, Cmd
 from .payloads.models import TrackLoginModel, MessageMappingModel, AuthMappingModel, MessageLinkMappingModel
-from .payloads.requests import UserAgentRequest, CreateCellForFileRequest, SendMessageRequest
+from .payloads.requests import UserAgentRequest, CreateCellForFileRequest, SendMessageRequest, GetFileLinkRequest
 from .translate.FromDTO import reverse_translate_message
 from ....protocol import BaseMaxProtocolMethod
 # from .payloads_old import UserAgentPayload, AuthModel, CreateCellForFileModel, SendMessageModel, \
@@ -92,6 +92,9 @@ class SendMessageMethod(BaseMethod):
         request.cmd = Cmd.REQUEST
 
 
+        from pprint import pprint
+        pprint(self.args)
+
         # def reverse_translate_message(message: Message) -> MessageMappingModel | None:
         #     if not message:
         #         return None
@@ -125,6 +128,7 @@ class SendMessageMethod(BaseMethod):
         #     )
 
 
+
         main_link = self.args.get('link')
         request.payload = SendMessageRequest(
             chat_id=self.args['chat_id'],
@@ -140,5 +144,15 @@ class SendMessageMethod(BaseMethod):
                 ) if main_link else None,
             ),
         ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
+
+class GetFileLinkMethod(BaseMethod):
+    async def __call__(self, request: Envelope) -> Envelope:
+        request.opcode = self.args['opcode']
+        request.cmd = Cmd.REQUEST
+        request.payload = self.args['file'].get_payload_to_get_link
+
         return request
 

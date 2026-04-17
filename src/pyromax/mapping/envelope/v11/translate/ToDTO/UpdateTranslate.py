@@ -3,11 +3,11 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from src.pyromax.models import BaseMaxObject, Message, MessageLink, EmojiReaction
-from src.pyromax.protocol.envelope import Envelope
-from src.pyromax.mapping.envelope.constants import Opcode
-from src.pyromax.mapping.envelope.v11.payloads.responses import PushUpdateResponse, EmojiReactionUpdateResponse
-from src.pyromax.mapping.envelope.v11.payloads.models import MessageMappingModel
+from ......models import BaseMaxObject, Message, MessageLink, EmojiReaction
+from ......protocol import Envelope
+from ....constants import Opcode
+from ...payloads.responses import PushUpdateResponse, EmojiReactionUpdateResponse
+from ...payloads.models import MessageMappingModel
 
 
 
@@ -31,6 +31,10 @@ class PushTranslateModel(TranslateModel):
         def translate_message(message: MessageMappingModel, chat_id: int | None = None) -> Message:
             message_link = message.link
             message.chat_id = chat_id
+            for attach in message.attaches:
+                attach.uploaded = True
+                attach.chat_id = chat_id
+                attach.message_id = message.id
 
             raw_message_id = message.id
 

@@ -38,4 +38,8 @@ class BaseMapper(AsyncInitializerMixin, Generic[T_protocol]):
 
 
     @abstractmethod
+    async def download_file(self, file: BaseFileAttachment, **kwargs) -> tuple[bytes, dict] | tuple[None, None]: pass
+
+
+    @abstractmethod
     async def send_message(self, chat_id: int, text: str | None = None, attaches: Sequence[Any] | None = None, **kwargs: Any) -> Any | None: pass

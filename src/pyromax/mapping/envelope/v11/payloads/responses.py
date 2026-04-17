@@ -4,7 +4,7 @@ from typing_extensions import Self
 
 from .shared import CamelCaseModel
 from pydantic import Field, AliasPath, model_validator, AliasChoices
-from .models import ProfileMappingModel, MessageMappingModel, ReactionInfoModel
+from .models import ProfileMappingModel, MessageMappingModel, ReactionInfoMappingModel
 
 
 class TokenAttrsResponse(CamelCaseModel):
@@ -24,6 +24,12 @@ class AuthResponse(CamelCaseModel):
     profile: ProfileMappingModel
     time: int
     token: str | None = None
+
+
+class SendMessageResponse(CamelCaseModel):
+    chat_id: int | None = None
+    mark: int | None = None
+    message: MessageMappingModel
 
 
 class ErrorMessageResponse(CamelCaseModel):
@@ -95,6 +101,6 @@ class PushUpdateResponse(CamelCaseModel):
 class EmojiReactionUpdateResponse(CamelCaseModel):
     chat_id: int
     message_id: str
-    reaction_info: ReactionInfoModel
+    reaction_info: ReactionInfoMappingModel
 
 

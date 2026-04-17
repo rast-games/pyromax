@@ -9,7 +9,7 @@ def to_camel_case(snake_str: str) -> str:
 
 CAMEL_CASE_CONFIG = ConfigDict(
         alias_generator=to_camel_case,
-        validate_by_name=True
+        validate_by_name=True,
     )
 
 

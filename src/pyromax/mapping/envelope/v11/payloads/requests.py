@@ -36,6 +36,10 @@ class VideoToPayloadRequest(AnyFileRequest):
     video_id: int
     token: str
 
+class GetFileLinkRequest(CamelCaseModel):
+    chat_id: int
+    message_id: int
+
 
 # --- end Files Requests ---
 

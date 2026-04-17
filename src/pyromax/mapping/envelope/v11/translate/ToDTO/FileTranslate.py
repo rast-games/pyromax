@@ -1,14 +1,24 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, TypeVar, Generic, cast, Optional
 
-from typing_extensions import Self
+from typing_extensions import Self, TYPE_CHECKING
 
 import aiohttp
 from pydantic import BaseModel, Field, PrivateAttr
 
-from src.pyromax.mapping.envelope.v11.payloads.requests import FileToPayloadRequest, PhotoToPayloadRequest, VideoToPayloadRequest
-from src.pyromax.models import VideoAttachment, FileAttachment, PhotoAttachment, BaseFileAttachment
-from src.pyromax.mapping.envelope.v11.constants import Opcode
+from ...payloads.requests import FileToPayloadRequest, PhotoToPayloadRequest, VideoToPayloadRequest
+
+# from ...payloads.models import BaseFilePayloadMapping, VideoPayloadMapping, PhotoPayloadMapping, FilePayloadMapping
+from ......models import VideoAttachment, FileAttachment, PhotoAttachment, BaseFileAttachment
+from ...constants import Opcode
+from ...payloads.models import PhotoMappingModel, VideoMappingModel, FileMappingModel, BaseFileMappingModel
+from .....bases import BaseMapper
+from ...methods import GetFileLinkMethod
+from ......exceptions import DownloadFileError
+
+if TYPE_CHECKING:
+    from ......protocol import BaseMaxProtocol
 
 BodyType = TypeVar('BodyType')
 
@@ -38,6 +48,11 @@ class BaseFileMapping(BaseFileAttachment, BaseModel, Generic[BodyType], ABC):
             return self
         await self._upload_data_to_url(upload_url=upload_url)
         return self
+
+
+    @abstractmethod
+    def dump_it(self) -> list[BaseFileMappingModel]:
+        pass
 
 
     async def _upload_data_to_url(
@@ -81,9 +96,30 @@ class BaseFileMapping(BaseFileAttachment, BaseModel, Generic[BodyType], ABC):
         self.uploaded = True
 
 
+    @staticmethod
+    @abstractmethod
+    async def get_url_to_download(mapper: BaseMapper[BaseMaxProtocol[Any, Any]], file: BaseFileMappingModel, **kwargs) -> Any: pass
+
+
 class PhotoMapping(BaseFileMapping[Optional[dict[str, bytes]]], PhotoAttachment):
     photo_ids: list[str] = []
     photo_tokens: list[str] = []
+
+
+    def dump_it(self) -> list[PhotoMappingModel]:
+        dumped = []
+        print(self.photo_ids)
+        print(self.photo_tokens)
+        for i, photo in enumerate(self.to_payload):
+            dumped.append(
+                PhotoMappingModel(
+                    type='PHOTO',
+                    photo_id=self.photo_ids[i],
+                    **photo
+                )
+            )
+
+        return dumped
 
 
     @property
@@ -104,6 +140,13 @@ class PhotoMapping(BaseFileMapping[Optional[dict[str, bytes]]], PhotoAttachment)
             'file': self.data
         }
 
+    @staticmethod
+    async def get_url_to_download(
+            mapper: BaseMapper[BaseMaxProtocol[Any, Any]],
+            file: PhotoMappingModel,
+            **kwargs
+    ) -> str:
+        return file.base_url
 
     async def _parse_response(self, response: aiohttp.ClientResponse) -> None:
         json: dict[str, Any] = await response.json()
@@ -130,6 +173,34 @@ class VideoMapping(BaseFileMapping[Optional[bytes]], VideoAttachment):
     token: str
     video_id: int
 
+    @staticmethod
+    async def get_url_to_download(
+            mapper: BaseMapper[BaseMaxProtocol[Any, Any]],
+            file: VideoMappingModel,
+            **kwargs
+    ) -> Any:
+
+        quality = kwargs.get('quality', 'MP4_720')
+        response_future = await mapper.protocol.send(
+            method=GetFileLinkMethod(
+                opcode=Opcode.GET_VIDEO,
+                file=file
+            )
+        )
+
+        response_envelope = await response_future
+
+
+        response = response_envelope.payload
+
+        url = response.get(quality)
+
+        if url is None:
+            for value in response.values():
+                if isinstance(value, str) and value.startswith('https://maxvd'):
+                    return value
+        # response_future = mapper.protocol.send()
+        return url
 
     @property
     def to_payload(self) -> list[dict[str, Any]]:
@@ -142,10 +213,42 @@ class VideoMapping(BaseFileMapping[Optional[bytes]], VideoAttachment):
         ]
 
 
+    def dump_it(self) -> list[VideoMappingModel]:
+        return [
+            VideoMappingModel(
+                type='VIDEO',
+                video_id=self.video_id,
+                token=self.token
+            )
+        ]
+
+
+
+
+
 class FileMapping(BaseFileMapping[Optional[bytes]], FileAttachment):
     token: str
     file_id: int
 
+
+    @staticmethod
+    async def get_url_to_download(
+            mapper: BaseMapper[BaseMaxProtocol[Any, Any]],
+            file: VideoMappingModel,
+            **kwargs
+    ) -> Any:
+        response_future = await mapper.protocol.send(
+            method=GetFileLinkMethod(
+                opcode=Opcode.GET_FILE,
+                file=file
+            )
+        )
+
+        response_envelope = await response_future
+        response = response_envelope.payload
+        url = response.get('url')
+
+        return url
 
     @property
     def to_payload(self) -> list[dict[str, Any]]:
@@ -154,6 +257,16 @@ class FileMapping(BaseFileMapping[Optional[bytes]], FileAttachment):
                 type='FILE',
                 file_id=self.file_id,
             ).model_dump(by_alias=True),
+        ]
+
+
+    def dump_it(self) -> list[FileMappingModel]:
+        return [
+            FileMappingModel(
+                type='FILE',
+                token=self.token,
+                **self.to_payload[0],
+            )
         ]
 
 
@@ -177,7 +290,7 @@ FILE_OPCODES: dict[type[BaseFileAttachment], int] = {
 FALLBACK_FILE_OPCODE = Opcode.CREATE_FILE
 
 
-async def upload_file(data: bytes | None, typeof: type[BaseFileAttachment], upload_url: str | None = None, uploaded: bool = False, **kwargs: Any) -> BaseFileMapping[Any]:
+async def upload_file(data: bytes | None, typeof: type[BaseFileAttachment], upload_url: str | None = None, uploaded: bool = False, **kwargs: Any) -> list[BaseFileMappingModel]:
     translate_model = FILE_TYPES.get(typeof, FALLBACK_MODEL)
     loaded_attachment = await translate_model.create_file_obj(
         data=data,
@@ -185,5 +298,31 @@ async def upload_file(data: bytes | None, typeof: type[BaseFileAttachment], uplo
         uploaded=uploaded,
         **kwargs
     )
-    # return cast(BaseFileAttachment, loaded_attachment)
-    return loaded_attachment
+
+    return loaded_attachment.dump_it()
+
+
+MAPPING_MODEL_TO_FILE_MAPPING: dict[type[BaseFileMappingModel], type[BaseFileMapping[Any]]] = {
+    PhotoMappingModel: PhotoMapping,
+    VideoMappingModel: VideoMapping,
+    FileMappingModel: FileMapping
+}
+
+# MAPPING_MODEL_TO_OPCODE_DOWNLOAD: dict[type[BaseFileMappingModel], int] = {
+#     VideoMappingModel: Opcode.GET_VIDEO,
+#     FileMappingModel: Opcode.GET_FILE,
+# }
+
+async def get_file_url(mapper: BaseMapper[BaseMaxProtocol[Any, Any]], file: BaseFileMappingModel, **kwargs):
+    if not file.uploaded:
+        raise DownloadFileError('File has not been uploaded to chat, cannot download it')
+
+    translate_model = MAPPING_MODEL_TO_FILE_MAPPING[type(file)]
+
+    return await translate_model.get_url_to_download(file=file, mapper=mapper, **kwargs)
+
+
+
+# def get_opcode_to_download_file(file):
+#     return MAPPING_MODEL_TO_OPCODE_DOWNLOAD[type(file)]
+

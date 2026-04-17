@@ -164,3 +164,11 @@ class MaxApi(AsyncInitializerMixin):
             if self.__logger is None:
                 raise AttributeError('logger not initialized in MaxApi instance')
             self.__logger.warning('Failed to send message: %s', e)
+
+
+
+    async def download_file(
+            self,
+            file: BaseFileAttachment
+    ) -> tuple[bytes, dict] | tuple[None, None]:
+        return await self.mapper.download_file(file)
