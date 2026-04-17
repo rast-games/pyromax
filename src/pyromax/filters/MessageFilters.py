@@ -82,3 +82,12 @@ class FromChatFilter(Filter):
 
     async def _check(self, msg: Message) -> bool | dict[str, Any]:
         return msg.chat_id in self.chat_ids
+
+
+class HaveAttachFilter(Filter):
+    @property
+    def work_with(self) -> tuple[type[Message]]:
+        return (Message,)
+
+    async def _check(self, msg: Message) -> bool | dict[str, Any]:
+        return bool(msg.attaches)

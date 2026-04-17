@@ -1,5 +1,12 @@
 from .base import Filter
-from .MessageFilters import FromMeFilter, ReplyToMessageFilter, MessageForwardFromFilter, MessageRemovedFilter, FromChatFilter
+from .MessageFilters import (
+    FromMeFilter,
+    ReplyToMessageFilter,
+    MessageForwardFromFilter,
+    MessageRemovedFilter,
+    FromChatFilter,
+    HaveAttachFilter
+)
 from .EmojiReactionFilters import EmojiReactionAddFilter, EmojiReactionRemoveFilter
 from .Command import Command, CommandStart, CommandObject
 
@@ -15,5 +22,6 @@ __all__ = [
     'Command',
     'CommandStart',
     'CommandObject',
-    'FromChatFilter'
+    'FromChatFilter',
+    'HaveAttachFilter'
 ]
