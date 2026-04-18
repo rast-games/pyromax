@@ -9,13 +9,13 @@ from typing import Any, TYPE_CHECKING, Coroutine, Sequence, cast
 import aiohttp
 import qrcode
 
-from ....protocol import BaseMaxProtocol
+from ....protocol import BaseMaxProtocol, Envelope
 from ....exceptions import SendMessageFileError, SendMessageNotFoundError, SendMessageError, DownloadFileError
 from ...bases import BaseMapper
 from ....models import BaseFileAttachment
 from ....protocol import EnvelopeProtocol
 from ....utils import read_token, write_token, get_random_device_id, Backoff, BackoffConfig, clean_and_map
-from .methods import SendUserAgentMethod, SendAuthTokenMethod, SendKeepAlivePingMethod, \
+from .methods import BaseMethod, SendUserAgentMethod, SendAuthTokenMethod, SendKeepAlivePingMethod, \
     GetUrlToUploadFileMethod, SendMessageMethod, GetMetadataForLoginMethod, TrackLoginMethod, GetUserDataMethod, GetFileLinkMethod
 from .payloads.responses import AuthResponse, TrackLoginResponse, MetadataResponse, SuccessLoginResponse, ResponseWithUrl, SendMessageResponse
 from .payloads.models import UserAgentMappingModel, BaseFileMappingModel, MessageMappingModel
@@ -49,6 +49,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
         self.max_api: MaxApi | None = None
         self._manage_lifecycle_task: Task[Any] | None = None
         self._update_listener_lock: Lock = Lock()
+        self._authorized = asyncio.Event()
 
 
     async def _async_init(
@@ -87,7 +88,8 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             header_user_agent: str,
             device_name: str,
     ) -> None:
-        await self.protocol.send(method=SendUserAgentMethod(
+        await (self.__send_without_auth_check
+            (method=SendUserAgentMethod(
             device_id=device_id,
             user_agent=UserAgentMappingModel(
                 device_type=device_type,
@@ -100,7 +102,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                 header_user_agent=header_user_agent,
                 device_name=device_name,
             )
-        ))
+        )))
 
 
     async def listen_updates(
@@ -125,7 +127,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             contacts_sync: int,
             drafts_sync: int
     ) -> None:
-        response_future = await self.protocol.send(method=SendAuthTokenMethod(
+        response = await self.__send_without_auth_check(method=SendAuthTokenMethod(
             token=token,
             chats_count=chats_count,
             interactive=interactive,
@@ -134,8 +136,6 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             contacts_sync=contacts_sync,
             drafts_sync=drafts_sync,
         ))
-
-        response = await response_future
 
         auth_model = AuthResponse(
             **response.payload
@@ -156,6 +156,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
         while True:
             # debug_tasks()
             await self.protocol.failed.wait()
+            self._authorized.clear()
             await self.close()
             if self.token is None:
                 raise RuntimeError('Try a connect without token')
@@ -181,6 +182,39 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
 
         if self._keepalive_task:
             self._keepalive_task.cancel()
+
+
+    async def __send_without_auth_check(self, method: BaseMethod, data: dict[Any, Any] | None = None) -> Envelope:
+        if data is None:
+            data = {}
+        while True:
+            try:
+                await self.protocol.running.wait()
+                response_future = await self.protocol.send(method=method, data=data)
+                response = await response_future
+                return response
+            except asyncio.CancelledError:
+                self.protocol.running.clear()
+                self.protocol.failed.set()
+                self._authorized.clear()
+                self.__logger.debug('Cancelled request')
+
+
+    async def __send(self, method: BaseMethod, data: dict[Any, Any] | None = None) -> Envelope:
+        if data is None:
+            data = {}
+        while True:
+            try:
+                await self.protocol.running.wait()
+                await self._authorized.wait()
+                response_future = await self.protocol.send(method=method, data=data)
+                response = await response_future
+                return response
+            except asyncio.CancelledError:
+                self.protocol.running.clear()
+                self.protocol.failed.set()
+                self._authorized.clear()
+                self.__logger.debug('Cancelled request')
 
 
     async def initialize_client(
@@ -274,13 +308,11 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
         while not_logged:
             await asyncio.sleep(polling_interval)
 
-            response_future = await self.protocol.send(
+            response = await self.__send_without_auth_check(
                 method=TrackLoginMethod(
                     track_id=track_id
                 )
             )
-
-            response = await response_future
 
             track_data = TrackLoginResponse(
                 **response.payload
@@ -309,13 +341,11 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             track_id: str
     ) -> SuccessLoginResponse:
 
-        response_future = await self.protocol.send(
+        response = await self.__send_without_auth_check(
             method=GetUserDataMethod(
                 track_id=track_id
             )
         )
-
-        response = await response_future
         user = SuccessLoginResponse(
             **response.payload
         )
@@ -372,11 +402,9 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             device_name=device_name,
         )
 
-        response_future = await self.protocol.send(
+        response = await self.__send_without_auth_check(
             method=GetMetadataForLoginMethod()
         )
-
-        response = await response_future
 
         metadata = MetadataResponse(**response.payload)
 
@@ -437,8 +465,10 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                     contacts_sync=contacts_sync,
                     drafts_sync=drafts_sync,
                 )
+                self._authorized.set()
                 break
             except asyncio.CancelledError:
+                self._authorized.clear()
                 await self.close()
                 await self.connect()
 
@@ -451,8 +481,8 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                 await self.protocol.running.wait()
                 await asyncio.sleep(self._keepalive_ping_interval)
                 self.__logger.debug('send keepalive ping...')
-                pong = await self.protocol.send(method=SendKeepAlivePingMethod())
-                self.__logger.debug('keepalive pong %s', await pong)
+                pong = await self.__send(method=SendKeepAlivePingMethod())
+                self.__logger.debug('keepalive pong %s', pong)
         except asyncio.CancelledError:
             self.__logger.debug('keepalive ping canceled')
 
@@ -462,11 +492,9 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             opcode: int,
             count: int = 1,
     ) -> dict[str, Any]:
-        response_future = await self.protocol.send(
+        response = await self.__send(
             method=GetUrlToUploadFileMethod(type_of_file_opcode=opcode, count=count)
         )
-
-        response = await response_future
 
         payload = ResponseWithUrl(
             **response.payload
@@ -571,7 +599,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             ]
         )
         try:
-            response_future = await self.protocol.send(
+            response = await self.__send(
                 method=SendMessageMethod(
                     chat_id=chat_id,
                     text=text,
@@ -581,14 +609,14 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                     link=link,
                 ),
             )
-            response = await response_future
+
             try:
                 while error_if_exist := response.model_dump().get('payload', {}).get('error'):
                     error_message = response.model_dump().get('payload', {}).get('message')
                     title = response.model_dump().get('payload', {}).get('title')
                     match error_if_exist:
                         case 'attachment.not.ready':
-                            response_future = await self.protocol.send(
+                            response = await self.__send(
                                 method=SendMessageMethod(
                                     chat_id=chat_id,
                                     text=text,
@@ -599,7 +627,6 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                                 ),
                             )
                             await backoff.asleep()
-                            response = await response_future
                             continue
                         case 'proto.payload':
                             raise SendMessageFileError(
