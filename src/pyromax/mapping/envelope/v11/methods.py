@@ -3,7 +3,8 @@ from typing import Any
 from ....protocol import Envelope
 from .constants import Opcode, Cmd
 from .payloads.models import TrackLoginModel, MessageMappingModel, AuthMappingModel, MessageLinkMappingModel
-from .payloads.requests import UserAgentRequest, CreateCellForFileRequest, SendMessageRequest, GetFileLinkRequest
+from .payloads.requests import (UserAgentRequest, CreateCellForFileRequest, SendMessageRequest, GetFileLinkRequest,
+                                GetContactRequest)
 from .translate.FromDTO import reverse_translate_message
 from ....protocol import BaseMaxProtocolMethod
 
@@ -110,4 +111,16 @@ class GetFileLinkMethod(BaseMethod):
         request.opcode = self.args['opcode']
         request.cmd = Cmd.REQUEST
         request.payload = self.args['file'].get_payload_to_get_link
+        return request
+
+
+class GetGeneralInfoAboutMember(BaseMethod):
+
+    async def __call__(self, request: Envelope) -> Envelope:
+        request.opcode = Opcode.GET_CONTACT
+        request.cmd = Cmd.REQUEST
+        request.payload = GetContactRequest(
+            contact_ids=self.args['contact_ids'],
+        ).model_dump(by_alias=True)
+
         return request

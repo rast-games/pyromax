@@ -1,5 +1,6 @@
 from .FileTranslate import upload_file, FILE_OPCODES, FALLBACK_FILE_OPCODE, BaseFileMapping, get_file_url
 from .UpdateTranslate import translate as update_translate
+from .ModelsTranslate import translate_models
 
 
 __all__ = [
@@ -8,5 +9,6 @@ __all__ = [
     'get_file_url',
     'FILE_OPCODES',
     'FALLBACK_FILE_OPCODE',
-    'BaseFileMapping'
+    'BaseFileMapping',
+    'translate_models'
 ]

@@ -2,7 +2,7 @@ from .base import BaseMaxObject
 from .Message import Message, MessageLink
 from .EmojiReaction import EmojiReaction
 from .Files import *
-
+from .Contact import Contact
 
 __all__ = [
     'BaseMaxObject',
@@ -13,4 +13,5 @@ __all__ = [
     'PhotoAttachment',
     'VideoAttachment',
     'FileAttachment',
+    'Contact',
 ]

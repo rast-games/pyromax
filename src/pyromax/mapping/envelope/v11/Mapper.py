@@ -12,14 +12,18 @@ import qrcode
 from ....protocol import BaseMaxProtocol, Envelope
 from ....exceptions import SendMessageFileError, SendMessageNotFoundError, SendMessageError, DownloadFileError
 from ...bases import BaseMapper
-from ....models import BaseFileAttachment
+from ....models import BaseFileAttachment, BaseMaxObject
 from ....protocol import EnvelopeProtocol
 from ....utils import read_token, write_token, get_random_device_id, Backoff, BackoffConfig, clean_and_map
-from .methods import BaseMethod, SendUserAgentMethod, SendAuthTokenMethod, SendKeepAlivePingMethod, \
-    GetUrlToUploadFileMethod, SendMessageMethod, GetMetadataForLoginMethod, TrackLoginMethod, GetUserDataMethod, GetFileLinkMethod
-from .payloads.responses import AuthResponse, TrackLoginResponse, MetadataResponse, SuccessLoginResponse, ResponseWithUrl, SendMessageResponse
+from .methods import (BaseMethod, SendUserAgentMethod, SendAuthTokenMethod, SendKeepAlivePingMethod,
+    GetUrlToUploadFileMethod, SendMessageMethod, GetMetadataForLoginMethod, TrackLoginMethod, GetUserDataMethod,
+                      GetGeneralInfoAboutMember)
+from .payloads.responses import (AuthResponse, TrackLoginResponse, MetadataResponse, SuccessLoginResponse, ResponseWithUrl, SendMessageResponse,
+                                 GetContactResponse)
 from .payloads.models import UserAgentMappingModel, BaseFileMappingModel, MessageMappingModel
-from .translate.ToDTO import update_translate, upload_file, FILE_OPCODES, FALLBACK_FILE_OPCODE, BaseFileMapping, get_file_url
+from .translate.ToDTO import (update_translate, upload_file, FILE_OPCODES, FALLBACK_FILE_OPCODE, BaseFileMapping, get_file_url,
+                              translate_models)
+from .payloads.shared import CamelCaseModel
 from ...registry import register_mapper
 from ....dispatcher.event.UpdateType import Update
 from ....exceptions import BackoffError
@@ -146,6 +150,8 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
 
         self.max_api.id = auth_model.profile.contact.id
         self.max_api.phone = str(auth_model.profile.contact.phone)
+        # names = [translate_models(name).model_dump() for name in auth_model.profile.contact.names]
+        # self.max_api.names = names
         self.max_api.names = auth_model.profile.contact.names
 
 
@@ -670,3 +676,31 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
         except (asyncio.CancelledError, self.protocol.transport.BASE_EXCEPTION_FOR_TRANSPORT) as e:
             self.__logger.error('Error sending message: %s', e)
             return None
+
+    async def get_member_by_id(self, member_id: int | list[int]) -> Sequence[BaseMaxObject | CamelCaseModel]:
+        contact_ids: list[int]
+        if isinstance(member_id, int):
+            contact_ids = [member_id]
+        elif isinstance(member_id, list):
+            contact_ids = member_id
+        else:
+            raise TypeError('member_id must be int or list[int]')
+
+        response_envelope = await self.__send(
+            method=GetGeneralInfoAboutMember(
+                contact_ids=contact_ids,
+            )
+        )
+
+        response = GetContactResponse(
+            **response_envelope.payload
+        )
+
+
+        contacts = [translate_models(mapping_contact) for mapping_contact in response.contacts]
+
+        return cast(list[BaseMaxObject], contacts)
+
+
+
+

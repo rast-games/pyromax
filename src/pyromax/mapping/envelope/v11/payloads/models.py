@@ -32,14 +32,25 @@ class AuthMappingModel(CamelCaseModel):
     drafts_sync: int
 
 
+class NameMappingModel(CamelCaseModel):
+    name: str = ''
+    first_name: str = ''
+    last_name: str = ''
+    type: str = ''
+
 class ContactMappingModel(CamelCaseModel):
     account_status: int
     country: str | None = None
+    description: str = ''
+    email: str | None = None
     id: int
-    names: list[Any]
+    names: list[NameMappingModel]
     options: list[str]
-    phone: int
-    updateTime: int
+    phone: int | None = None
+    photo_id: int | None = None
+    update_time: int
+    registration_time: int
+    base_url: str | None = None
 
 class ProfileMappingModel(CamelCaseModel):
     contact: ContactMappingModel

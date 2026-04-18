@@ -6,6 +6,7 @@ class Opcode(MappingConstants):
     PING = 1
     SEND_USER_AGENT = 6
     AUTHORIZE = 19
+    GET_CONTACT = 32
     # CHAT_INFO = 48
     GET_CHAT = 48
     GET_CHAT_MESSAGES_PER_CHUNK = 49

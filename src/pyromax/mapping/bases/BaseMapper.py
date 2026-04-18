@@ -44,3 +44,7 @@ class BaseMapper(AsyncInitializerMixin, Generic[T_protocol]):
 
     @abstractmethod
     async def send_message(self, chat_id: int, text: str | None = None, attaches: Sequence[Any] | None = None, **kwargs: Any) -> Any | None: pass
+
+
+    @abstractmethod
+    async def get_member_by_id(self, member_id: int) -> Sequence[BaseMaxObject | Any]: pass

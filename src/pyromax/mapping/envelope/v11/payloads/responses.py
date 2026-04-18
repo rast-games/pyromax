@@ -4,7 +4,7 @@ from typing_extensions import Self
 
 from .shared import CamelCaseModel
 from pydantic import Field, AliasPath, model_validator, AliasChoices
-from .models import ProfileMappingModel, MessageMappingModel, ReactionInfoMappingModel
+from .models import (ProfileMappingModel, MessageMappingModel, ReactionInfoMappingModel, ContactMappingModel)
 
 
 class TokenAttrsResponse(CamelCaseModel):
@@ -86,6 +86,9 @@ class ResponseWithUrl(CamelCaseModel):
         default=None
     )
 
+
+class GetContactResponse(CamelCaseModel):
+    contacts: list[ContactMappingModel]
 
 # --- Updates ---
 

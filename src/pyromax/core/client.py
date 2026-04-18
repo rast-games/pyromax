@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Any, TYPE_CHECKING, AsyncGenerator
+from collections.abc import Sequence
 
 from ..mixins import AsyncInitializerMixin
 from ..methods import SendMessageMethod
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
     from ..protocol import BaseMaxProtocol
     from ..transport import BaseTransport
     from ..mapping import BaseMapper
+    from ..models import Contact
 
 
 
@@ -118,7 +120,7 @@ class MaxApi(AsyncInitializerMixin):
         self.token = token
         self.id: int | None = None
         self.phone: str | None = None
-        self.names: list[dict[str, Any]] | None = None
+        self.names: Any | list[dict[str, Any]] | None = None
         self.__logger: logging.Logger | None = logger
 
 
@@ -166,9 +168,12 @@ class MaxApi(AsyncInitializerMixin):
             self.__logger.warning('Failed to send message: %s', e)
 
 
-
     async def download_file(
             self,
             file: BaseFileAttachment
     ) -> tuple[bytes, dict[str, str]] | tuple[None, None]:
         return await self.mapper.download_file(file)
+
+
+    async def get_member_by_id(self, member_id: int) -> Sequence[Contact | Any]:
+        return await self.mapper.get_member_by_id(member_id)

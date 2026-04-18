@@ -41,6 +41,9 @@ class GetFileLinkRequest(CamelCaseModel):
     message_id: int
 
 
+class GetContactRequest(CamelCaseModel):
+    contact_ids: list[int]
+
 # --- end Files Requests ---
 
 
