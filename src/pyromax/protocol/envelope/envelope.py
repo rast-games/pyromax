@@ -62,7 +62,11 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
 
 
     async def connect(self) -> None:
+
         await self.__transport.connect()
+        if self._reader_task:
+            self.__logger.info('find another reader, closing it...')
+            self._reader_task.cancel()
         self._reader_task = asyncio.create_task(self.receive_reader())
         self.__logger.info('background tasks started')
         del self.event_router
@@ -76,6 +80,11 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         self.__logger.info('closing protocol')
         if self._reader_task:
             self._reader_task.cancel()
+
+        if self.event_router:
+            self.event_router.cancel_all()
+            del self.event_router
+        self.event_router = None
         self._reader_task = None
         self.__logger.info('terminated reader task')
         await self.__transport.close()

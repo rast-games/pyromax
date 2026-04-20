@@ -92,7 +92,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             header_user_agent: str,
             device_name: str,
     ) -> None:
-        await (self.__send_without_auth_check
+        await (self.__send_raw
             (method=SendUserAgentMethod(
             device_id=device_id,
             user_agent=UserAgentMappingModel(
@@ -131,7 +131,8 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             contacts_sync: int,
             drafts_sync: int
     ) -> None:
-        response = await self.__send_without_auth_check(method=SendAuthTokenMethod(
+        self.__logger.debug('sending auth token')
+        response = await self.__send_raw(method=SendAuthTokenMethod(
             token=token,
             chats_count=chats_count,
             interactive=interactive,
@@ -140,6 +141,8 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             contacts_sync=contacts_sync,
             drafts_sync=drafts_sync,
         ))
+
+        self.__logger.debug('recv auth token response')
 
         auth_model = AuthResponse(
             **response.payload
@@ -162,23 +165,33 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
         while True:
             # debug_tasks()
             await self.protocol.failed.wait()
+            self.__logger.warning('catch protocol failed')
             self._authorized.clear()
+            self.__logger.debug('closing protocol')
             await self.close()
+            self.__logger.debug('protocol closed')
             if self.token is None:
                 raise RuntimeError('Try a connect without token')
             await self.connect()
+            self.__logger.debug('protocol connected')
             await self._auth(
                 token = self.token
             )
+            self.__logger.debug('auth token sent')
 
 
     async def connect(
             self,
     ) -> None:
         await self.protocol.connect()
+        self.__logger.debug('protocol connected')
         if self._keepalive_task:
+            self.__logger.debug('have another keepalive task, cancel it')
             self._keepalive_task.cancel()
+            self.__logger.debug('keepalive task cancelled')
+        self.__logger.debug('start keepalive task')
         self._keepalive_task = asyncio.create_task(self._keepalive())
+        self.__logger.debug('keepalive task started')
 
 
     async def close(
@@ -190,20 +203,31 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             self._keepalive_task.cancel()
 
 
+    async def __send_raw(self, method: BaseMethod, data: dict[Any, Any] | None = None) -> Envelope:
+        """Send request without catching exceptions"""
+        if data is None:
+            data = {}
+
+        response_future = await self.protocol.send(
+            method=method,
+            data=data,
+        )
+
+        return await response_future
+
+
     async def __send_without_auth_check(self, method: BaseMethod, data: dict[Any, Any] | None = None) -> Envelope:
         if data is None:
             data = {}
         while True:
             try:
                 await self.protocol.running.wait()
-                response_future = await self.protocol.send(method=method, data=data)
-                response = await response_future
+                response = await self.__send_raw(method=method, data=data)
                 return response
             except asyncio.CancelledError:
-                self.protocol.running.clear()
-                self.protocol.failed.set()
+                await self.protocol.close()
                 self._authorized.clear()
-                self.__logger.debug('Cancelled request')
+                self.__logger.warning('Cancelled request without auth')
 
 
     async def __send(self, method: BaseMethod, data: dict[Any, Any] | None = None) -> Envelope:
@@ -213,14 +237,12 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             try:
                 await self.protocol.running.wait()
                 await self._authorized.wait()
-                response_future = await self.protocol.send(method=method, data=data)
-                response = await response_future
+                response = await self.__send_raw(method=method, data=data)
                 return response
             except asyncio.CancelledError:
-                self.protocol.running.clear()
-                self.protocol.failed.set()
+                await self.protocol.close()
                 self._authorized.clear()
-                self.__logger.debug('Cancelled request')
+                self.__logger.warning('Cancelled request')
 
 
     async def initialize_client(
@@ -474,6 +496,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                 self._authorized.set()
                 break
             except asyncio.CancelledError:
+                self.__logger.warning('Cancelled auth')
                 self._authorized.clear()
                 await self.close()
                 await self.connect()
@@ -490,7 +513,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                 pong = await self.__send(method=SendKeepAlivePingMethod())
                 self.__logger.debug('keepalive pong %s', pong)
         except asyncio.CancelledError:
-            self.__logger.debug('keepalive ping canceled')
+            self.__logger.warn('keepalive ping canceled')
 
 
     async def _create_cell_for_file(

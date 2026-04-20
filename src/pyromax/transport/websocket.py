@@ -48,6 +48,8 @@ class WebSocketTransport(StreamTransport):
 
 
     async def connect(self) -> None:
+        if self.ws:
+            await self.close()
         self.ws = await connect(
             self.url,
             origin=self.origin,

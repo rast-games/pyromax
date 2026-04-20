@@ -67,7 +67,7 @@ class PushTranslateModel(TranslateModel):
             data['link'] = MessageLink(
                 type=message_link.type,
                 message=translate_message(message_link.message, chat_id),
-            ).model_dump()
+            )
 
             return Message.model_validate(
                 obj=data,

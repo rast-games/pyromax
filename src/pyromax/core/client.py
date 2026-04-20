@@ -58,6 +58,7 @@ class MaxApi(AsyncInitializerMixin):
         logger.info('Initializing protocol...')
         protocol_res: Any = await PROTOCOLS[protocol](transport=max_transport)
         max_protocol: BaseMaxProtocol[Any, Any] = protocol_res
+
         # max_protocol: BaseMaxProtocol[Any, Any] = await PROTOCOLS[protocol](transport=max_transport) # type: ignore
         logger.info('Protocol initialized.')
         logger.info('Initializing mapper...')
@@ -72,6 +73,7 @@ class MaxApi(AsyncInitializerMixin):
             token=token,
             logger=logger
         )
+        # print(f'MaxApi {self.event_router}')
 
 
         await self.mapper.initialize_client(

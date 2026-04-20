@@ -20,7 +20,7 @@ class Message(BaseMaxObject):
     status: Literal['EDITED', 'REPLY', 'USER', 'REMOVED', 'OTHER'] = 'USER'
     text: str | None
     cid: int | None
-    attaches: list[BaseFileAttachment] | None = None
+    attaches: list[Any] | None = None
     elements: list[dict[str, Any]] | None = None
     link: MessageLink | None = None
 
