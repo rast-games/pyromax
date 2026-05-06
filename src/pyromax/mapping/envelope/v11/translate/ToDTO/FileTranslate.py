@@ -14,7 +14,7 @@ from ......models import VideoAttachment, FileAttachment, PhotoAttachment, BaseF
 from ...constants import Opcode
 from ...payloads.models import PhotoMappingModel, VideoMappingModel, FileMappingModel, BaseFileMappingModel
 from .....bases import BaseMapper
-from src.pyromax.mapping.envelope.v11.methods.immutable.methods import GetFileLinkMethod
+from ...methods.immutable import GetFileLinkMethod
 from ......exceptions import DownloadFileError
 
 if TYPE_CHECKING:
