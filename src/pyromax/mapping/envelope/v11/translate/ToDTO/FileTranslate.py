@@ -5,7 +5,7 @@ from typing import Any, TypeVar, Generic, cast, Optional
 from typing_extensions import Self, TYPE_CHECKING
 
 import aiohttp
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field
 
 from ...payloads.requests import FileToPayloadRequest, PhotoToPayloadRequest, VideoToPayloadRequest
 
@@ -14,7 +14,7 @@ from ......models import VideoAttachment, FileAttachment, PhotoAttachment, BaseF
 from ...constants import Opcode
 from ...payloads.models import PhotoMappingModel, VideoMappingModel, FileMappingModel, BaseFileMappingModel
 from .....bases import BaseMapper
-from ...methods import GetFileLinkMethod
+from src.pyromax.mapping.envelope.v11.methods.immutable.methods import GetFileLinkMethod
 from ......exceptions import DownloadFileError
 
 if TYPE_CHECKING:

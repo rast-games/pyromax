@@ -5,6 +5,8 @@ from ..bases.MappingConstants import MappingConstants
 class Opcode(MappingConstants):
     PING = 1
     SEND_USER_AGENT = 6
+    START_SMS_AUTH = 17
+    CHECK_SMS_CODE = 18
     AUTHORIZE = 19
     GET_CONTACT = 32
     # CHAT_INFO = 48
@@ -16,6 +18,7 @@ class Opcode(MappingConstants):
     GET_VIDEO = 83
     GET_FILE = 88
     CREATE_FILE = 87
+    RESOLVE_2FA = 115
     PUSH_NOTIFICATION = 128
     MESSAGE_REACTION_UPDATE = 156
     METADATA_FOR_LOGIN = 288

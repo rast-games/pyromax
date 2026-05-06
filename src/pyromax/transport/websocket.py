@@ -11,6 +11,7 @@ from websockets.asyncio.client import ClientConnection, connect
 
 from .bases import StreamTransport
 from .registry import register_transport
+from random_user_agent.user_agent import UserAgent
 
 
 
@@ -25,9 +26,9 @@ class WebSocketTransport(StreamTransport):
 
     def __init__(
             self,
-            url: str,
+            url: str = "wss://ws-api.oneme.ru/websocket",
             origin: str='https://web.max.ru',
-            user_agent_header: str='Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0'
+            user_agent_header: str=UserAgent().get_random_user_agent(),
     ) -> None:
         self.url = url
         self.origin = Origin(origin)
@@ -37,7 +38,7 @@ class WebSocketTransport(StreamTransport):
         self.BASE_EXCEPTION_FOR_TRANSPORT = WebSocketException
         self.OTHER_EXCEPTIONS_FOR_TRANSPORT = [WebSocketClosedException]
 
-    async def _async_init(self, url: str) -> None:
+    async def _async_init(self, url: str = "wss://ws-api.oneme.ru/websocket") -> None:
         await asyncio.to_thread(self.__init__, url=url) # type: ignore[misc]
         self.__logger.info('Initializing WebSocket Transport')
 

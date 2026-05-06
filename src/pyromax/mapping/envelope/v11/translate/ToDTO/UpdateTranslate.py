@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+import pydantic
 from pydantic import BaseModel
 
 from ......models import BaseMaxObject, Message, MessageLink, EmojiReaction
@@ -28,19 +29,21 @@ class PushTranslateModel(TranslateModel):
         self.payload.message.chat_id = self.payload.chat_id
 
 
-        def translate_message(message: MessageMappingModel, chat_id: int | None = None) -> Message:
+        def translate_message(message: MessageMappingModel, chat_id: int | None = None) -> Message | None:
             message_link = message.link
             message.chat_id = chat_id
             for attach in message.attaches:
-                attach.uploaded = True
-                attach.chat_id = chat_id
-                attach.message_id = message.id
+                if hasattr(attach, 'is_attach') and attach.is_attach:
+                    attach.uploaded = True
+                    attach.chat_id = chat_id
+                    attach.message_id = message.id
 
             raw_message_id = message.id
 
             message_id: int
-
-            if type(raw_message_id) is str:
+            if type(raw_message_id) is int:
+                message_id = raw_message_id
+            elif type(raw_message_id) is str:
                 message_id = int(raw_message_id)
             else:
                 raise RuntimeError('message.id must be int')
@@ -59,15 +62,20 @@ class PushTranslateModel(TranslateModel):
                 'sender_id': message.sender,
             }
             if not message_link or message_link.message is None:
-                return Message.model_validate(
-                    obj=data,
-                    context=context,
-                )
+                try:
+                    return Message.model_validate(
+                        obj=data,
+                        context=context,
+                    )
+                except pydantic.ValidationError as e:
+                    return None
 
-            data['link'] = MessageLink(
-                type=message_link.type,
-                message=translate_message(message_link.message, chat_id),
-            )
+            msg_of_link = translate_message(message_link.message, chat_id)
+            if msg_of_link:
+                data['link'] = MessageLink(
+                    type=message_link.type,
+                    message=msg_of_link,
+                )
 
             return Message.model_validate(
                 obj=data,

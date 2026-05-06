@@ -27,6 +27,8 @@ if TYPE_CHECKING:
 class MaxApi(AsyncInitializerMixin):
     async def _async_init(
             self,
+            device_type: str = 'WEB',
+            password: str | None = None,
             token: str | None = None,
             transport: str = 'Websocket',
             protocol: str = 'EnvelopeProtocol',
@@ -36,9 +38,6 @@ class MaxApi(AsyncInitializerMixin):
     ) -> None:
 
         logger = logging.getLogger('MaxApi')
-
-        if not transport_options:
-            transport_options = {'url': "wss://ws-api.oneme.ru/websocket"}
 
         if transport not in TRANSPORTS:
             raise RuntimeError(f"transport {transport} is not supported")
@@ -53,7 +52,10 @@ class MaxApi(AsyncInitializerMixin):
 
         logger.info('Start initialization...')
         logger.info('Initializing transport...')
-        max_transport = await TRANSPORTS[transport](**transport_options)
+        if transport_options:
+            max_transport = await TRANSPORTS[transport](**transport_options)
+        else:
+            max_transport = await TRANSPORTS[transport]()
         logger.info('Transport initialized.')
         logger.info('Initializing protocol...')
         protocol_res: Any = await PROTOCOLS[protocol](transport=max_transport)
@@ -67,46 +69,34 @@ class MaxApi(AsyncInitializerMixin):
         await asyncio.to_thread(
             self.__init__, # type: ignore[misc]
             protocol=max_protocol,
+            password=password,
             transport=max_transport,
             mapper=max_mapper,
             transport_options=transport_options,
             token=token,
-            logger=logger
+            logger=logger,
+            device_type=device_type,
         )
-        # print(f'MaxApi {self.event_router}')
-
 
         await self.mapper.initialize_client(
             token=token,
+            device_type=device_type,
+            password=password,
             **kwargs
         )
 
 
     def __init__(
             self,
-            transport: BaseTransport | None = None,
-            protocol: BaseMaxProtocol[Any, Any] | None = None,
+            device_type: str = 'WEB',
+            password: str | None = None,
+            transport: str | BaseTransport | None = None,
+            protocol: str | BaseMaxProtocol[Any, Any] | None = None,
             mapper: BaseMapper[Any] | None = None,
             transport_options: dict[str, Any] | None = None,
             token: str | None = None,
             logger: logging.Logger | None = None,
-            # device_id: str = get_random_device_id(),
-            # protocol_version='v11',
-            # device_type: str = 'WEB',
-            # timezone: str = 'Europe/Moscow',
-            # screen: str = '1440x2560 1.0x',
-            # locale: str = 'ru',
-            # device_locale: str = 'ru',
-            # os_version: str = 'Linux',
-            # app_version: str = '26.2.10',
-            # header_user_agent: str = 'Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0',
-            # device_name: str = 'Firefox',
-            # chats_count: int = 40,
-            # interactive: bool = True,
-            # presence_sync: int = -1,
-            # chats_sync: int = 0,
-            # contacts_sync: int = 0,
-            # drafts_sync: int = 0,
+
     ) -> None:
 
         if logger is None:

@@ -30,3 +30,12 @@ def get_random_device_id() -> str:
         random_string.insert(inx, '-')
 
     return ''.join(random_string)
+
+
+def get_random_device_id_numeric() -> str:
+    random_string = ''
+    for _ in range(18):
+        random_string += random.choice(string.digits)
+
+    random_string += '00'
+    return random_string

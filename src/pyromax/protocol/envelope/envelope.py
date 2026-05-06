@@ -19,7 +19,9 @@ class Envelope(BaseModel, Request['Envelope'], Response):
     seq: int
     cmd: int | None = None
     opcode: int | str | None = None
+    ver: int = 11
     payload: Any
+
 
 
     def __hash__(self) -> int:
@@ -32,12 +34,15 @@ class Envelope(BaseModel, Request['Envelope'], Response):
         return response.seq == self.seq and response.cmd != self.cmd and response.opcode == self.opcode
 
 
+
+
 @register_protocol('EnvelopeProtocol')
 class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
     def __init__(self, transport: StreamTransport, ping_interval: int = 30) -> None:
         if not isinstance(transport, StreamTransport):
             raise TypeError('transport must be StreamTransport')
-        self.event_router = EventRouter[Envelope, Envelope]()
+        self.event_router_lock = asyncio.Lock()
+        self.event_router: EventRouter | None = None
         self.__logger = logging.getLogger('EnvelopeProtocol')
         self.__transport = transport
         self._reader_task: asyncio.Task[Any] | None = None
@@ -52,13 +57,23 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
             raise TypeError('transport must be StreamTransport')
 
         await asyncio.to_thread(self.__init__, transport=transport, ping_interval=ping_interval) # type: ignore[misc]
-        await self.connect()
-        self.__logger.info('websocket connected')
+        await self.set_event_router(EventRouter[Envelope, Envelope]())
+        self.__logger.info('protocol connected')
 
 
     @property
     def transport(self) -> StreamTransport:
         return self.__transport
+
+
+    async def get_event_router(self) -> EventRouter | None:
+        async with self.event_router_lock:
+            return self.event_router
+
+
+    async def set_event_router(self, event_router: EventRouter | None) -> None:
+        async with self.event_router_lock:
+            self.event_router = event_router
 
 
     async def connect(self) -> None:
@@ -67,10 +82,10 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         if self._reader_task:
             self.__logger.info('find another reader, closing it...')
             self._reader_task.cancel()
+            await self._reader_task
         self._reader_task = asyncio.create_task(self.receive_reader())
         self.__logger.info('background tasks started')
-        del self.event_router
-        self.event_router = EventRouter()
+        await self.set_event_router(EventRouter())
         self.running.set()
         self.failed.clear()
         self.__transport_inited.set()
@@ -80,10 +95,14 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         self.__logger.info('closing protocol')
         if self._reader_task:
             self._reader_task.cancel()
-
-        if self.event_router:
-            self.event_router.cancel_all()
-            del self.event_router
+            try:
+                await self._reader_task
+            except asyncio.CancelledError:
+                self.__logger.info('reader already cancelled')
+        event_router = await self.get_event_router()
+        if event_router:
+            event_router.cancel_all()
+            await self.set_event_router(None)
         self.event_router = None
         self._reader_task = None
         self.__logger.info('terminated reader task')
@@ -105,32 +124,41 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         await self.__transport_inited.wait()
         await self.__transport.send(request.model_dump(by_alias=True))
         self.__logger.debug(f'send request: {envelope.model_dump(by_alias=True)}')
-        return self.event_router.create_record(envelope)
+        event_router = await self.get_event_router()
+        if not event_router:
+            raise RuntimeError('no event router while send')
+        return event_router.create_record(envelope)
 
 
     async def receive_reader(self) -> None:
         try:
             while True:
                 await self.running.wait()
-                response_raw = json.loads(await self.__transport.recv())
+                response_json = await self.__transport.recv()
+                response_raw = json.loads(response_json)
 
                 # from random import random
                 # rnd = random()
                 #
-                # if rnd > 0.5:
+                # if rnd > 0.5 :
                 #     print('raise')
                 #     print(f'raise {str(response_raw)[0:100]}...')
                 #     raise self.__transport.BASE_EXCEPTION_FOR_TRANSPORT('test')
 
                 response = self.from_response(response_raw)
                 self.__logger.debug('fetched response %s', response)
-                self.event_router.resolve_response(response)
+                event_router = await self.get_event_router()
+                if not event_router:
+                    raise RuntimeError('no event router while receive')
+                event_router.resolve_response(response)
         except self.__transport.BASE_EXCEPTION_FOR_TRANSPORT as e:
             self.__logger.error('error occurred in reader: %s', e)
         finally:
             self.failed.set()
             self.running.clear()
-            self.event_router.cancel_all()
+            event_router = await self.get_event_router()
+            if event_router:
+                event_router.cancel_all()
 
 
     async def get_updates(self) -> Iterable[Envelope]:
@@ -146,8 +174,11 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
 
     async def from_request(self, request: dict[str, Any]) -> Envelope:
         if 'seq' not in request:
-            request['seq'] = await self.event_router.correlator.get_counter()
-            self.event_router.correlator.counter_increment()
+            event_router = await self.get_event_router()
+            if not event_router:
+                raise RuntimeError('no event router while parse request')
+            request['seq'] = await event_router.correlator.get_counter()
+            event_router.correlator.counter_increment()
         if 'payload' not in request:
             request['payload'] = None
         return Envelope(**request)

@@ -17,7 +17,7 @@ class Message(BaseMaxObject):
     time: int
     type: str | None
     sender_id: int | None = None
-    status: Literal['EDITED', 'REPLY', 'USER', 'REMOVED', 'OTHER'] = 'USER'
+    status: Literal['EDITED', 'REPLY', 'USER', 'REMOVED', 'SHARE', 'OTHER'] = 'USER'
     text: str | None
     cid: int | None
     attaches: list[Any] | None = None
@@ -60,5 +60,3 @@ class Message(BaseMaxObject):
             attaches=attaches,
             link=link,
         )
-
-# MessageLink.model_rebuild()

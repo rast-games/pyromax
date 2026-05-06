@@ -3,6 +3,9 @@ from .SendMessageError import SendMessageFileError, SendMessageNotFoundError, Se
 from .AnnotationError import AnnotationError
 from .BackoffError import BackoffError
 from .FileError import FileError, DownloadFileError
+from .SocketTransportErrors import SocketTransportError, SocketTransportConnectionError, SocketTransportSendError
+from .MapperErrors import BaseMapperError, RestartMapperError, GetQRError, MapperApiError, AlreadyFailedError
+
 
 
 __all__ = [
@@ -14,4 +17,12 @@ __all__ = [
     'BackoffError',
     'FileError',
     'DownloadFileError',
+    'SocketTransportError',
+    'SocketTransportConnectionError',
+    'SocketTransportSendError',
+    'BaseMapperError',
+    'RestartMapperError',
+    'GetQRError',
+    'MapperApiError',
+    'AlreadyFailedError'
 ]

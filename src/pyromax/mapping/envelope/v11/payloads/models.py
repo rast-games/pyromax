@@ -1,25 +1,68 @@
 from __future__ import annotations
-
 from abc import abstractmethod, ABC
-from typing import Annotated, Literal, Any
+import random
+from typing import Annotated, Literal, Any, ClassVar, TYPE_CHECKING
 
 from pydantic import Field, BeforeValidator, AliasChoices, AliasPath
+from random_user_agent.user_agent import UserAgent
 
-from .....models import BaseFileAttachment, PhotoAttachment, VideoAttachment, FileAttachment
+from .....models import BaseFileAttachment, PhotoAttachment, VideoAttachment, FileAttachment, ShareAttachment, BaseUserAgent
 from .shared import CamelCaseModel
+from .....utils import get_random_device_id_numeric, get_random_device_id
+
+if TYPE_CHECKING:
+    from .requests import BaseUserAgentRequest, AppUserAgentRequest, WebUserAgentRequest
 
 import time
 
-class UserAgentMappingModel(CamelCaseModel):
+class BaseUserAgentMappingModel(BaseUserAgent, CamelCaseModel, ABC):
     device_type: str
-    locale: str
-    device_locale: str
-    os_version: str
-    device_name: str
-    header_user_agent: str
-    app_version: str
-    screen: str
-    timezone: str
+    locale: str = 'ru'
+    device_id: str = get_random_device_id()
+    timezone: str = 'Europe/Moscow'
+    device_locale: str = 'ru'
+    os_version: str = 'Windows 10 Version 22H2'
+    device_name: str = 'WINDOWS10'
+
+
+    @abstractmethod
+    def to_request(self) -> BaseUserAgentRequest: pass
+
+
+class WebUserAgentMappingModel(BaseUserAgentMappingModel):
+    device_type: str = 'WEB'
+    device_id: str = Field(default=get_random_device_id(), exclude=True)
+    header_user_agent: str = UserAgent().get_random_user_agent()
+    app_version: str = '26.2.10'
+    screen: str = '1440x2560 1.0x'
+
+
+    def to_request(self) -> WebUserAgentRequest:
+        device_id = self.device_id
+        from .requests import WebUserAgentRequest
+        return WebUserAgentRequest(device_id=device_id, user_agent=self)
+
+
+class AppUserAgentMappingModel(BaseUserAgentMappingModel):
+    device_type: str = 'DESKTOP'
+    screen: str = '2.0x'
+    device_id: str = Field(default=get_random_device_id_numeric(), exclude=True)
+    client_session_id: int = Field(default=random.randint(1, 30), exclude=True)
+    build_number: int = 54367
+    app_version: str = '26.14.0'
+
+    def to_request(self) -> AppUserAgentRequest:
+        client_session_id = self.client_session_id
+        device_id = self.device_id
+        from .requests import AppUserAgentRequest
+        return AppUserAgentRequest(device_id=device_id, client_session_id=client_session_id, user_agent=self)
+        # user_agent = self.model_dump(by_alias=True)
+        # return {
+        #     'clientSessionId': client_session_id,
+        #     'deviceId': device_id,
+        #     'userAgent': user_agent,
+        # }
+
 
 
 class AuthMappingModel(CamelCaseModel):
@@ -31,6 +74,11 @@ class AuthMappingModel(CamelCaseModel):
     presence_sync: int
     drafts_sync: int
 
+
+class PasswordConfig(CamelCaseModel):
+    pass_max_len: int
+    pass_min_len: int
+    hint_max_len: int
 
 class NameMappingModel(CamelCaseModel):
     name: str = ''
@@ -58,6 +106,8 @@ class ProfileMappingModel(CamelCaseModel):
 
 
 class BaseFileMappingModel(BaseFileAttachment, CamelCaseModel, ABC):
+    is_attach: ClassVar[bool] = True
+    is_downloadable: ClassVar[bool] = True
     message_id: str | None = None
     uploaded: bool = False
     chat_id: int | None = None
@@ -178,10 +228,28 @@ class FileMappingModel(BaseFileMappingModel, FileAttachment):
 
 
 
+class ShareMappingModel(BaseFileMappingModel, ShareAttachment):
+    image: PhotoMappingModel | None = None
+    description: str | None = None
+    contentLevel: bool | None = None
+    share_id: int
+    title: str | None = None
+    url: str | None = None
+    is_downloadable: ClassVar[bool] = False
+
+    @property
+    def to_payload(self) -> list[dict[str, Any]]:
+        return []
+
+
+    @property
+    def get_payload_to_get_link(self) -> dict[str, Any] | None:
+        raise TypeError('Try a download Share attachment')
+
 class MessageLinkMappingModel(CamelCaseModel):
     type: str | None = None
     message: MessageMappingModel | None = None
-    message_id: str | None = None
+    message_id: int | None = None
 
 
 StatusType = Literal['EDITED', 'REPLY', 'USER', 'REMOVED']
@@ -191,12 +259,13 @@ def validate_status(v: Any) -> Any:
         return 'USER'
     return v
 
+
 class MessageMappingModel(CamelCaseModel):
     cid: int = -round(time.time() * 1000)
-    attaches: list[VideoMappingModel | PhotoMappingModel | FileMappingModel] = []
+    attaches: list[VideoMappingModel | PhotoMappingModel | FileMappingModel | ShareMappingModel | Any] = []
     sender: int | None = None
     chat_id: int | None = None
-    id: str | None = Field(default=None, serialization_alias='message_id')
+    id: str | int | None = Field(default=None, serialization_alias='message_id')
     time: int | None = None
     type: str | None = None
     text: str | None = None
@@ -213,12 +282,9 @@ class ReactionInfoMappingModel(CamelCaseModel):
 MessageLinkMappingModel.model_rebuild()
 
 
-
-
 # structures that are needed in both requests and responses at the same time
 
-class TrackLoginModel(CamelCaseModel):
+class TrackLoginMappingModel(CamelCaseModel):
     track_id: str
-
 
 # end of structures for responses and requests at the same time

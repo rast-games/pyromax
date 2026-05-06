@@ -3,6 +3,8 @@ from abc import abstractmethod
 from collections.abc import AsyncGenerator, Sequence
 from typing import Any, Generic, TypeVar, TYPE_CHECKING
 
+from pydantic import BaseModel
+
 from ...mixins import AsyncInitializerMixin
 
 
@@ -22,12 +24,16 @@ class BaseMapper(AsyncInitializerMixin, Generic[T_protocol]):
 
     protocol: T_protocol
 
+    @property
+    @abstractmethod
+    def DEVICE_TYPE_TO_USERAGENT_MODEL(self) -> dict[str, BaseModel]: pass
+
     @abstractmethod
     async def _async_init(self, max_api: MaxApi, protocol: T_protocol, *args: Any, **kwargs: Any) -> None: pass
 
 
     @abstractmethod
-    async def initialize_client(self, **kwargs: Any) -> None: pass
+    async def initialize_client(self, device_type: str, **kwargs: Any) -> None: pass
 
 
     @abstractmethod

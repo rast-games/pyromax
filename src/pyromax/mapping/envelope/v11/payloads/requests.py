@@ -1,16 +1,47 @@
 from pydantic import Field
 
 from .shared import CamelCaseModel
-from .models import UserAgentMappingModel, MessageMappingModel
+from .models import BaseUserAgentMappingModel, MessageMappingModel, WebUserAgentMappingModel, AppUserAgentMappingModel
 
-class UserAgentRequest(CamelCaseModel):
-    user_agent: UserAgentMappingModel
+class BaseUserAgentRequest(CamelCaseModel):
+    user_agent: BaseUserAgentMappingModel
     device_id: str
+
+
+class AppUserAgentRequest(BaseUserAgentRequest):
+    user_agent: AppUserAgentMappingModel
+    device_id: str
+    client_session_id: int
+
+
+class WebUserAgentRequest(CamelCaseModel):
+    user_agent: WebUserAgentMappingModel
+    device_id: str
+
+
+class Resolve2FARequest(CamelCaseModel):
+    password: str
+    track_id: str
+
+
+class StartPhoneAuthRequest(CamelCaseModel):
+    phone: str
+    type: str
+
+
+class VerifySMSCodeRequest(CamelCaseModel):
+    verify_code: str
+    token: str
+    auth_token_type: str
 
 
 class SendMessageRequest(CamelCaseModel):
     chat_id: int
     message: MessageMappingModel
+
+
+class KeepAliveRequest(CamelCaseModel):
+    interactive: bool = True
 
 
 # --- Files Requests ---

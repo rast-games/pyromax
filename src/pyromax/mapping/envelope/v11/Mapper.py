@@ -2,38 +2,44 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from asyncio import Task, Lock
+from asyncio import Task, Lock, CancelledError
 from collections.abc import AsyncGenerator, Callable
 from typing import Any, TYPE_CHECKING, Coroutine, Sequence, cast
 
 import aiohttp
 import qrcode
 
+# from .... import BaseUserAgent
 from ....protocol import BaseMaxProtocol, Envelope
-from ....exceptions import SendMessageFileError, SendMessageNotFoundError, SendMessageError, DownloadFileError
+from ....exceptions import SendMessageFileError, SendMessageNotFoundError, SendMessageError, DownloadFileError, RestartMapperError, \
+    MapperApiError, AlreadyFailedError
 from ...bases import BaseMapper
 from ....models import BaseFileAttachment, BaseMaxObject
 from ....protocol import EnvelopeProtocol
-from ....utils import read_token, write_token, get_random_device_id, Backoff, BackoffConfig, clean_and_map
-from .methods import (BaseMethod, SendUserAgentMethod, SendAuthTokenMethod, SendKeepAlivePingMethod,
-    GetUrlToUploadFileMethod, SendMessageMethod, GetMetadataForLoginMethod, TrackLoginMethod, GetUserDataMethod,
-                      GetGeneralInfoAboutMember)
-from .payloads.responses import (AuthResponse, TrackLoginResponse, MetadataResponse, SuccessLoginResponse, ResponseWithUrl, SendMessageResponse,
-                                 GetContactResponse)
-from .payloads.models import UserAgentMappingModel, BaseFileMappingModel, MessageMappingModel
-from .translate.ToDTO import (update_translate, upload_file, FILE_OPCODES, FALLBACK_FILE_OPCODE, BaseFileMapping, get_file_url,
+from ....utils import read_token, write_token, Backoff, clean_and_map
+from .methods.immutable import (
+    BaseMethod, SendUserAgentMethod, SendAuthTokenMethod, SendKeepAlivePingMethod, GetUrlToUploadFileMethod,
+    SendMessageMethod, GetGeneralInfoAboutMember, Resolve2FAMethod, GetMetadataForLoginMethod
+)
+from .payloads.responses import (
+    AuthResponse, MetadataResponse, SuccessLoginResponse, ResponseWithUrl, SendMessageResponse,
+    GetContactResponse, ErrorMessageResponse, ChoiceLoginVariantResponse
+)
+from .payloads.models import BaseUserAgentMappingModel, BaseFileMappingModel, MessageMappingModel
+from .translate.ToDTO import (update_translate, upload_file, FILE_OPCODES, FALLBACK_FILE_OPCODE, get_file_url,
                               translate_models)
 from .payloads.shared import CamelCaseModel
 from ...registry import register_mapper
 from ....dispatcher.event.UpdateType import Update
 from ....exceptions import BackoffError
+from ....utils import debug_tasks
+from .constants import DEVICE_TYPE_TO_USERAGENT_MODEL, DEFAULT_BACKOFF_CONFIG
+from .methods.build_ins import build_method, method_names
 
 if TYPE_CHECKING:
     from ....models import MessageLink
     from ....core import MaxApi
 
-
-DEFAULT_BACKOFF_CONFIG = BackoffConfig(min_delay=1.0, max_delay=5.0, factor=1.3, jitter=0.1)
 
 @register_mapper('EnvelopeV11')
 class Mapper(BaseMapper[EnvelopeProtocol]):
@@ -47,13 +53,24 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
         self._keepalive_ping_interval = keepalive_ping_interval
         self.__logger = logging.getLogger('MapperV11')
         self._keepalive_task: Task[Any] | None = None
+        self.keep_alive_interactive: bool = True
         self._update_listener_task: Task[Any] | None = None
         self.token: str | None = None
-        self.TOKEN_NAME = 'ENVELOPE_MAX_TOKEN_V11'
+        self.TOKEN_NAME = 'ENVELOPE_MAX_TOKEN_V11' + self.protocol.transport.__class__.__name__
         self.max_api: MaxApi | None = None
         self._manage_lifecycle_task: Task[Any] | None = None
         self._update_listener_lock: Lock = Lock()
         self._authorized = asyncio.Event()
+        self.user_agent: BaseUserAgentMappingModel | None = None
+        self.logged: bool = False
+        self.password: str | None = None
+        self.phone = None
+        self.sms_auth = False
+
+
+    @property
+    def DEVICE_TYPE_TO_USERAGENT_MODEL(self) -> dict[str, type[BaseUserAgentMappingModel]]:
+        return DEVICE_TYPE_TO_USERAGENT_MODEL
 
 
     async def _async_init(
@@ -65,48 +82,34 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             **kwargs: Any,
     ) -> None:
         from ....core import MaxApi
-
-
         if not isinstance(max_api, MaxApi):
             raise TypeError('max_api must be an instance of MaxApi')
-
         if not isinstance(protocol, EnvelopeProtocol):
             raise TypeError("protocol must be an instance of EnvelopeProtocol")
         await asyncio.to_thread(self.__init__, protocol=protocol, keepalive_ping_interval=keepalive_ping_interval) # type: ignore[misc]
-        await self.connect()
-        self._manage_lifecycle_task = asyncio.create_task(self._manage_lifecycle())
-        self.__logger.info("Mapper initialized")
         self.max_api = max_api
 
 
+    async def _call_build_in_method(
+            self,
+            method_name: method_names,
+            *args: Any,
+            **kwargs: Any,
+    ):
+        method = build_method(method_name=method_name, transport=self.protocol.transport)
+        return await method(mapper=self,*args, **kwargs)
+
     async def _send_user_agent(
             self,
-            device_id: str,
-            device_type: str,
-            timezone: str,
-            screen: str,
-            locale: str,
-            device_locale: str,
-            os_version: str,
-            app_version: str,
-            header_user_agent: str,
-            device_name: str,
+            user_agent: BaseUserAgentMappingModel,
     ) -> None:
-        await (self.__send_raw
-            (method=SendUserAgentMethod(
-            device_id=device_id,
-            user_agent=UserAgentMappingModel(
-                device_type=device_type,
-                timezone=timezone,
-                screen=screen,
-                locale=locale,
-                device_locale=device_locale,
-                os_version=os_version,
-                app_version=app_version,
-                header_user_agent=header_user_agent,
-                device_name=device_name,
+
+
+        await self.send_raw(
+            method=SendUserAgentMethod(
+                user_agent=user_agent,
             )
-        )))
+        )
 
 
     async def listen_updates(
@@ -118,6 +121,16 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             while True:
                 updates = await self.protocol.get_updates()
                 for update in updates:
+                    if update.model_dump().get('error'):
+                        error = ErrorMessageResponse(**update.model_dump(by_alias=True))
+                        error_msg = \
+                            f"""
+                            error: {error.error},
+                            title: {error.title},
+                            localized_message: {error.localized_message},
+                            message: {error.message}
+                            """
+                        raise MapperApiError(error_msg)
                     yield cast(Update, update_translate(update, context=context))
 
 
@@ -132,7 +145,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             drafts_sync: int
     ) -> None:
         self.__logger.debug('sending auth token')
-        response = await self.__send_raw(method=SendAuthTokenMethod(
+        response = await self.send_raw(method=SendAuthTokenMethod(
             token=token,
             chats_count=chats_count,
             interactive=interactive,
@@ -161,23 +174,38 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
 
     async def _manage_lifecycle(
             self,
+            **kwargs
     ) -> None:
         while True:
-            # debug_tasks()
-            await self.protocol.failed.wait()
-            self.__logger.warning('catch protocol failed')
-            self._authorized.clear()
-            self.__logger.debug('closing protocol')
-            await self.close()
-            self.__logger.debug('protocol closed')
-            if self.token is None:
-                raise RuntimeError('Try a connect without token')
-            await self.connect()
-            self.__logger.debug('protocol connected')
-            await self._auth(
-                token = self.token
-            )
-            self.__logger.debug('auth token sent')
+            manage_lifecycle_backoff = Backoff(DEFAULT_BACKOFF_CONFIG)
+            try:
+                self.__logger.debug('closing protocol')
+                await self.close()
+                self.__logger.debug('protocol closed')
+                self._authorized.clear()
+                await self.connect()
+                if not self.logged or not self.token:
+                    await self.login(kwargs.get('url_callback'), login_backoff=manage_lifecycle_backoff)
+                    self.logged = True
+                await self._auth(
+                    token=self.token,
+                    user_agent=self.user_agent
+                )
+                self.__logger.debug('auth token sent')
+                await self.protocol.failed.wait()
+                self.__logger.warning('catch protocol failed')
+
+                if self.token is None:
+                    raise RuntimeError('Try a connect without token')
+
+                self.__logger.debug('protocol connected')
+
+            except (RestartMapperError, AlreadyFailedError, BackoffError) as e:
+                self.__logger.warning('Start/restart error: %s', e)
+                self.__logger.debug('Failed to start/restart mapper')
+                self.__logger.debug('starting/restarting mapper(again)...')
+
+
 
 
     async def connect(
@@ -203,204 +231,169 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             self._keepalive_task.cancel()
 
 
-    async def __send_raw(self, method: BaseMethod, data: dict[Any, Any] | None = None) -> Envelope:
+    def log(self, level: int, msg: str) -> None:
+        """
+        CRITICAL = 50
+        FATAL = CRITICAL
+        ERROR = 40
+        WARNING = 30
+        WARN = WARNING
+        INFO = 20
+        DEBUG = 10
+        NOTSET = 0
+
+        :param level:
+        :param msg:
+        :return:
+        """
+        self.__logger.log(level, msg)
+
+    async def send_raw(self, method: BaseMethod, data: dict[Any, Any] | None = None, check_errors: bool = False) -> Envelope:
         """Send request without catching exceptions"""
         if data is None:
             data = {}
+
+        if self.protocol.failed.is_set():
+            raise AlreadyFailedError('Mapper protocol already failed, need restart')
 
         response_future = await self.protocol.send(
             method=method,
             data=data,
         )
+        response = await response_future
+        if check_errors and response.payload.get('error'):
+            print('RAISING ERROR AJF :ASJK F:LASJF')
+            error = ErrorMessageResponse(**response.payload)
+            error_msg = \
+            f"""
+            error: {error.error},
+            title: {error.title},
+            localized_message: {error.localized_message},
+            message: {error.error_message}
+            
+            """
+            error_obj = MapperApiError(error_msg)
+            error_obj.title = error.title
+            error_obj.localized_message = error.localized_message
+            error_obj.message = error.error_message
+            error_obj.error = error.error
+            raise error_obj
+        return response
 
-        return await response_future
 
 
-    async def __send_without_auth_check(self, method: BaseMethod, data: dict[Any, Any] | None = None) -> Envelope:
+    async def send_raw_with_running_wait(self, method: BaseMethod, data: dict[Any, Any] | None = None) -> Envelope:
         if data is None:
             data = {}
-        while True:
-            try:
-                await self.protocol.running.wait()
-                response = await self.__send_raw(method=method, data=data)
-                return response
-            except asyncio.CancelledError:
-                await self.protocol.close()
-                self._authorized.clear()
-                self.__logger.warning('Cancelled request without auth')
+        await self.protocol.running.wait()
+        response = await self.send_raw(method=method, data=data)
+        return response
 
 
-    async def __send(self, method: BaseMethod, data: dict[Any, Any] | None = None) -> Envelope:
+    async def send(self, method: BaseMethod, data: dict[Any, Any] | None = None, return_exception: bool = False) -> Envelope:
         if data is None:
             data = {}
         while True:
             try:
                 await self.protocol.running.wait()
                 await self._authorized.wait()
-                response = await self.__send_raw(method=method, data=data)
+                response = await self.send_raw(method=method, data=data)
                 return response
-            except asyncio.CancelledError:
+            except CancelledError:
                 await self.protocol.close()
                 self._authorized.clear()
                 self.__logger.warning('Cancelled request')
+                if return_exception:
+                    raise CancelledError('Cancelled request')
 
+
+    async def login(
+            self,
+            url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
+            login_backoff: Backoff | None = None,
+    ) -> SuccessLoginResponse | None:
+        token = await read_token(
+            name_of_token=self.TOKEN_NAME
+        )
+
+        if not token:
+
+            self.__logger.info('haven`t token. Start login...')
+            user = await self._login(
+                user_agent=self.user_agent,
+                login_backoff=login_backoff,
+                url_callback=url_callback,
+            )
+
+            self.__logger.info('get token from login...')
+
+            token = user.token_attrs.token
+            self.token = token
+
+            await write_token(
+                token=token,
+                name_of_token=self.TOKEN_NAME
+            )
+            self.__logger.info('was write token in tokens.json successfully.')
+            return user
+        else:
+            self.__logger.info('token was get from tokens.json')
+            self.token = token
+            return None
 
     async def initialize_client(
             self,
             token: str | None = None,
-            device_id: str = get_random_device_id(),
+            device_id: str | None = None,
             protocol_version: str='v11',
             device_type: str = 'WEB',
-            timezone: str = 'Europe/Moscow',
-            screen: str = '1440x2560 1.0x',
-            locale: str = 'ru',
-            device_locale: str = 'ru',
-            os_version: str = 'Linux',
-            app_version: str = '26.2.10',
-            header_user_agent: str = 'Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0',
-            device_name: str = 'Firefox',
-            chats_count: int = 40,
+            password: str | None = None,
+            phone: str | None = None,
+            sms_auth=False,
             interactive: bool = True,
-            presence_sync: int = -1,
-            chats_sync: int = 0,
-            contacts_sync: int = 0,
-            drafts_sync: int = 0,
             url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
             **kwargs: Any
     ) -> None:
-        if not token:
-
-            token = await read_token(
-                name_of_token=self.TOKEN_NAME
-            )
-
-            if not token:
-
-                self.__logger.info('haven`t token. Start login...')
-                user = await self._login(
-                    device_id=device_id,
-                    device_type=device_type,
-                    timezone=timezone,
-                    screen=screen,
-                    locale=locale,
-                    device_locale=device_locale,
-                    os_version=os_version,
-                    app_version=app_version,
-                    header_user_agent=header_user_agent,
-                    device_name=device_name,
-                    url_callback=url_callback,
-                )
-
-                self.__logger.info('get token from login...')
-
-                token = user.token_attrs.token
-
-                await write_token(
-                    token=token,
-                    name_of_token=self.TOKEN_NAME
-                )
-                self.__logger.info('was write token in tokens.json successfully.')
-            else:
-                self.__logger.info('token was get from tokens.json')
-
+        if device_type not in self.DEVICE_TYPE_TO_USERAGENT_MODEL:
+            raise RuntimeError(f'Unknown device type: {device_type}')
+        user_agent_model = self.DEVICE_TYPE_TO_USERAGENT_MODEL[device_type]
+        user_agent = user_agent_model(device_type=device_type)
+        self.user_agent = user_agent
         self.token = token
-
-        await self._auth(
-            token = token,
-            device_id = device_id,
-            device_type = device_type,
-            timezone = timezone,
-            screen = screen,
-            locale = locale,
-            device_locale = device_locale,
-            os_version = os_version,
-            app_version = app_version,
-            header_user_agent = header_user_agent,
-            device_name = device_name,
-            chats_count = chats_count,
-            interactive = interactive,
-            presence_sync = presence_sync,
-            chats_sync = chats_sync,
-            contacts_sync = contacts_sync,
-            drafts_sync = drafts_sync,
-        )
+        self.password = password
+        self.phone = phone
+        self.sms_auth = sms_auth
+        self._manage_lifecycle_task = asyncio.create_task(self._manage_lifecycle(url_callback=url_callback))
+        self.__logger.info("Mapper initialized")
 
 
-    async def _track_login(
-            self,
-            track_id: str,
-            polling_interval: int | float,
-    ) -> None:
-
-        not_logged = True
-        while not_logged:
-            await asyncio.sleep(polling_interval)
-
-            response = await self.__send_without_auth_check(
-                method=TrackLoginMethod(
-                    track_id=track_id
-                )
-            )
-
-            track_data = TrackLoginResponse(
-                **response.payload
-            )
-
-            if track_data is None:
-                raise RuntimeError('Track login failed.')
-
-            if track_data.status is None:
-                raise RuntimeError("Track status is missing in response")
-
-
-            if track_data.status and track_data.status.expires_at < time.time() or track_data.error or track_data.error_message or track_data.localized_message:
-                msg = '''
-                Time for login expired
-                    '''
-                raise TimeoutError(msg)
-
-
-            if track_data.status.login_available:
-                not_logged = False
-
-
-    async def _get_user_data(
+    async def _resolve_two_factor(
             self,
             track_id: str
     ) -> SuccessLoginResponse:
-
-        response = await self.__send_without_auth_check(
-            method=GetUserDataMethod(
-                track_id=track_id
+        if self.password is None:
+            raise RuntimeError('No password given, but need 2FA')
+        response = await self.send_raw_with_running_wait(
+            method=Resolve2FAMethod(
+                password=self.password,
+                track_id=track_id,
             )
         )
         user = SuccessLoginResponse(
             **response.payload
         )
-
-        if self.max_api is None:
-            raise RuntimeError('Mapper not bound to MaxApi instance')
-
-        self.max_api.token = self.token = user.token_attrs.token
-
-
         return user
+
 
     async def _login(
             self,
-            device_id: str,
-            device_type: str,
-            timezone: str,
-            screen: str,
-            locale: str,
-            device_locale: str,
-            os_version: str,
-            app_version: str,
-            header_user_agent: str,
-            device_name: str,
+            user_agent: BaseUserAgentMappingModel,
+            login_backoff: Backoff | None = None,
+            code_getter = None,
             url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
     ) -> SuccessLoginResponse:
-
+        if login_backoff is None:
+            login_backoff = Backoff(config=DEFAULT_BACKOFF_CONFIG)
         if not url_callback:
             async def url_callback(url: str) -> None:
                 """
@@ -417,52 +410,51 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                 qr.make(fit=True)
                 qr.print_ascii(invert=True)
 
-        await self._send_user_agent(
-            device_id=device_id,
-            device_type=device_type,
-            timezone=timezone,
-            screen=screen,
-            locale=locale,
-            device_locale=device_locale,
-            os_version=os_version,
-            app_version=app_version,
-            header_user_agent=header_user_agent,
-            device_name=device_name,
-        )
+        try:
+            await self._send_user_agent(
+                user_agent = user_agent,
+            )
+            response = await self.send_raw(
+                method=GetMetadataForLoginMethod(),
+                check_errors=True
+            )
+            metadata = MetadataResponse(**response.payload)
 
-        response = await self.__send_without_auth_check(
-            method=GetMetadataForLoginMethod()
-        )
+            choice: ChoiceLoginVariantResponse = await self._call_build_in_method(
+                method_name='LOGIN',
+                metadata=metadata,
+                url_callback=url_callback,
+                code_getter=code_getter,
+                login_backoff=login_backoff,
+                user_agent=user_agent,
+                sms_auth=self.sms_auth,
+            )
+            user: SuccessLoginResponse
 
-        metadata = MetadataResponse(**response.payload)
+            if choice.payload.TwoFactor:
+                user = await self._resolve_two_factor(
+                    track_id=choice.payload.password_challenge.track_id
+                )
+            else:
+                user = choice.payload
 
-        await url_callback(metadata.qr_link)
-
-        await self._track_login(
-            polling_interval=metadata.polling_interval,
-            track_id=metadata.track_id,
-        )
-
-        user = await self._get_user_data(
-            track_id=metadata.track_id,
-        )
-
-        return user
-
+            return user
+        except asyncio.CancelledError:
+            self.__logger.error('Login cancelled')
+            await login_backoff.asleep()
+            raise RestartMapperError('Failed to login')
+        except TimeoutError as e:
+            self.__logger.error('Login timed out')
+            raise RestartMapperError('Failed to login - timeout')
+        except Exception as e:
+            self.__logger.error('Failed to login: %s - %s', e.__class__.__name__, e)
+            await login_backoff.asleep()
+            raise RestartMapperError('Failed to login')
 
     async def _auth(
             self,
             token: str,
-            device_id: str = get_random_device_id(),
-            device_type: str = 'WEB',
-            timezone: str = 'Europe/Moscow',
-            screen: str = '1440x2560 1.0x',
-            locale: str = 'ru',
-            device_locale: str = 'ru',
-            os_version: str = 'Linux',
-            app_version: str = '26.2.10',
-            header_user_agent: str = 'Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0',
-            device_name: str = 'Firefox',
+            user_agent: BaseUserAgentMappingModel,
             chats_count: int = 40,
             interactive: bool = True,
             presence_sync: int = -1,
@@ -472,17 +464,9 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
     ) -> None:
         while True:
             try:
+
                 await self._send_user_agent(
-                    device_id=device_id,
-                    device_type=device_type,
-                    timezone=timezone,
-                    screen=screen,
-                    locale=locale,
-                    device_locale=device_locale,
-                    os_version=os_version,
-                    app_version=app_version,
-                    header_user_agent=header_user_agent,
-                    device_name=device_name,
+                    user_agent = user_agent,
                 )
                 await self._send_auth_token(
                     token=token,
@@ -498,8 +482,8 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             except asyncio.CancelledError:
                 self.__logger.warning('Cancelled auth')
                 self._authorized.clear()
-                await self.close()
-                await self.connect()
+                self.protocol.failed.set()
+                raise RestartMapperError('Auth failed')
 
 
     async def _keepalive(
@@ -510,10 +494,12 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                 await self.protocol.running.wait()
                 await asyncio.sleep(self._keepalive_ping_interval)
                 self.__logger.debug('send keepalive ping...')
-                pong = await self.__send(method=SendKeepAlivePingMethod())
+                pong = await self.send(method=SendKeepAlivePingMethod(
+                    interactive=self.keep_alive_interactive
+                ))
                 self.__logger.debug('keepalive pong %s', pong)
         except asyncio.CancelledError:
-            self.__logger.warn('keepalive ping canceled')
+            self.__logger.warning('keepalive ping canceled')
 
 
     async def _create_cell_for_file(
@@ -521,7 +507,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             opcode: int,
             count: int = 1,
     ) -> dict[str, Any]:
-        response = await self.__send(
+        response = await self.send(
             method=GetUrlToUploadFileMethod(type_of_file_opcode=opcode, count=count)
         )
 
@@ -619,7 +605,8 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             attaches = []
         attachments = []
         for attach in attaches:
-            attachments.extend(attach.to_payload)
+            if hasattr(attach, 'is_attach') and attach.is_attach:
+                attachments.extend(attach.to_payload)
         backoff = Backoff(config=DEFAULT_BACKOFF_CONFIG)
         text, elements = clean_and_map(
             text if text else '',
@@ -628,7 +615,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
             ]
         )
         try:
-            response = await self.__send(
+            response = await self.send(
                 method=SendMessageMethod(
                     chat_id=chat_id,
                     text=text,
@@ -645,7 +632,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                     title = response.model_dump().get('payload', {}).get('title')
                     match error_if_exist:
                         case 'attachment.not.ready':
-                            response = await self.__send(
+                            response = await self.send(
                                 method=SendMessageMethod(
                                     chat_id=chat_id,
                                     text=text,
@@ -691,9 +678,10 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
                 attach.chat_id = response_parsed.chat_id
                 attach.uploaded = True
             for i, attach in enumerate(original_attaches or []):
-                recv_attach = response_parsed.message.attaches[i]
-                for attr, value in recv_attach.__dict__.items():
-                    setattr(attach, attr, value)
+                if hasattr(attach, 'is_attach') and attach.is_attach and hasattr(attach, 'is_downloadable') and attach.is_downloadable:
+                    recv_attach = response_parsed.message.attaches[i]
+                    for attr, value in recv_attach.__dict__.items():
+                        setattr(attach, attr, value)
             return response_parsed.message
 
         except (asyncio.CancelledError, self.protocol.transport.BASE_EXCEPTION_FOR_TRANSPORT) as e:
@@ -709,7 +697,7 @@ class Mapper(BaseMapper[EnvelopeProtocol]):
         else:
             raise TypeError('member_id must be int or list[int]')
 
-        response_envelope = await self.__send(
+        response_envelope = await self.send(
             method=GetGeneralInfoAboutMember(
                 contact_ids=contact_ids,
             )

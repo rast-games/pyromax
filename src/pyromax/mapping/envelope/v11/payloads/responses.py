@@ -1,10 +1,10 @@
-from typing import Any
+from typing import Any, ClassVar
 
 from typing_extensions import Self
 
 from .shared import CamelCaseModel
 from pydantic import Field, AliasPath, model_validator, AliasChoices
-from .models import (ProfileMappingModel, MessageMappingModel, ReactionInfoMappingModel, ContactMappingModel)
+from .models import (ProfileMappingModel, MessageMappingModel, ReactionInfoMappingModel, ContactMappingModel, PasswordConfig)
 
 
 class TokenAttrsResponse(CamelCaseModel):
@@ -14,6 +14,30 @@ class TokenAttrsResponse(CamelCaseModel):
 class SuccessLoginResponse(CamelCaseModel):
     token_attrs: TokenAttrsResponse
     profile: ProfileMappingModel
+    TwoFactor: ClassVar[bool] = False
+
+
+class StartSMSAuthResponse(CamelCaseModel):
+    alt_action_duration: int
+    code_length: int
+    request_count_left: int
+    request_max_duration: int
+    token: str
+
+
+class PasswordChallengeResponse(CamelCaseModel):
+    config: PasswordConfig
+    track_id: str
+    email: str
+
+
+class TwoFactorLoginResponse(CamelCaseModel):
+    password_challenge: PasswordChallengeResponse
+    token_attrs: dict
+    TwoFactor: ClassVar[bool] = True
+
+class ChoiceLoginVariantResponse(CamelCaseModel):
+    payload: SuccessLoginResponse | TwoFactorLoginResponse
 
 class AuthResponse(CamelCaseModel):
     chats: list[Any]
@@ -36,6 +60,7 @@ class ErrorMessageResponse(CamelCaseModel):
     error: str | None = None
     error_message: str | None = Field(default=None, alias='message')
     localized_message: str | None = None
+    title: str | None = None
 
 
 class TrackStatusResponse(CamelCaseModel):
@@ -98,7 +123,7 @@ class PushUpdateResponse(CamelCaseModel):
     ttl: bool
     mark: int
     unread: int | None
-    prev_message_id: str | None = None
+    prev_message_id: str | int | None = None
 
 
 class EmojiReactionUpdateResponse(CamelCaseModel):

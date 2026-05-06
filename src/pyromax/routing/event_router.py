@@ -76,9 +76,12 @@ class EventRouter(Generic[request, response]):
     def cancel_all(self) -> None:
         for future_like in self.__pending.values():
             future_like.cancel()
+        self.__pending.clear()
 
         for pop_updates_task in self.__pop_updates_calls:
             pop_updates_task.cancel()
+
+        self.__pop_updates_calls.clear()
 
         self.__cancelled = True
 

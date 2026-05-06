@@ -14,3 +14,6 @@ class PhotoAttachment(BaseFileAttachment):
 
 class FileAttachment(BaseFileAttachment):
     pass
+
+class ShareAttachment(BaseFileAttachment):
+    pass
