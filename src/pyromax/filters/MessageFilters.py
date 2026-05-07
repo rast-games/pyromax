@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 
 class FromMeFilter(Filter):
+    """Match updates that were sent by the current user."""
 
     @property
     def work_with(self) -> tuple[type[Message]]:
@@ -25,6 +26,7 @@ class FromMeFilter(Filter):
 
 
 class ReplyToMessageFilter(Filter):
+    """Match messages that are replies to another message."""
 
     @property
     def work_with(self) -> tuple[type[Message]]:
@@ -42,6 +44,8 @@ class ReplyToMessageFilter(Filter):
 
 
 class MessageForwardFromFilter(Filter):
+    """Match forwarded messages."""
+
     @property
     def work_with(self) -> tuple[type[Message]]:
         return (Message,)
@@ -57,6 +61,8 @@ class MessageForwardFromFilter(Filter):
 
 
 class MessageRemovedFilter(Filter):
+    """Match removed messages."""
+
     @property
     def work_with(self) -> tuple[type[Message]]:
         return (Message,)
@@ -68,6 +74,8 @@ class MessageRemovedFilter(Filter):
 
 
 class FromChatFilter(Filter):
+    """Match messages from a specific chat."""
+
     def __init__(self, chat_ids: int | Iterable[int]) -> None:
         super().__init__()
         if isinstance(chat_ids, int):
@@ -85,6 +93,8 @@ class FromChatFilter(Filter):
 
 
 class HaveAttachFilter(Filter):
+    """Match messages that contain attachments."""
+
     @property
     def work_with(self) -> tuple[type[Message]]:
         return (Message,)

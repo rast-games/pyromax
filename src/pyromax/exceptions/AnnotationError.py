@@ -2,4 +2,4 @@ from .BaseMaxApiException import BaseMaxApiException
 
 
 class AnnotationError(BaseMaxApiException):
-    """Exception raised when param in handler not annotated"""
+    """Raised when a handler parameter is not annotated."""

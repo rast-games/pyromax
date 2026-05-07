@@ -13,13 +13,14 @@ if TYPE_CHECKING:
 CommandPatternType = str | Pattern[str]
 
 class CommandException(Exception):
-    pass
+    """Raised when command parsing fails."""
 
 @dataclass(frozen=True)
 class CommandObject:
-    """
-    Instance of this object is always has command and it prefix.
-    Can be passed as keyword argument **command** to the handler
+    """Parsed command data extracted from a message.
+
+    The object stores command metadata such as prefix, command name,
+    optional mention, and arguments.
     """
 
     prefix: str = "/"

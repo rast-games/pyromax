@@ -5,6 +5,7 @@ from ..models import EmojiReaction
 
 
 class EmojiReactionAddFilter(Filter):
+    """Match emoji reaction add events."""
 
     @property
     def work_with(self) -> tuple[type[EmojiReaction]]:
@@ -15,6 +16,7 @@ class EmojiReactionAddFilter(Filter):
 
 
 class EmojiReactionRemoveFilter(Filter):
+    """Match emoji reaction remove events."""
 
     @property
     def work_with(self) -> tuple[type[EmojiReaction]]:

@@ -13,7 +13,19 @@ if TYPE_CHECKING:
 
 
 class Handler(Observer, Generic[Update]):
+    """Wrap a callable handler with filters and a pattern."""
     def __init__(self, function: Callable[..., Any], filters: Iterable[Filter], pattern: Callable[[Update], Any] | None = None):
+        """Create a handler wrapper.
+
+        Parameters
+        ----------
+        function
+            Async callable to execute.
+        filters
+            Iterable of filters to apply before calling the handler.
+        pattern
+            Optional predicate used as a final condition.
+        """
         self.function = function
         self.filters = filters
         self.pattern = pattern

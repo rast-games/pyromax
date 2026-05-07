@@ -8,9 +8,21 @@ from .Handler import Handler
 
 
 class MessageEventObserver(StandardMaxEventObserver[Message]):
+    """Observe regular message events and register message handlers."""
 
     def __call__(self, *filters: Filter, pattern: Callable[[Message], bool] | None = None, from_me: bool = False)\
             -> Callable[[Callable[..., Any]], None]:
+        """Register a message handler decorator.
+
+        Parameters
+        ----------
+        filters
+            Additional filters applied to the handler.
+        pattern
+            Optional message predicate.
+        from_me
+            If True, allow messages from the current user.
+        """
         filters_list = []
         filters_list += list(filters)
         if not from_me:
@@ -29,6 +41,7 @@ class MessageEventObserver(StandardMaxEventObserver[Message]):
 
 
 class MessageForwardEventObserver(MessageEventObserver):
+    """Observe forwarded messages."""
     async def is_my_update(
             self,
             update: Message
@@ -38,6 +51,7 @@ class MessageForwardEventObserver(MessageEventObserver):
 
 
 class ReplyToMessageEventObserver(MessageEventObserver):
+    """Observe reply messages."""
     async def is_my_update(
             self,
             update: Message
@@ -48,6 +62,7 @@ class ReplyToMessageEventObserver(MessageEventObserver):
 
 
 class RemovedMessageEventObserver(MessageEventObserver):
+    """Observe removed messages."""
     async def is_my_update(
             self,
             update: Message

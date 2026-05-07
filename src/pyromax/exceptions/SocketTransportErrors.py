@@ -2,12 +2,12 @@ from .BaseMaxApiException import BaseMaxApiException
 
 
 class SocketTransportError(BaseMaxApiException):
-    pass
+    """Base class for socket transport errors."""
 
 
 class SocketTransportConnectionError(SocketTransportError):
-    pass
+    """Raised when the socket transport connection fails."""
 
 
 class SocketTransportSendError(SocketTransportError):
-    pass
+    """Raised when the socket transport cannot send data."""

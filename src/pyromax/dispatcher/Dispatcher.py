@@ -14,6 +14,11 @@ if TYPE_CHECKING:
 
 
 class Dispatcher(Router):
+    """Top-level router that starts update polling.
+
+    Dispatcher extends Router and is intended to be the root object
+    that receives updates from MaxApi and dispatches them to handlers.
+    """
     def __init__(self) -> None:
         super().__init__()
 
@@ -21,6 +26,13 @@ class Dispatcher(Router):
 
 
     async def start_polling(self, max_api: MaxApi) -> None:
+        """Start reading updates and dispatch them to handlers.
+
+        Parameters
+        ----------
+        max_api
+            Initialized MaxApi instance.
+        """
 
         context = {
             'max_api': max_api

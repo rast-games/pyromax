@@ -1,4 +1,4 @@
 from .BaseMaxApiException import BaseMaxApiException
 
 class BackoffError(BaseMaxApiException):
-    pass
+    """Raised when the client cannot recover after backoff."""

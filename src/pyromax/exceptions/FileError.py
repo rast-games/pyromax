@@ -2,8 +2,8 @@ from .BaseMaxApiException import BaseMaxApiException
 
 
 class FileError(BaseMaxApiException):
-    pass
+    """Base class for file-related errors."""
 
 
 class DownloadFileError(FileError):
-    pass
+    """Raised when a file download fails."""

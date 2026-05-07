@@ -1,12 +1,12 @@
 # Quick Start
 
-## Установка
+## Installation
 
 ```bash
 pip install pyromax
 ```
 
-## Минимальный пример
+## Minimal example
 
 ```python
 import asyncio
@@ -16,20 +16,26 @@ from pyromax.api import MaxApi
 from pyromax.api.observer import Dispatcher as MaxDispatcher
 from pyromax.types import Message
 
-dp = MaxDispatcher()
 
-@dp.message(pattern=lambda update: True, from_me=True)
+
+@dp.message(from_me=True)
 async def echo_handler(update: Message, max_api: MaxApi):
     await update.reply(text=update.text, attaches=update.attaches)
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-    bot = await MaxApi()
-    await bot.reload_if_connection_broke(dp)
+    bot = await MaxApi(
+        device_type='WEB',
+        transport='websocket'
+    )
+    dp = MaxDispatcher()
+    await dp.start_polling(
+        max_api=bot
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## Что дальше
-После этого открой страницу Routers.
+## What's next?
+After that, open the Routers page.

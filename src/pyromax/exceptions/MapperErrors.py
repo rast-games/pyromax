@@ -2,17 +2,18 @@ from .BaseMaxApiException import BaseMaxApiException
 
 
 class BaseMapperError(BaseMaxApiException):
-    pass
+    """Base class for mapper errors."""
 
 
 class RestartMapperError(BaseMapperError):
-    pass
+    """Raised when the mapper needs to be restarted."""
 
 
 class GetQRError(BaseMapperError):
-    pass
+    """Raised when QR code retrieval fails."""
 
 class MapperApiError(BaseMapperError):
+    """Raised when the remote API returns an error response."""
     title: str | None = None
     localized_message: str | None = None
     message: str | None = None
@@ -20,4 +21,4 @@ class MapperApiError(BaseMapperError):
 
 
 class AlreadyFailedError(BaseMapperError):
-    """Raising when you try a send when mapper already failed"""
+    """Raised when a send is attempted after mapper failure."""

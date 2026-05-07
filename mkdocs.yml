@@ -1,11 +1,28 @@
 site_name: Pyromax Docs
+site_description: Documentation for Pyromax
+site_url: https://github.com/rast-games/Pyromax
+repo_url: https://github.com/rast-games/Pyromax
 
 theme:
   name: mkdocs
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_root_heading: true
+            show_source: true
+            show_signature: true
 
 nav:
   - Home: index.md
   - Quick Start: quickstart.md
   - Routers: routers.md
+  - Filters: filters.md
   - Formatting: formatting.md
   - API Reference: api.md
+  - Exceptions: exceptions.md

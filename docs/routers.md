@@ -1,23 +1,27 @@
-# Routers
+# Filters
 
-## Зачем нужны роутеры
+## What are filters?
 
-Роутеры помогают разбить бота на отдельные файлы и модули. Это удобно, когда проект начинает расти.
+The filter checks the update before calling the handler.
 
-## Пример
+## Examples
+
+- `FromMeFilter`
+- `ReplyToMessageFilter`
+- `MessageForwardFromFilter`
+- `MessageRemovedFilter`
+- `Command`
+- `CommandStart`
+- `EmojiReactionAddFilter`
+- `EmojiReactionRemoveFilter`
+
+## Usage
 
 ```python
-from pyromax.api.observer import Router
-
-router = Router()
-
-@router.message(from_me=True)
+@router.message(Command("ping"), from_me=True)
 async def ping_handler(message):
     await message.reply("Pong!")
 ```
 
-## Подключение
-
-```python
-dp.include_router(router)
-```
+## Your filters
+To create your own filter, inherit from `Filter` and override `__call__`.

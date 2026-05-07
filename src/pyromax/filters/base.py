@@ -13,10 +13,10 @@ if TYPE_CHECKING:
 
 
 class Filter(ABC):
-    """
-    If you want to register own filters like builtin filters you will need to write subclass
-    of this class with overriding the :code:`__call__`
-    method and adding filter attributes.
+    """Base class for user-defined and built-in filters.
+
+    Subclasses must implement the asynchronous _check method and
+    define which update types they accept through work_with.
     """
 
     def __init__(self) -> None:

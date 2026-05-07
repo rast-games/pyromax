@@ -25,6 +25,13 @@ if TYPE_CHECKING:
 
 
 class MaxApi(AsyncInitializerMixin):
+    """Main asynchronous client for working with MAX Messenger.
+
+    The client initializes transport, protocol, and mapper objects,
+    then provides high-level methods for sending messages, listening
+    to updates, downloading files, and querying chat members.
+    """
+
     async def _async_init(
             self,
             device_type: str = 'WEB',
@@ -36,6 +43,27 @@ class MaxApi(AsyncInitializerMixin):
             transport_options: dict[str, Any] | None = None,
             **kwargs: Any
     ) -> None:
+        """Asynchronously initialize transport, protocol, and mapper.
+
+        Parameters
+        ----------
+        device_type
+            Device type reported to the API.
+        password
+            Optional account password.
+        token
+            Optional auth token.
+        transport
+            Transport backend name.
+        protocol
+            Protocol backend name.
+        mapper
+            Mapper backend name.
+        transport_options
+            Keyword arguments passed to the transport constructor.
+        kwargs
+            Extra keyword arguments passed to mapper initialization.
+        """
 
         logger = logging.getLogger('MaxApi')
 
@@ -135,7 +163,18 @@ class MaxApi(AsyncInitializerMixin):
 
 
     def listen_updates(self, context: Any) -> AsyncGenerator[Update, None]:
-        """Endless updates reader"""
+        """Yield incoming updates forever.
+
+        Parameters
+        ----------
+        context
+            Runtime context passed to the mapper.
+
+        Returns
+        -------
+        AsyncGenerator[Update, None]
+            Stream of incoming updates.
+        """
         return self.mapper.listen_updates(context=context)
 
 
@@ -146,6 +185,29 @@ class MaxApi(AsyncInitializerMixin):
             attaches: list[BaseFileAttachment] | None = None,
             link: MessageLink | None = None,
     ) -> Any:
+        """Send a message to a chat.
+
+                Parameters
+                ----------
+                chat_id
+                    Target chat identifier.
+                text
+                    Message text.
+                attaches
+                    Optional list of attachments.
+                link
+                    Optional message link object.
+
+                Returns
+                -------
+                Any
+                    API response returned by the mapper.
+
+                Raises
+                ------
+                SendMessageError
+                    If message sending fails.
+                """
         try:
             return await self(
                 SendMessageMethod,
@@ -158,6 +220,7 @@ class MaxApi(AsyncInitializerMixin):
             if self.__logger is None:
                 raise AttributeError('logger not initialized in MaxApi instance')
             self.__logger.warning('Failed to send message: %s', e)
+            raise e
 
 
     async def download_file(

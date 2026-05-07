@@ -1,13 +1,12 @@
 from .BaseMaxApiException import BaseMaxApiException
 
 class SendMessageError(BaseMaxApiException):
-    """Exception raised when a sending message fails."""
-
+    """Raised when sending a message fails."""
 
 
 class SendMessageFileError(SendMessageError):
-    """Exception raised when a sending message fails because the message with the attached file contained a text or/and other attachments."""
+    """Raised when message sending fails because of invalid file usage."""
 
 
 class SendMessageNotFoundError(SendMessageError):
-    """Exception raised when a sending message fails because the chat not found"""
+    """Raised when the target chat cannot be found."""

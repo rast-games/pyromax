@@ -1,13 +1,13 @@
 # Pyromax
 
-Pyromax — библиотека для создания ботов под MAX.
+Pyromax is an asynchronous modular framework for creating bots for MAX Messenger.
 
-## Что умеет
-- Async API
-- Dispatcher
-- Router
-- Filters
-- Formatting
+## What can he do?
+- Initialize MAX client via `MaxApi`.
+- Receive updates via `Dispatcher`.
+- Break the project into modules using `Router`.
+- Filter events by `Filter`.
+- Work with commands, formatting, and message types.
 
-## Быстрый старт
-Смотри страницу Quick Start.
+## Where to start
+Open the Quick Start page and run the first example.

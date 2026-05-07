@@ -15,6 +15,11 @@ from ..models import EmojiReaction, Message, BaseMaxObject
 
 
 class Router(Subject):
+    """Container for handlers and nested routers.
+
+    Routers group event handlers into reusable modules and allow
+    hierarchical composition of bot logic.
+    """
     def __init__(self) -> None:
         self.sub_routers: list[Router] = []
         self._parent_router: None | Router = None
@@ -92,11 +97,12 @@ class Router(Subject):
         router.sub_routers.append(self)
 
     def include_routers(self, *routers: 'Router') -> None:
-        """
-        Attach multiple routers.
+        """Attach multiple child routers at once.
 
-        :param routers:
-        :return:
+        Parameters
+        ----------
+        routers
+            Routers to attach.
         """
         if not routers:
             msg = "At least one router must be provided"
@@ -105,11 +111,17 @@ class Router(Subject):
             self.include_router(router)
 
     def include_router(self, router: 'Router') -> 'Router':
-        """
-        Attach another router.
+        """Attach another router as a child router.
 
-        :param router:
-        :return:
+        Parameters
+        ----------
+        router
+            Router to attach.
+
+        Returns
+        -------
+        Router
+            The attached router.
         """
         if not isinstance(router, Router):
             msg = f"router should be instance of Router not {type(router).__class__.__name__}"
@@ -118,6 +130,20 @@ class Router(Subject):
         return router
 
     async def notify(self, update: Update, data: dict[Any, Any] | None = None) -> bool:
+        """Propagate an update through handlers and child routers.
+
+           Parameters
+           ----------
+           update
+               Incoming update object.
+           data
+               Context data available to handlers.
+
+           Returns
+           -------
+           bool
+               True if the update was handled, otherwise False.
+           """
         if data is None:
             raise ValueError("data cannot be None")
 
