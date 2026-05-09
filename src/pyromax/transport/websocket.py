@@ -21,7 +21,7 @@ WebSocketClosedException = websockets.ConnectionClosed
 WebSocketException = websockets.WebSocketException
 
 
-@register_transport('Websocket')
+@register_transport('websocket')
 class WebSocketTransport(StreamTransport):
 
     def __init__(

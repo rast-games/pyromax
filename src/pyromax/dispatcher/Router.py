@@ -19,6 +19,10 @@ class Router(Subject):
 
     Routers group event handlers into reusable modules and allow
     hierarchical composition of bot logic.
+
+    Attributes:
+        events: a dict with all event observers(listeners)
+
     """
     def __init__(self) -> None:
         self.sub_routers: list[Router] = []

@@ -1,12 +1,5 @@
-# API Reference
 
-## Core
 
-::: pyromax.core.client.MaxApi
-
-## Dispatcher
-
-::: pyromax.dispatcher.Dispatcher
 
 ## Router
 

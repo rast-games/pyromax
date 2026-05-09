@@ -31,7 +31,7 @@
 ---
 
 ## Быстрый старт
-Смотри полную документацию: [Pyromax Docs](./docs/index.md)
+Смотри полную документацию: [Pyromax Docs](docs/en/index.md)
 
 ---
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
 import logging
-from typing import Any, TYPE_CHECKING, AsyncGenerator
+from typing import Any, TYPE_CHECKING, AsyncGenerator, TypeVar
 from collections.abc import Sequence
 
 from ..mixins import AsyncInitializerMixin
@@ -23,13 +23,19 @@ if TYPE_CHECKING:
     from ..models import Contact
 
 
+T = TypeVar('T')
 
 class MaxApi(AsyncInitializerMixin):
-    """Main asynchronous client for working with MAX Messenger.
+    """Asynchronous client for MAX Messenger.
 
-    The client initializes transport, protocol, and mapper objects,
-    then provides high-level methods for sending messages, listening
-    to updates, downloading files, and querying chat members.
+    The client initializes a transport, protocol, and mapper from the
+    project registry. Initialization is asynchronous and requires the
+    selected backend names to be available in the corresponding registries.
+
+    Raises
+    ------
+    RuntimeError
+        If a transport, protocol, or mapper name is not supported.
     """
 
     async def _async_init(
@@ -37,12 +43,19 @@ class MaxApi(AsyncInitializerMixin):
             device_type: str = 'WEB',
             password: str | None = None,
             token: str | None = None,
-            transport: str = 'Websocket',
+            transport: str = 'websocket',
             protocol: str = 'EnvelopeProtocol',
             mapper: str = 'EnvelopeV11',
             transport_options: dict[str, Any] | None = None,
+            workflow_data: dict[str | type[T]: T] | None = None,
             **kwargs: Any
     ) -> None:
+        if workflow_data is None:
+            workflow_data = {}
+
+        print(workflow_data)
+
+
         """Asynchronously initialize transport, protocol, and mapper.
 
         Parameters
@@ -103,6 +116,7 @@ class MaxApi(AsyncInitializerMixin):
             transport_options=transport_options,
             token=token,
             logger=logger,
+            workflow_data=workflow_data,
             device_type=device_type,
         )
 
@@ -124,8 +138,12 @@ class MaxApi(AsyncInitializerMixin):
             transport_options: dict[str, Any] | None = None,
             token: str | None = None,
             logger: logging.Logger | None = None,
+            workflow_data: dict[str | type[T] | None] | None = None,
 
     ) -> None:
+
+        if workflow_data is None:
+            workflow_data = {}
 
         if logger is None:
             logger = logging.getLogger('MaxApi')
@@ -142,6 +160,7 @@ class MaxApi(AsyncInitializerMixin):
         self.phone: str | None = None
         self.names: Any | list[dict[str, Any]] | None = None
         self.__logger: logging.Logger | None = logger
+        self.workflow_data = workflow_data
 
 
 

@@ -1,4 +1,4 @@
-docs_dir: docs/en
+docs_dir: docs/ru
 site_name: Pyromax Docs
 site_description: Асинхронный фреймворк для ботов MAX Messenger
 site_url: https://github.com/rast-games/Pyromax
@@ -12,20 +12,19 @@ theme:
     - navigation.sections
     - navigation.top
 nav:
-  - Главная | Main: index.md
-  - Быстрый старт | quickstart: quickstart.md
-  - Роутеры | routers: routers.md
-  - Фильтры | filters: filters.md
-  - Форматирование | formatting: formatting.md
-  - Исключения | exceptions: exceptions.md
+  - Главная: index.md
+  - Быстрый старт: quickstart.md
+  - Роутеры: routers.md
+  - Фильтры: filters.md
+  - Форматирование: formatting.md
+  - Исключения: exceptions.md
   - API: api.md
 plugins:
   - mkdocstrings:
       default_handler: python
       handlers:
         python:
-          python:
-            paths: [src]
+          paths: [src]
           options:
             show_source: true
             show_root_heading: true

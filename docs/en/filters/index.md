@@ -23,5 +23,3 @@ async def ping_handler(message):
     await message.reply("Pong!")
 ```
 
-## Your filters
-To create your own filter, inherit from `Filter` and override `__call__`.

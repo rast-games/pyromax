@@ -46,7 +46,7 @@ class Dispatcher(Router):
                 type(max_api): max_api,
                 type(update): update,
             }
-
+            data.update(max_api.workflow_data)
 
             handled = await self.notify(
                 update=update,

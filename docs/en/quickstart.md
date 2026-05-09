@@ -12,9 +12,9 @@ pip install pyromax
 import asyncio
 import logging
 
-from pyromax.api import MaxApi
-from pyromax.api.observer import Dispatcher as MaxDispatcher
-from pyromax.types import Message
+from pyromax import MaxApi
+from pyromax.dispatcher import Dispatcher as MaxDispatcher
+from pyromax.models import Message
 
 
 
@@ -37,5 +37,6 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## What's next?
-After that, open the Routers page.
+[Install and run](/rast-games/Pyromax/quickstart) 
+
+[More about routers](/rast-games/Pyromax/routers)
