@@ -55,6 +55,7 @@ max_api = await MaxApi(
     transport='socket_envelope',
     device_type='DESKTOP',
     sms_auth=True,
+    phone_number='78005553535',
     code_getter=get_sms_code,
     url_callback=url_callback
 )

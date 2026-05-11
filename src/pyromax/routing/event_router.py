@@ -4,6 +4,7 @@ from asyncio import CancelledError, Event, Task, Future
 from typing import Any, Protocol, Awaitable, TYPE_CHECKING, TypeVar, Generic, Literal
 
 from ..utils import Correlator
+from ..exceptions import AlreadyCancelledError
 if TYPE_CHECKING:
     from ..protocol import Request, Response
 
@@ -50,10 +51,16 @@ class EventRouter(Generic[request, response]):
 
 
     def create_record(self, req: request) -> Future[response]:
+        """Create a record for the given request
+
+        Raises
+        -------
+            AlreadyCancelledError
+        """
         awaitable = self._create_awaitable()
 
         if self.__cancelled:
-            raise CancelledError('already canceled')
+            raise AlreadyCancelledError('already canceled')
 
         self.__pending[req] = awaitable
 
@@ -101,9 +108,20 @@ class EventRouter(Generic[request, response]):
 
 
     async def pop_all_updates(self) -> list[response]:
+        """
+        Get updates from event router
+
+        Raises
+        ------
+            AlreadyCancelledError
+        """
         pop_updates_task = asyncio.create_task(self._pop_all_updates())
         self.__pop_updates_calls.append(pop_updates_task)
-        return await pop_updates_task
+        try:
+            result = await pop_updates_task
+            return result
+        except asyncio.CancelledError:
+            raise AlreadyCancelledError('pop_all_updates cancelled')
 
 
     def __del__(self) -> None:

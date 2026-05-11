@@ -3,7 +3,7 @@ from ...payloads.requests import GetContactRequest
 
 
 
-class GetGeneralInfoAboutMember(BaseMethod):
+class GetGeneralInfoAboutMemberMethod(BaseMethod):
 
     async def __call__(self, request: Envelope) -> Envelope:
         request.opcode = Opcode.GET_CONTACT

@@ -23,6 +23,8 @@ WebSocketException = websockets.WebSocketException
 
 @register_transport('websocket')
 class WebSocketTransport(StreamTransport):
+    BASE_EXCEPTION_FOR_TRANSPORT = WebSocketException
+    OTHER_EXCEPTIONS_FOR_TRANSPORT = [WebSocketClosedException]
 
     def __init__(
             self,
@@ -35,8 +37,6 @@ class WebSocketTransport(StreamTransport):
         self.user_agent_header = user_agent_header
         self.ws: ClientConnection | None = None
         self.__logger = logging.getLogger('WebSocketTransport')
-        self.BASE_EXCEPTION_FOR_TRANSPORT = WebSocketException
-        self.OTHER_EXCEPTIONS_FOR_TRANSPORT = [WebSocketClosedException]
 
     async def _async_init(self, url: str = "wss://ws-api.oneme.ru/websocket") -> None:
         await asyncio.to_thread(self.__init__, url=url) # type: ignore[misc]

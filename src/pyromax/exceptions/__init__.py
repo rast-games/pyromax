@@ -4,8 +4,8 @@ from .AnnotationError import AnnotationError
 from .BackoffError import BackoffError
 from .FileError import FileError, DownloadFileError
 from .SocketTransportErrors import SocketTransportError, SocketTransportConnectionError, SocketTransportSendError
-from .MapperErrors import BaseMapperError, RestartMapperError, GetQRError, MapperApiError, AlreadyFailedError
-
+from .MapperErrors import BaseMapperError, RestartMapperError, GetQRError, MapperApiError, AlreadyFailedError, MapperCancelledError
+from .RoutingErrors import AlreadyCancelledError, RoutingError
 
 
 __all__ = [
@@ -24,5 +24,8 @@ __all__ = [
     'RestartMapperError',
     'GetQRError',
     'MapperApiError',
-    'AlreadyFailedError'
+    'MapperCancelledError',
+    'AlreadyFailedError',
+    'AlreadyCancelledError',
+    'RoutingError'
 ]

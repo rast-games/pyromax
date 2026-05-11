@@ -8,6 +8,7 @@ from typing import Any
 
 from ..bases import StreamMaxProtocol, BaseMaxProtocolMethod, Response, Request
 from ...routing.event_router import EventRouter
+from ...exceptions import AlreadyCancelledError
 
 from pydantic import BaseModel
 
@@ -78,11 +79,20 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
 
     async def connect(self) -> None:
 
-        await self.__transport.connect()
+        while True:
+            try:
+                await asyncio.wait_for(self.__transport.connect(), timeout=30)
+                break
+            except asyncio.TimeoutError:
+                self.__logger.error('connection timeout')
+                self.__logger.info('retry connection')
         if self._reader_task:
             self.__logger.info('find another reader, closing it...')
             self._reader_task.cancel()
-            await self._reader_task
+            try:
+                await self._reader_task
+            except asyncio.CancelledError:
+                self.__logger.debug('reader already cancelled in connect')
         self._reader_task = asyncio.create_task(self.receive_reader())
         self.__logger.info('background tasks started')
         await self.set_event_router(EventRouter())
@@ -137,13 +147,16 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
                 response_json = await self.__transport.recv()
                 response_raw = json.loads(response_json)
 
-                # from random import random
-                # rnd = random()
-                #
-                # if rnd > 0.5 :
+                from random import random
+                rnd = random()
+
+                # if rnd > 0.5:
                 #     print('raise')
                 #     print(f'raise {str(response_raw)[0:100]}...')
                 #     raise self.__transport.BASE_EXCEPTION_FOR_TRANSPORT('test')
+                #     from websockets import ConnectionClosed, WebSocketException
+                #     # raise ConnectionClosed(None, None)
+                #     raise WebSocketException('test')
 
                 response = self.from_response(response_raw)
                 self.__logger.debug('fetched response %s', response)
@@ -158,6 +171,7 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
             self.running.clear()
             event_router = await self.get_event_router()
             if event_router:
+                self.__logger.debug('event router canceled all')
                 event_router.cancel_all()
 
 
@@ -167,8 +181,9 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
                 await self.running.wait()
                 updates = await self.event_router.pop_all_updates()
                 break
-            except asyncio.CancelledError:
+            except AlreadyCancelledError:
                 self.__logger.error('get_all_updates cancelled')
+                raise RuntimeError('get_all_updates cancelled while getting updates')
         return updates
 
 

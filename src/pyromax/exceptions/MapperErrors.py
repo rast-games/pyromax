@@ -22,3 +22,6 @@ class MapperApiError(BaseMapperError):
 
 class AlreadyFailedError(BaseMapperError):
     """Raised when a send is attempted after mapper failure."""
+
+class MapperCancelledError(MapperApiError):
+    """Raised when a send was cancelled."""

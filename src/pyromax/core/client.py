@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
 import logging
-from typing import Any, TYPE_CHECKING, AsyncGenerator, TypeVar
+from typing import Any, TYPE_CHECKING, AsyncGenerator
 from collections.abc import Sequence
 
 from ..mixins import AsyncInitializerMixin
@@ -22,8 +22,6 @@ if TYPE_CHECKING:
     from ..mapping import BaseMapper
     from ..models import Contact
 
-
-T = TypeVar('T')
 
 class MaxApi(AsyncInitializerMixin):
     """Asynchronous client for MAX Messenger.
@@ -47,7 +45,7 @@ class MaxApi(AsyncInitializerMixin):
             protocol: str = 'EnvelopeProtocol',
             mapper: str = 'EnvelopeV11',
             transport_options: dict[str, Any] | None = None,
-            workflow_data: dict[str | type[T]: T] | None = None,
+            workflow_data: dict[Any, Any] | None = None,
             **kwargs: Any
     ) -> None:
         if workflow_data is None:
@@ -138,7 +136,8 @@ class MaxApi(AsyncInitializerMixin):
             transport_options: dict[str, Any] | None = None,
             token: str | None = None,
             logger: logging.Logger | None = None,
-            workflow_data: dict[str | type[T] | None] | None = None,
+            workflow_data: dict[Any, Any] | None = None,
+            **kwargs
 
     ) -> None:
 

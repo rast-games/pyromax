@@ -1,0 +1,109 @@
+from __future__ import annotations
+import asyncio
+from asyncio import Task, Lock
+import logging
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable, Coroutine
+from typing import cast
+
+from .....mixins import AsyncInitializerMixin
+from .....protocol import EnvelopeProtocol
+# from .....utils import Backoff
+# from .....exceptions import MapperCancelledError, RestartMapperError, BackoffError, AlreadyFailedError
+from ..payloads.models import BaseUserAgentMappingModel
+from ..constants import DEVICE_TYPE_TO_USERAGENT_MODEL, DEFAULT_BACKOFF_CONFIG
+from ..LifecycleManager import LifecycleManager
+
+if TYPE_CHECKING:
+    from .....core import MaxApi
+    from ..Mapper import Mapper
+
+
+class ConstructorMixin(AsyncInitializerMixin):
+    def __init__(
+            self,
+            protocol: EnvelopeProtocol,
+            keepalive_ping_interval: int
+    ) -> None:
+        self.protocol = protocol
+        self._keepalive_ping_interval = keepalive_ping_interval
+        self._logger = logging.getLogger('MapperV11')
+        self._keepalive_task: Task[Any] | None = None
+        self.keep_alive_interactive: bool = True
+        self._update_listener_task: Task[Any] | None = None
+        self.token: str | None = None
+        self.TOKEN_NAME = 'ENVELOPE_MAX_TOKEN_V11' + self.protocol.transport.__class__.__name__
+        self.max_api: MaxApi | None = None
+        self._manage_lifecycle_task: Task[Any] | None = None
+        self._update_listener_lock: Lock = Lock()
+        self._authorized = asyncio.Event()
+        self.user_agent: BaseUserAgentMappingModel | None = None
+        self.logged: bool = False
+        self.password: str | None = None
+        self.phone = None
+        self.sms_auth = False
+        from ..Mapper import Mapper
+        self._lifecycle_manager = LifecycleManager(
+            mapper=cast(Mapper, self),
+        )
+
+
+    @property
+    def DEVICE_TYPE_TO_USERAGENT_MODEL(self) -> dict[str, type[BaseUserAgentMappingModel]]:
+        return DEVICE_TYPE_TO_USERAGENT_MODEL
+
+
+    async def _async_init(
+            self,
+            max_api: MaxApi,
+            protocol: EnvelopeProtocol,
+            *args: Any,
+            keepalive_ping_interval: int = 30,
+            **kwargs: Any,
+    ) -> None:
+        from .....core import MaxApi
+        if not isinstance(max_api, MaxApi):
+            raise TypeError('max_api must be an instance of MaxApi')
+        if not isinstance(protocol, EnvelopeProtocol):
+            raise TypeError("protocol must be an instance of EnvelopeProtocol")
+        await asyncio.to_thread(self.__init__, protocol=protocol, keepalive_ping_interval=keepalive_ping_interval) # type: ignore[misc]
+        self.max_api = max_api
+
+
+
+    async def initialize_client(
+            self,
+            token: str | None = None,
+            device_id: str | None = None,
+            protocol_version: str='v11',
+            device_type: str = 'WEB',
+            password: str | None = None,
+            phone: str | None = None,
+            sms_auth=False,
+            interactive: bool = True,
+            keep_alive_interactive: bool | None = None,
+            url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
+            **kwargs: Any
+    ) -> None:
+        if device_type not in self.DEVICE_TYPE_TO_USERAGENT_MODEL:
+            raise RuntimeError(f'Unknown device type: {device_type}')
+        user_agent_model = self.DEVICE_TYPE_TO_USERAGENT_MODEL[device_type]
+        user_agent = user_agent_model(device_type=device_type)
+        self.user_agent = user_agent
+        self.token = token
+        self.password = password
+        self.phone = phone
+        self.sms_auth = sms_auth
+        if keep_alive_interactive is None:
+            keep_alive_interactive = interactive
+        self.keep_alive_interactive = keep_alive_interactive
+        await self._lifecycle_manager.start()
+        self._manage_lifecycle_task = asyncio.create_task(
+            self._lifecycle_manager.wait_lifecycle_task(
+                url_callback=url_callback,
+                auth_params={
+                    'interactive': interactive,
+                }
+            )
+        )
+        self._logger.info("Mapper initialized")
