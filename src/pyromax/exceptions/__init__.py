@@ -4,9 +4,9 @@ from .AnnotationError import AnnotationError
 from .BackoffError import BackoffError
 from .FileError import FileError, DownloadFileError
 from .SocketTransportErrors import SocketTransportError, SocketTransportConnectionError, SocketTransportSendError
-from .MapperErrors import BaseMapperError, RestartMapperError, GetQRError, MapperApiError, AlreadyFailedError, MapperCancelledError
+from .MapperErrors import BaseMapperError, RestartMapperError, GetQRError, MapperApiError, AlreadyFailedError, MapperCancelledError, MapperTransportError
 from .RoutingErrors import AlreadyCancelledError, RoutingError
-
+from .ProtocolErrors import BaseProtocolError, ReceiveProtocolError, SendingProtocolError
 
 __all__ = [
     'BaseMaxApiException',
@@ -25,7 +25,11 @@ __all__ = [
     'GetQRError',
     'MapperApiError',
     'MapperCancelledError',
+    'MapperTransportError',
     'AlreadyFailedError',
     'AlreadyCancelledError',
-    'RoutingError'
+    'RoutingError',
+    'BaseProtocolError',
+    'ReceiveProtocolError',
+    'SendingProtocolError'
 ]

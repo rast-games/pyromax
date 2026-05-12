@@ -23,3 +23,5 @@ class GetFileLinkMethod(BaseMethod):
         request.payload = self.args['file'].get_payload_to_get_link
         request.ver = VERSION
         return request
+
+__all__ = ['GetUrlToUploadFileMethod', 'GetFileLinkMethod']

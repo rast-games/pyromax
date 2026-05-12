@@ -14,3 +14,8 @@ class GetGeneralInfoAboutMemberMethod(BaseMethod):
         request.ver = VERSION
 
         return request
+
+
+__all__ = [
+    'GetGeneralInfoAboutMemberMethod'
+]

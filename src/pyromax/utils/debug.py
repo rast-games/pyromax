@@ -23,7 +23,7 @@ def debug_tasks() -> None:
 
 
 
-def get_caller_info(depth=1):
+def get_caller_info(depth=1) -> None:
     """Точное место вызова: file:line:function"""
     frame = sys._getframe(depth)
     filename = frame.f_code.co_filename
@@ -33,7 +33,7 @@ def get_caller_info(depth=1):
 
 
 class EventFake:
-    def __init__(self, event):
+    def __init__(self, event: asyncio.Event) -> None:
         self.event = event
 
     def _get_caller_info(self, depth=1):
@@ -44,18 +44,18 @@ class EventFake:
         funcname = frame.f_code.co_name
         return f"{filename}:{lineno} in {funcname}"
 
-    def is_set(self):
+    def is_set(self) -> bool:
         return self.event.is_set()
 
-    def set(self):
+    def set(self) -> None:
         caller = get_caller_info(2)  # 2 уровня вверх
         print(f"🔴 FAILED.SET() from {caller}")
         self.event.set()
 
-    def clear(self):
+    def clear(self) -> None:
         caller = get_caller_info(2)
         print(f"🟢 FAILED.CLEAR() from {caller}")
         self.event.clear()
 
-    async def wait(self):
+    async def wait(self) -> Any:
         return await self.event.wait()

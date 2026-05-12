@@ -26,3 +26,8 @@ class SendMessageMethod(BaseMethod):
             ),
         ).model_dump(by_alias=True, exclude_none=True)
         return request
+
+
+__all__ = [
+    'SendMessageMethod'
+]

@@ -102,3 +102,17 @@ class SendKeepAlivePingMethod(BaseMethod):
         )
         request.ver = VERSION
         return request
+
+
+__all__ = [
+    'TrackLoginMethod',
+    'GetUserDataMethod',
+    'Resolve2FAMethod',
+    'StartSMSAuthMethod',
+    'VerifySMSCodeMethod',
+    'GetMetadataForLoginMethod',
+    'SendUserAgentMethod',
+    'SendAuthTokenMethod',
+    'SendKeepAlivePingMethod'
+
+]

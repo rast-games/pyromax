@@ -11,7 +11,7 @@ from ..payloads.models import BaseUserAgentMappingModel
 from ..methods.immutable import SendUserAgentMethod, SendAuthTokenMethod, GetMetadataForLoginMethod, SendKeepAlivePingMethod, Resolve2FAMethod
 from ..payloads.responses import AuthResponse, SuccessLoginResponse, MetadataResponse, ChoiceLoginVariantResponse
 from .....utils import read_token, write_token, Backoff
-from .....exceptions import MapperCancelledError, RestartMapperError, BaseMapperError
+from .....exceptions import MapperCancelledError, RestartMapperError, BaseMapperError, MapperTransportError
 from ..constants import DEFAULT_BACKOFF_CONFIG
 
 if TYPE_CHECKING:
@@ -236,11 +236,11 @@ class AuthMixin:
             )
             self._authorized.set()
             # break
-        except BaseMapperError:
+        except BaseMapperError as e:
             self._logger.warning('Cancelled auth')
             self._authorized.clear()
             self.protocol.failed.set()
-            raise RestartMapperError('Auth failed')
+            raise RestartMapperError('Auth failed') from e
 
 
     async def _keepalive(
@@ -258,5 +258,8 @@ class AuthMixin:
                 self._logger.debug('keepalive pong %s', pong)
         except MapperCancelledError:
             self._logger.warning('keepalive ping canceled')
+        except MapperTransportError as e:
+            self._logger.warning('keepalive transport error: %s', e, exc_info=True)
+
 
 

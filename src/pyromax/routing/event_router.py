@@ -81,6 +81,7 @@ class EventRouter(Generic[request, response]):
 
 
     def cancel_all(self) -> None:
+        self.__cancelled = True
         for future_like in self.__pending.values():
             future_like.cancel()
         self.__pending.clear()
@@ -90,7 +91,6 @@ class EventRouter(Generic[request, response]):
 
         self.__pop_updates_calls.clear()
 
-        self.__cancelled = True
 
     def this_response_is_expecting(self, entry: response) -> request | Literal[False]:
         for req in self.__pending.copy():

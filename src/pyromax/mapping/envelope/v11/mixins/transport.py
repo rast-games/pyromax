@@ -1,11 +1,11 @@
 import asyncio
 import logging
 from collections.abc import Callable, Coroutine
-from typing import Any
+from typing import Any, cast
 
 from .....protocol.envelope import EnvelopeProtocol, Envelope
 from ..methods.immutable import BaseMethod
-from .....exceptions import AlreadyFailedError, AlreadyCancelledError, MapperCancelledError, MapperApiError
+from .....exceptions import AlreadyFailedError, AlreadyCancelledError, MapperCancelledError, MapperApiError, SendingProtocolError, MapperTransportError
 from ..payloads.responses import ErrorMessageResponse
 from ..methods.build_ins import build_method, method_names
 
@@ -26,7 +26,10 @@ class TransportMixin:
         self._logger.debug('protocol connected')
         if self._keepalive_task:
             self._logger.debug('have another keepalive task, cancel it')
-            self._keepalive_task.cancel()
+            try:
+                self._keepalive_task.cancel()
+            except asyncio.CancelledError:
+                self._logger.debug(f'self.mapper.connect() -> self._keepalive_task.cancel() -> CancelledError')
             self._logger.debug('keepalive task cancelled')
         self._logger.debug('start keepalive task')
         self._keepalive_task = asyncio.create_task(self._keepalive())
@@ -38,8 +41,9 @@ class TransportMixin:
         await self.protocol.close()
 
         if self._keepalive_task:
-            self._keepalive_task.cancel()
+
             try:
+                self._keepalive_task.cancel()
                 await self._keepalive_task
             except asyncio.CancelledError:
                 self._logger.debug('keepalive task already cancelled')
@@ -70,6 +74,7 @@ class TransportMixin:
             MapperCancelledError
             AlreadyFailedError
             MapperApiError
+            MapperTransportError
         """
         if data is None:
             data = {}
@@ -82,8 +87,11 @@ class TransportMixin:
                 method=method,
                 data=data,
             )
-        except AlreadyCancelledError:
-            raise MapperCancelledError('try a send after close')
+        except AlreadyCancelledError as e:
+            raise MapperCancelledError('try a send after close') from e
+        except SendingProtocolError as e:
+            self._logger.debug('send protocol error', exc_info=True)
+            raise MapperTransportError('send failed') from e
         try:
             response = await response_future
         except asyncio.CancelledError:
@@ -115,6 +123,12 @@ class TransportMixin:
 
     async def send(self, method: BaseMethod, data: dict[Any, Any] | None = None,
                    return_exception: bool = False) -> Envelope:
+        """
+        Raises
+        ------
+            MapperTransportError
+            MapperCancelledError
+        """
         if data is None:
             data = {}
         while True:
@@ -125,16 +139,17 @@ class TransportMixin:
                 return response
             except (MapperCancelledError, AlreadyFailedError) as e:
                 await self._lifecycle_manager.notify_about_exception(e)
-                self._authorized.clear()
-                self._logger.warning(f'Request {method.__class__.__name__} was cancelled')
+
+                self._logger.warning(f'Request {method.__class__.__name__} was cancelled', exc_info=True, stack_info=True)
                 if return_exception:
-                    raise MapperCancelledError('Cancelled request')
+                    raise MapperCancelledError('Cancelled request') from e
             except Exception as e:
                 self._logger.warning(f'Caught exception when sending request: %s'
-                                      f'method: {method.__class__.__name__}', e)
+                                      f'method: {method.__class__.__name__}', e, exc_info=True, stack_info=True)
                 await self._lifecycle_manager.notify_about_exception(e)
+                self._authorized.clear()
                 if return_exception:
-                    raise e
+                    raise MapperTransportError('unknown exception was catch while send') from e
 
     async def _call_build_in_method(
             self,
@@ -142,5 +157,6 @@ class TransportMixin:
             *args: Any,
             **kwargs: Any,
     ):
+        from ..Mapper import Mapper
         method = build_method(method_name=method_name, transport=self.protocol.transport)
-        return await method(mapper=self,*args, **kwargs)
+        return await method(mapper=cast(Mapper, self),*args, **kwargs)

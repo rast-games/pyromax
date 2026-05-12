@@ -1,1 +1,1 @@
-from .immutable import methods as immutable_methods
+from . import immutable as immutable_methods

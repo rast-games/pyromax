@@ -2,12 +2,13 @@ import asyncio
 import logging
 import random
 import struct
-from typing import Any
+from typing import Any, cast
 import ssl
 import json
 
-import lz4.block
-import msgpack
+import lz4.block # type: ignore[import-untyped]
+import msgpack # type: ignore[import-untyped]
+
 
 from .bases import StreamTransport
 from .registry import register_transport
@@ -20,27 +21,38 @@ class SocketTransport(StreamTransport):
     BASE_EXCEPTION_FOR_TRANSPORT =  SocketTransportError
     OTHER_EXCEPTIONS_FOR_TRANSPORT = [SocketTransportConnectionError, SocketTransportSendError]
 
+    __reader: asyncio.StreamReader | None
+    __writer: asyncio.StreamWriter | None
+    __buffer: bytearray
+    __logger: logging.Logger
+    _ssl_context: ssl.SSLContext
+    url: str
+    port: int
+
     async def _async_init(self, url: str = "api.oneme.ru", host: str = 'api.oneme.ru', port: int = 443) -> None:
         self.url = url
         self.port = port
         self.__buffer = bytearray()
         self.__logger = logging.getLogger('SocketTransport')
-        await asyncio.to_thread(self.__init__)
+        await asyncio.to_thread(self.__init__) # type: ignore[misc]
         self.__reader, self.__writer = await asyncio.open_connection(self.url, self.port, ssl=self._ssl_context)
 
 
-    def __init__(self):
-        self.__reader: asyncio.StreamReader | None = None
-        self.__writer: asyncio.StreamWriter | None = None
-        self._ssl_context: ssl.SSLContext = ssl.create_default_context()
+    def __init__(self) -> None:
+        self.__reader = None
+        self.__writer = None
+        self._ssl_context = ssl.create_default_context()
 
 
     async def send(self, request: bytes) -> None:
+        assert self.__writer is not None, "Writer is not initialized"
         self.__writer.write(request)
         await self.__writer.drain()
 
 
     async def _recv_raw(self, nbytes: int) -> bytes:
+        assert self.__reader is not None, "Reader is not initialized"
+
         loop = asyncio.get_running_loop()
         try:
             while len(self.__buffer) < nbytes:
@@ -76,7 +88,7 @@ class SocketTransport(StreamTransport):
         for _ in range(max_retries):
             try:
                 uncompressed_data = lz4.block.decompress(data, uncompressed_size=uncompressed_size)
-                return uncompressed_data
+                return cast(bytes, uncompressed_data)
             except lz4.block.LZ4BlockError:
                 uncompressed_size *= coefficient
         else:
@@ -97,9 +109,10 @@ class SocketTransport(StreamTransport):
         payload_uncompressed: bytes
         if cof > 0 and len(payload_raw) > 0:
             try:
-                payload_uncompressed = self._safe_decompress(payload_raw, start_uncompressed_size=payload_length)
-                if payload_uncompressed is None:
+                decompressed = self._safe_decompress(payload_raw, start_uncompressed_size=payload_length)
+                if decompressed is None:
                     raise SocketTransportError('Uncompressed return None')
+                payload_uncompressed = decompressed
             except Exception as e:
                 logging.error(f'uncompressed error: {e}')
                 raise SocketTransportError(f'uncompressed error: {e}')
@@ -148,7 +161,7 @@ class SocketTransport(StreamTransport):
 @register_transport('socket_envelope')
 class SocketTransportEnvelope(SocketTransport):
 
-    def _create_packet(self, seq: int, opcode: int, cmd: int, ver: int, payload: Any):
+    def _create_packet(self, seq: int, opcode: int, cmd: int, ver: int, payload: Any) -> bytes:
         packed_payload = msgpack.packb(payload)
         seq_b = seq.to_bytes(1, 'big')
         cmd_b = cmd.to_bytes(2, 'big')
@@ -158,16 +171,16 @@ class SocketTransportEnvelope(SocketTransport):
             payload_bytes = b""
         payload_len = len(packed_payload)
         payload_len_b = payload_len.to_bytes(4, "big")
-        return ver_b + cmd_b + seq_b + opcode_b + payload_len_b + packed_payload
+        return cast(bytes, ver_b + cmd_b + seq_b + opcode_b + payload_len_b + packed_payload)
 
 
-    async def send(self, request: dict) -> None:
+    async def send(self, request: dict[str, Any]) -> None: # type: ignore[override]
         if not isinstance(request, dict):
             raise SocketTransportSendError('request must be a dict with keys: "seq", "opcode", and "cmd"')
-        seq = request.get('seq')
-        opcode = request.get('opcode')
-        cmd = request.get('cmd')
-        ver = request.get('ver')
+        seq = int(request.get('seq'), 0)
+        opcode = int(request.get('opcode'), 1)
+        cmd = int(request.get('cmd'), 0)
+        ver = int(request.get('ver'), 11)
         del request['seq']
         del request['opcode']
         del request['cmd']
@@ -192,7 +205,7 @@ class SocketTransportEnvelope(SocketTransport):
         await super().close()
 
 
-    async def connect(self):
+    async def connect(self) -> None:
         await super().connect()
 
 

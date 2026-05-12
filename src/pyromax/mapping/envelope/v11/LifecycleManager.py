@@ -22,7 +22,7 @@ class LifecycleManager:
         # self._has_lifecycle_task: asyncio.Event = asyncio.Event()
 
 
-    async def _fallback_waiter(self):
+    async def _fallback_waiter(self) -> None:
         """
         A fallback option in case of unforeseen situations and the protocol.failed event hanging.
 
@@ -61,47 +61,53 @@ class LifecycleManager:
         while True:
             manage_lifecycle_backoff = Backoff(DEFAULT_BACKOFF_CONFIG)
             try:
-                from ....utils import debug_tasks
-                debug_tasks()
-                self._logger.debug('closing protocol')
-                await self.mapper.close()
-                self._logger.debug('protocol closed')
-                self.mapper._authorized.clear()
-                await self.mapper.connect()
-                if not self.mapper.logged or not self.mapper.token:
-                    await self.mapper.login(kwargs.get('url_callback'), login_backoff=manage_lifecycle_backoff)
-                    self.mapper.logged = True
-                await self.mapper._auth(
-                    token=self.mapper.token,
-                    user_agent=self.mapper.user_agent,
-                    **auth_params
-                )
-                self._mapper_correctly_running.set()
-                self._logger.debug('auth token sent')
-                await self.mapper.protocol.failed.wait()
+                try:
+                    from ....utils import debug_tasks
+                    debug_tasks()
+                    self._logger.debug('closing protocol')
+                    await self.mapper.close()
+                    self._logger.debug('protocol closed')
+                    await self.mapper.connect()
+                    if not self.mapper.logged or not self.mapper.token:
+                        await self.mapper.login(kwargs.get('url_callback'), login_backoff=manage_lifecycle_backoff)
+                        self.mapper.logged = True
+                    await self.mapper._auth(
+                        token=self.mapper.token,
+                        user_agent=self.mapper.user_agent,
+                        **auth_params
+                    )
+                    self.mapper._authorized.set()
+                    self._mapper_correctly_running.set()
+                    self._logger.debug('auth token sent')
+                    await self.mapper.protocol.failed.wait()
+                    self.mapper._authorized.clear()
+                    self._mapper_correctly_running.clear()
+                    self._logger.warning('catch protocol failed')
+                    # from random import random
+                    # if random() > 0.5:
+                    #     print('sleeping')
+                    #     await asyncio.sleep(30)
+                    #     print('sleeped')
+                    if self.mapper.token is None:
+                        raise RuntimeError('Try a connect without token')
+                except (RestartMapperError, AlreadyFailedError, BackoffError, MapperCancelledError) as e:
+                    self._logger.warning('Start/restart error: %s', e, exc_info=True)
+                    self._logger.debug('Failed to start/restart mapper')
+                    self._logger.debug('starting/restarting mapper(again)...')
+            finally:
                 self._mapper_correctly_running.clear()
-                self._logger.warning('catch protocol failed')
-                # from random import random
-                # if random() > 0.5:
-                #     print('sleeping')
-                #     await asyncio.sleep(30)
-                #     print('sleeped')
-                if self.mapper.token is None:
-                    raise RuntimeError('Try a connect without token')
-            except (RestartMapperError, AlreadyFailedError, BackoffError, MapperCancelledError) as e:
-                self._logger.warning('Start/restart error: %s', e)
-                self._logger.debug('Failed to start/restart mapper')
-                self._logger.debug('starting/restarting mapper(again)...')
+                self.mapper._authorized.clear()
+                self.mapper.protocol.failed.set()
 
             # except Exception as e:
             #     self._logger.error(f'Error in manage lifecycle task: {e.__class__.__name__}: {e}', exc_info=True)
 
 
-    async def _cancel_lifecycle_task(self):
+    async def _cancel_lifecycle_task(self) -> None:
         task = await self.get_lifecycle_task()
         if task:
-            task.cancel()
             try:
+                task.cancel()
                 await task
             except Exception as e:
                 self._logger.info('spread exception')
@@ -111,7 +117,7 @@ class LifecycleManager:
                 pass
 
 
-    async def wait_lifecycle_task(self, auth_params: dict[str, Any] | None = None, **kwargs):
+    async def wait_lifecycle_task(self, auth_params: dict[str, Any] | None = None, **kwargs) -> None:
         if auth_params is None:
             auth_params = {}
         while True:
@@ -137,7 +143,7 @@ class LifecycleManager:
                     self._logger.warning('lifecycle task cancelled')
             await asyncio.sleep(0.5)
 
-    async def start(self, auth_params: dict[str, Any] | None = None, **kwargs):
+    async def start(self, auth_params: dict[str, Any] | None = None, **kwargs) -> None:
         if auth_params is None:
             auth_params = {}
         self._logger.debug('cancelling lifecycle task while starting')

@@ -8,7 +8,7 @@ from typing import Any
 
 from ..bases import StreamMaxProtocol, BaseMaxProtocolMethod, Response, Request
 from ...routing.event_router import EventRouter
-from ...exceptions import AlreadyCancelledError
+from ...exceptions import AlreadyCancelledError, SendingProtocolError
 
 from pydantic import BaseModel
 
@@ -88,8 +88,8 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
                 self.__logger.info('retry connection')
         if self._reader_task:
             self.__logger.info('find another reader, closing it...')
-            self._reader_task.cancel()
             try:
+                self._reader_task.cancel()
                 await self._reader_task
             except asyncio.CancelledError:
                 self.__logger.debug('reader already cancelled in connect')
@@ -104,8 +104,8 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
     async def close(self) -> None:
         self.__logger.info('closing protocol')
         if self._reader_task:
-            self._reader_task.cancel()
             try:
+                self._reader_task.cancel()
                 await self._reader_task
             except asyncio.CancelledError:
                 self.__logger.info('reader already cancelled')
@@ -125,6 +125,14 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
 
 
     async def send(self, method: BaseMaxProtocolMethod[Envelope], data: Any | None = None) -> Future[Envelope]:
+        """
+        send a envelope
+
+        Raises
+        ------
+            SendingProtocolError
+            AlreadyCancelledError
+        """
         if not data:
             data = {}
         if not isinstance(data, dict):
@@ -132,7 +140,11 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         envelope = await self.from_request(request=data)
         request = await method(request=envelope)
         await self.__transport_inited.wait()
-        await self.__transport.send(request.model_dump(by_alias=True))
+        try:
+            await self.__transport.send(request.model_dump(by_alias=True))
+        except self.__transport.BASE_EXCEPTION_FOR_TRANSPORT as e:
+            self.__logger.error(f'transport sending error: {e}', exc_info=True)
+            raise SendingProtocolError('transport sending error') from e
         self.__logger.debug(f'send request: {envelope.model_dump(by_alias=True)}')
         event_router = await self.get_event_router()
         if not event_router:
@@ -147,8 +159,8 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
                 response_json = await self.__transport.recv()
                 response_raw = json.loads(response_json)
 
-                from random import random
-                rnd = random()
+                # from random import random
+                # rnd = random()
 
                 # if rnd > 0.5:
                 #     print('raise')
@@ -169,7 +181,10 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         finally:
             self.failed.set()
             self.running.clear()
+            from ...utils import debug_tasks
+            debug_tasks()
             event_router = await self.get_event_router()
+            self.__logger.error('exc stack', exc_info=True)
             if event_router:
                 self.__logger.debug('event router canceled all')
                 event_router.cancel_all()
