@@ -63,7 +63,7 @@ class LifecycleManager:
             try:
                 try:
                     from ....utils import debug_tasks
-                    debug_tasks()
+                    self._logger.debug(f'{debug_tasks()}')
                     self._logger.debug('closing protocol')
                     await self.mapper.close()
                     self._logger.debug('protocol closed')
@@ -200,7 +200,7 @@ class LifecycleManager:
 
 
     async def notify_about_exception(self, exception: Exception) -> None:
-        self._logger.debug('notify_about_exception %s', exception)
+        self._logger.debug('notify_about_exception %s', exception, exc_info=exception)
         await self._cancel_lifecycle_task()
         self._logger.debug('notify_about_exception manage lifecycle task was cancelled')
 

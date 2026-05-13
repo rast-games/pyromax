@@ -5,7 +5,7 @@ from typing import Any, cast
 
 from .....protocol.envelope import EnvelopeProtocol, Envelope
 from ..methods.immutable import BaseMethod
-from .....exceptions import AlreadyFailedError, AlreadyCancelledError, MapperCancelledError, MapperApiError, SendingProtocolError, MapperTransportError
+from .....exceptions import AlreadyFailedError, AlreadyCancelledError, MapperCancelledError, MapperApiError, SendingProtocolError, MapperTransportError, MapperConnectError, ConnectProtocolError
 from ..payloads.responses import ErrorMessageResponse
 from ..methods.build_ins import build_method, method_names
 
@@ -22,7 +22,17 @@ class TransportMixin:
     async def connect(
             self,
     ) -> None:
-        await self.protocol.connect()
+        """
+        Raises
+        ------
+            MapperConnectError
+        """
+        try:
+
+            await self.protocol.connect()
+        except ConnectProtocolError as e:
+            self._logger.error('Connect failed', stack_info=True, exc_info=True)
+            raise MapperConnectError('Connect failed') from e
         self._logger.debug('protocol connected')
         if self._keepalive_task:
             self._logger.debug('have another keepalive task, cancel it')

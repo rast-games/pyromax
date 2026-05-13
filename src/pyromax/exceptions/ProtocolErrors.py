@@ -11,3 +11,6 @@ class SendingProtocolError(BaseProtocolError):
 
 class ReceiveProtocolError(BaseProtocolError):
     pass
+
+class ConnectProtocolError(BaseProtocolError):
+    pass

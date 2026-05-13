@@ -18,6 +18,13 @@ if TYPE_CHECKING:
 
 @register_mapper('EnvelopeV11')
 class Mapper(FullMixin):
+
+    async def _listen_updates(
+            self,
+            context: Any
+    ):
+        pass
+
     async def listen_updates(
             self,
             context: Any,
@@ -29,6 +36,9 @@ class Mapper(FullMixin):
                     updates = await self.protocol.get_updates()
                 except RuntimeError as e:
                     self._logger.error('get_updates failed: %s', e)
+                    await self._lifecycle_manager.notify_about_exception(
+                        e
+                    )
                     continue
                 for update in updates:
                     if update.model_dump().get('error'):

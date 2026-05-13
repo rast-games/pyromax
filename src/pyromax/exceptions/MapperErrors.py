@@ -29,3 +29,7 @@ class MapperCancelledError(MapperApiError):
 
 class MapperTransportError(BaseMapperError):
     """Raised when a send fails."""
+
+
+class MapperConnectError(BaseMapperError):
+    """Raised when connect fails."""

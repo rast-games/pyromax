@@ -140,8 +140,13 @@ class SocketTransport(StreamTransport):
         )
 
 
-    async def connect(self) -> None:
-        self.__reader, self.__writer = await asyncio.open_connection(self.url, self.port, ssl=self._ssl_context)
+    async def connect(self, **kwargs) -> None:
+        try:
+
+            self.__reader, self.__writer = await asyncio.open_connection(self.url, self.port, ssl=self._ssl_context)
+        except Exception as e:
+            self.__logger.error('Socket connection error: %s', e)
+            raise SocketTransportConnectionError(f'Socket connection error: {e}') from e
         self.__logger.info('Socket connected')
 
     async def close(self) -> None:
@@ -205,8 +210,8 @@ class SocketTransportEnvelope(SocketTransport):
         await super().close()
 
 
-    async def connect(self) -> None:
-        await super().connect()
+    async def connect(self, **kwargs) -> None:
+        await super().connect(**kwargs)
 
 
     async def _async_init(self, *args: Any, **kwargs: Any) -> Any:
