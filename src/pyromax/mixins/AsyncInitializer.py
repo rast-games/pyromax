@@ -5,6 +5,7 @@ from typing import TypeVar, Any, Generic
 
 from typing_extensions import Self
 
+
 from ..utils import return_self_after_method
 
 import abc

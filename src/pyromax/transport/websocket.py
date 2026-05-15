@@ -58,8 +58,8 @@ class WebSocketTransport(StreamTransport):
             self.url,
             origin=self.origin,
             user_agent_header=self.user_agent_header,
-            # ping_interval=1,
-            # ping_timeout=0.01,
+            ping_interval=1,
+            ping_timeout=0.01,
         )
         self.__logger.info('WebSocket connected to %s', self.url)
 

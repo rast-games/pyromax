@@ -38,6 +38,7 @@ class TransportMixin:
             self._logger.debug('have another keepalive task, cancel it')
             try:
                 self._keepalive_task.cancel()
+                await self._keepalive_task
             except asyncio.CancelledError:
                 self._logger.debug(f'self.mapper.connect() -> self._keepalive_task.cancel() -> CancelledError')
             self._logger.debug('keepalive task cancelled')

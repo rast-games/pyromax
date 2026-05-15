@@ -118,7 +118,8 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
                 self.__logger.info('reader already cancelled')
         event_router = await self.get_event_router()
         if event_router:
-            event_router.cancel_all()
+            await event_router.cancel_all()
+            del event_router
             await self.set_event_router(None)
         self.event_router = None
         self._reader_task = None
@@ -188,15 +189,17 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         except self.__transport.BASE_EXCEPTION_FOR_TRANSPORT as e:
             self.__logger.error('error occurred in reader: %s', e)
         finally:
+            event_router = await self.get_event_router()
+            if event_router:
+                self.__logger.debug('event router canceled all')
+                await event_router.cancel_all()
+
             self.failed.set()
             self.running.clear()
             from ...utils import debug_tasks
             self.__logger.debug(f'{debug_tasks()}')
-            event_router = await self.get_event_router()
             self.__logger.error('exc stack', exc_info=True)
-            if event_router:
-                self.__logger.debug('event router canceled all')
-                event_router.cancel_all()
+
 
 
     async def get_updates(self) -> Iterable[Envelope]:

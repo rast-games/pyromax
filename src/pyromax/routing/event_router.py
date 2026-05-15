@@ -80,15 +80,21 @@ class EventRouter(Generic[request, response]):
         return False
 
 
-    def cancel_all(self) -> None:
+    async def cancel_all(self) -> None:
         self.__cancelled = True
         for future_like in self.__pending.values():
             future_like.cancel()
+            try:
+                await future_like
+            except CancelledError:
+                pass
+        await asyncio.gather(*tuple(self.__pending.values()), return_exceptions=True)
         self.__pending.clear()
 
         for pop_updates_task in self.__pop_updates_calls:
             pop_updates_task.cancel()
 
+        await asyncio.gather(*tuple(self.__pop_updates_calls), return_exceptions=True)
         self.__pop_updates_calls.clear()
 
 
@@ -124,6 +130,5 @@ class EventRouter(Generic[request, response]):
             raise AlreadyCancelledError('pop_all_updates cancelled')
 
 
-    def __del__(self) -> None:
-        for pop_updates_task in self.__pop_updates_calls:
-            pop_updates_task.cancel()
+    # def __del__(self) -> None:
+    #
