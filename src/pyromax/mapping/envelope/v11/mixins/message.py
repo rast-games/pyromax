@@ -7,7 +7,7 @@ import time
 import asyncio
 
 from ..payloads.models import BaseFileMappingModel, MessageMappingModel
-from .....protocol.envelope import Envelope
+from .....protocol.envelope import Envelope, EnvelopeProtocol
 from ..constants import DEFAULT_BACKOFF_CONFIG
 from .....utils import clean_and_map, Backoff
 from ..methods.immutable import SendMessageMethod
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 class MessageMixin:
     send: Callable[..., Coroutine[Any, Any, Envelope]]
     _logger: logging.Logger
+    protocol: EnvelopeProtocol
 
 
     async def send_message( # type: ignore[override]
@@ -30,6 +31,12 @@ class MessageMixin:
             attaches: Sequence[BaseFileMappingModel] | None = None,
             link: MessageLink | None = None,
     ) -> MessageMappingModel | None:
+        """
+
+        Raises
+        ------
+            SendMessageError
+        """
         original_attaches = attaches
         if not attaches:
             attaches = []

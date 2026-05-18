@@ -1,6 +1,6 @@
 from __future__ import annotations
 from collections.abc import AsyncGenerator
-from typing import Any, TYPE_CHECKING, cast
+from typing import Any, cast
 
 from ....exceptions import MapperApiError
 from .payloads.responses import ErrorMessageResponse
@@ -11,33 +11,34 @@ from ....dispatcher.event.UpdateType import Update
 
 from .mixins import FullMixin
 
-if TYPE_CHECKING:
-    from ....models import MessageLink
-    from ....core import MaxApi
+# if TYPE_CHECKING:
+#     from ....models import MessageLink
+#     from ....core import MaxApi
 
 
 @register_mapper('EnvelopeV11')
 class Mapper(FullMixin):
-
-    async def _listen_updates(
-            self,
-            context: Any
-    ):
-        pass
-
     async def listen_updates(
             self,
             context: Any,
     ) -> AsyncGenerator[Update, None]:
         """Endless updates reader"""
         async with self._update_listener_lock:
+
             while True:
                 try:
+                    await self._mapper_connected.wait()
+                    gen = await self._lifecycle_manager.get_generation()
                     updates = await self.protocol.get_updates()
                 except RuntimeError as e:
+                    if self._lifecycle_manager is None:
+                        self._logger.warning('lifecycle manager not available, wait init')
+                        await self._lifecycle_manager_inited.wait()
                     self._logger.error('get_updates failed: %s', e)
-                    await self._lifecycle_manager.notify_about_exception(
-                        e
+                    self._lifecycle_manager.notify_about_exception(
+                        e,
+                        generation=gen,
+                        source='Mapper.listen_updates',
                     )
                     continue
                 for update in updates:

@@ -182,10 +182,10 @@ class SocketTransportEnvelope(SocketTransport):
     async def send(self, request: dict[str, Any]) -> None: # type: ignore[override]
         if not isinstance(request, dict):
             raise SocketTransportSendError('request must be a dict with keys: "seq", "opcode", and "cmd"')
-        seq = int(request.get('seq'), 0)
-        opcode = int(request.get('opcode'), 1)
-        cmd = int(request.get('cmd'), 0)
-        ver = int(request.get('ver'), 11)
+        seq = int(request.get('seq', 0))
+        opcode = int(request.get('opcode', 1))
+        cmd = int(request.get('cmd', 0))
+        ver = int(request.get('ver', 11))
         del request['seq']
         del request['opcode']
         del request['cmd']

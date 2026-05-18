@@ -3,27 +3,28 @@ from typing import Any
 import sys
 
 
-def debug_tasks() -> None:
+def debug_tasks() -> str:
     """Выводит ВСЕ активные задачи."""
     tasks = asyncio.all_tasks()
-    print(f"🔥 Всего задач: {len(tasks)}")
+    msg = f"🔥 All tasks: {len(tasks)}\n"
 
     for i, task in enumerate(tasks):
         coro: Any = task.get_coro()
         coro_name = getattr(coro, "__qualname__", str(coro))
         state = "DONE" if task.done() else "PENDING"
-        print(f"  {i}: {task.get_name()} state={state} coro={coro_name}")
+        msg += f"  {i}: {task.get_name()} state={state} coro={coro_name}\n"
         if task.done() and not task.cancelled():
             try:
                 exc = task.exception()
                 if exc:
-                    print(f"    ❌ Exception: {exc}")
+                    msg +=f"    ❌ Exception: {exc}\n"
             except (asyncio.CancelledError, asyncio.InvalidStateError):
                 pass
+    print(msg)
+    return msg
 
 
-
-def get_caller_info(depth=1) -> None:
+def get_caller_info(depth=1) -> str:
     """Точное место вызова: file:line:function"""
     frame = sys._getframe(depth)
     filename = frame.f_code.co_filename

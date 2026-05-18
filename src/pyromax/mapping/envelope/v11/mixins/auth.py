@@ -83,8 +83,6 @@ class AuthMixin:
 
         self.max_api.id = auth_model.profile.contact.id
         self.max_api.phone = str(auth_model.profile.contact.phone)
-        # names = [translate_models(name).model_dump() for name in auth_model.profile.contact.names]
-        # self.max_api.names = names
         self.max_api.names = auth_model.profile.contact.names
 
 
@@ -219,7 +217,6 @@ class AuthMixin:
             contacts_sync: int = 0,
             drafts_sync: int = 0,
     ) -> None:
-        # while True:
         try:
 
             await self._send_user_agent(
@@ -235,11 +232,9 @@ class AuthMixin:
                 drafts_sync=drafts_sync,
             )
             self._authorized.set()
-            # break
         except BaseMapperError as e:
             self._logger.warning('Cancelled auth')
             self._authorized.clear()
-            self.protocol.failed.set()
             raise RestartMapperError('Auth failed') from e
 
 

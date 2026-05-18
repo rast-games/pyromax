@@ -1,6 +1,6 @@
 from __future__ import annotations
 import asyncio
-from asyncio import Task, Lock
+from asyncio import Task, Lock, Event
 import logging
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable, Coroutine
@@ -8,8 +8,6 @@ from typing import cast
 
 from .....mixins import AsyncInitializerMixin
 from .....protocol import EnvelopeProtocol
-# from .....utils import Backoff
-# from .....exceptions import MapperCancelledError, RestartMapperError, BackoffError, AlreadyFailedError
 from ..payloads.models import BaseUserAgentMappingModel
 from ..constants import DEVICE_TYPE_TO_USERAGENT_MODEL, DEFAULT_BACKOFF_CONFIG
 from ..LifecycleManager import LifecycleManager
@@ -23,9 +21,10 @@ class ConstructorMixin(AsyncInitializerMixin):
     def __init__(
             self,
             protocol: EnvelopeProtocol,
-            keepalive_ping_interval: int
+            keepalive_ping_interval: int,
     ) -> None:
         self.protocol = protocol
+        self.protocol_version = 11
         self._keepalive_ping_interval = keepalive_ping_interval
         self._logger = logging.getLogger('MapperV11')
         self._keepalive_task: Task[Any] | None = None
@@ -42,6 +41,9 @@ class ConstructorMixin(AsyncInitializerMixin):
         self.password: str | None = None
         self.phone = None
         self.sms_auth = False
+        self._lifecycle_manager_inited: asyncio.Event = Event()
+        self._mapper_connected: asyncio.Event = Event()
+
         from ..Mapper import Mapper
         self._lifecycle_manager = LifecycleManager(
             mapper=cast(Mapper, self),
@@ -75,7 +77,7 @@ class ConstructorMixin(AsyncInitializerMixin):
             self,
             token: str | None = None,
             device_id: str | None = None,
-            protocol_version: str='v11',
+            protocol_version: str = 11,
             device_type: str = 'WEB',
             password: str | None = None,
             phone: str | None = None,
@@ -97,13 +99,11 @@ class ConstructorMixin(AsyncInitializerMixin):
         if keep_alive_interactive is None:
             keep_alive_interactive = interactive
         self.keep_alive_interactive = keep_alive_interactive
-        await self._lifecycle_manager.start()
-        self._manage_lifecycle_task = asyncio.create_task(
-            self._lifecycle_manager.wait_lifecycle_task(
-                url_callback=url_callback,
-                auth_params={
-                    'interactive': interactive,
-                }
-            )
-        )
+        self.protocol_version = protocol_version
+
+        self.protocol.set_generation_getter(self._lifecycle_manager.get_generation)
+        self.protocol.set_exceptions_callback(self._lifecycle_manager.notify_about_exception)
+        self._lifecycle_manager_inited.set()
+
+        self._lifecycle_manager.start(url_callback=url_callback)
         self._logger.info("Mapper initialized")

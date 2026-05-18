@@ -15,8 +15,6 @@ T = TypeVar('T', bound=Request[Any], contravariant=True)
 R = TypeVar('R', bound=Response, covariant=True)
 
 class BaseMaxProtocol(AsyncInitializerMixin, Generic[T, R]):
-    running: Event
-    failed: Event
 
     @abstractmethod
     async def send(self, method: BaseMaxProtocolMethod[T], data: Any | None = None) -> Awaitable[R]: pass

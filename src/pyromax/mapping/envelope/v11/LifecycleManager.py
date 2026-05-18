@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 import logging
+from enum import Enum
 
 from ....utils import Backoff
 from .constants import DEFAULT_BACKOFF_CONFIG
@@ -10,198 +11,214 @@ from ....exceptions import RestartMapperError, AlreadyFailedError, BackoffError,
 if TYPE_CHECKING:
     from .Mapper import Mapper
 
+
+class _LifecycleStates(Enum):
+    CONNECTED = 1
+    CONNECTING = 2
+    DISCONNECTED = 3
+    DISCONNECTING = 4
+    # ERROR = 5
+
+class LifecycleFailure:
+    def __init__(self, exception: Exception, source: str, generation: int):
+        self.exception = exception
+        self.source = source
+        self.generation: int = generation
+
+
+    def __repr__(self) -> str:
+        return f'exception: {self.exception}, source: {self.source}, generation: {self.generation}'
+
 class LifecycleManager:
-    def __init__(self, mapper: Mapper, fallback_waiter_timeout: int = 30):
+    def __init__(self, mapper: Mapper, connect_timeout: int = 5):
         self.mapper = mapper
         self._logger = logging.getLogger('LifecycleManagerEnvelopeMapperV11')
         self._manage_lifecycle_task: asyncio.Task | None = None
-        self._fallback_waiter_task: asyncio.Task | None = None
-        self._lifecycle_task_lock: asyncio.Lock = asyncio.Lock()
-        self._mapper_correctly_running: asyncio.Event = asyncio.Event()
-        self.__fallback_waiter_timeout = fallback_waiter_timeout
+        self.connect_timeout = connect_timeout
+        # self._fallback_waiter_task: asyncio.Task | None = None
+        # self._lifecycle_task_lock: asyncio.Lock = asyncio.Lock()
+        # self._mapper_correctly_running: asyncio.Event = asyncio.Event()
+        # self.__fallback_waiter_timeout = fallback_waiter_timeout
         # self._has_lifecycle_task: asyncio.Event = asyncio.Event()
 
 
-    async def _fallback_waiter(self) -> None:
-        """
-        A fallback option in case of unforeseen situations and the protocol.failed event hanging.
-
-        It doesn't throw any exceptions, it just hangs in the background and when the timeout expires, it restarts after waiting for the protocol.failed event.
-        """
-        while True:
-            try:
-                try:
-                    await self.mapper.protocol.failed.wait()
-                    await asyncio.wait_for(self._mapper_correctly_running.wait(), timeout=self.__fallback_waiter_timeout)
-                except asyncio.TimeoutError:
-                    self._logger.error('Fallback timeout')
-                    self._logger.info('try to recover lifecycle task')
-                    await self.stop()
-                    await self.start()
-                except Exception as e:
-                    self._logger.error(f'Error in fallback waiter: {e.__class__.__name__}: {e}', exc_info=True)
-                    self._logger.info('try to recover lifecycle task with uncaught exception')
-                    await self.stop()
-                    await self.start()
-            # except BaseException as e:
-            #     if e.__class__ == KeyboardInterrupt:
-            #         raise e
-            #     self._logger.error('outer error in fallback waiter')
-            except Exception as e:
-                self._logger.error(f'outer error in fallback waiter: {e.__class__.__name__}: {e}', exc_info=True)
+        self._lifecycle_queue: asyncio.Queue[LifecycleFailure] = asyncio.Queue(maxsize=1)
+        self._generation: int = 0
+        self._generation_lock: asyncio.Lock = asyncio.Lock()
+        self._state: _LifecycleStates = _LifecycleStates.DISCONNECTED
 
 
-    async def _manage_lifecycle(
-            self,
-            auth_params: dict[str, Any] | None = None,
-            **kwargs: Any
-    ) -> None:
-        if auth_params is None:
-            auth_params = {}
-        while True:
-            manage_lifecycle_backoff = Backoff(DEFAULT_BACKOFF_CONFIG)
-            try:
-                try:
-                    from ....utils import debug_tasks
-                    self._logger.debug(f'{debug_tasks()}')
-                    self._logger.debug('closing protocol')
-                    await self.mapper.close()
-                    self._logger.debug('protocol closed')
-                    await self.mapper.connect()
-                    if not self.mapper.logged or not self.mapper.token:
-                        await self.mapper.login(kwargs.get('url_callback'), login_backoff=manage_lifecycle_backoff)
-                        self.mapper.logged = True
-                    await self.mapper._auth(
-                        token=self.mapper.token,
-                        user_agent=self.mapper.user_agent,
-                        **auth_params
-                    )
-                    self.mapper._authorized.set()
-                    self._mapper_correctly_running.set()
-                    self._logger.debug('auth token sent')
-                    await self.mapper.protocol.failed.wait()
-                    self.mapper._authorized.clear()
-                    self._mapper_correctly_running.clear()
-                    self._logger.warning('catch protocol failed')
-                    # from random import random
-                    # if random() > 0.5:
-                    #     print('sleeping')
-                    #     await asyncio.sleep(30)
-                    #     print('sleeped')
-                    if self.mapper.token is None:
-                        raise RuntimeError('Try a connect without token')
-                except (RestartMapperError, AlreadyFailedError, BackoffError, MapperCancelledError) as e:
-                    self._logger.warning('Start/restart error: %s', e, exc_info=True)
-                    self._logger.debug('Failed to start/restart mapper')
-                    self._logger.debug('starting/restarting mapper(again)...')
-            finally:
-                self._mapper_correctly_running.clear()
-                self.mapper._authorized.clear()
-                self.mapper.protocol.failed.set()
-
-            # except Exception as e:
-            #     self._logger.error(f'Error in manage lifecycle task: {e.__class__.__name__}: {e}', exc_info=True)
-
-
-    async def _cancel_lifecycle_task(self) -> None:
-        task = await self.get_lifecycle_task()
-        if task:
-            try:
-                task.cancel()
-                await task
-            except Exception as e:
-                self._logger.info('spread exception')
-                self._logger.info(f'error in lifecycle task: {e.__class__.__name__}: {e}', exc_info=True)
-                self._logger.debug('error in lifecycle task was intercepted')
-            except asyncio.CancelledError:
-                pass
-
-
-    async def wait_lifecycle_task(self, auth_params: dict[str, Any] | None = None, **kwargs) -> None:
-        if auth_params is None:
-            auth_params = {}
-        while True:
-            self._logger.info('try a get lifecycle task')
-            task = await self.get_lifecycle_task()
-            if task is None or task.done():
-                self._logger.warning('lifecycle task is None or done')
-                self._logger.debug('restarting lifecycle manager')
-                self._logger.debug('stopping lifecycle manager')
-                await self.stop()
-                self._logger.debug('lifecycle manager stopped')
-                self._logger.debug('starting lifecycle manager')
-                await self.start()
-                task = await self.get_lifecycle_task()
-                self._logger.debug('lifecycle manager started')
-
-            if task:
-                try:
-                    await task
-                except Exception as e:
-                    self._logger.error(f'lifecycle manager exception: {e.__class__.__name__}: {e}', exc_info=True)
-                except asyncio.CancelledError:
-                    self._logger.warning('lifecycle task cancelled')
-            await asyncio.sleep(0.5)
-
-    async def start(self, auth_params: dict[str, Any] | None = None, **kwargs) -> None:
-        if auth_params is None:
-            auth_params = {}
-        self._logger.debug('cancelling lifecycle task while starting')
-        await self._cancel_lifecycle_task()
-        self._logger.debug('lifecycle task cancelled while starting')
-        self._logger.debug('create manage lifecycle task in background')
-        task = asyncio.create_task(self._manage_lifecycle(auth_params=auth_params, **kwargs))
-        await self.set_lifecycle_task(task)
-        if self._fallback_waiter_task is None:
-            self._logger.info('starting fallback waiter task')
-            self._fallback_waiter_task = asyncio.create_task(self._fallback_waiter())
-            self._logger.info('fallback waiter task started')
-        self._logger.debug('manage lifecycle task was set')
-        # self._has_lifecycle_task.set()
-        # return task
-
-
-    async def get_lifecycle_task(self):
-        async with self._lifecycle_task_lock:
-            return self._manage_lifecycle_task
-
-
-    async def set_lifecycle_task(self, task: asyncio.Task | None):
-        async with self._lifecycle_task_lock:
-            self._manage_lifecycle_task = task
-
-
-    async def stop(self):
-        """
-        stop manage lifecycle task
-        """
-        self._logger.debug('cancelling lifecycle task')
-        await self._cancel_lifecycle_task()
-        self._logger.debug('lifecycle task cancelled')
-        await self.set_lifecycle_task(None)
-        self._logger.debug('lifecycle manager stopped')
-
-
-    async def full_stop(self):
-        """Fully stop the lifecycle manager.
-
-        stopping with fallback waiter
-        """
+    def notify_about_exception(self, exception: Exception, generation: int, source: str) -> None:
         try:
-            if self._fallback_waiter_task is not None:
-                self._fallback_waiter_task.cancel()
-                await self._fallback_waiter_task
+            while True:
+                try:
+                    self._lifecycle_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+
+            self._lifecycle_queue.put_nowait(
+                LifecycleFailure(
+                    generation=generation,
+                    exception=exception,
+                    source=source,
+                )
+            )
+        except asyncio.QueueFull:
+            self._logger.debug(
+                'failure already queued, dropping duplicate from %s',
+                source,
+            )
+            self._logger.debug(LifecycleFailure(
+                    generation=generation,
+                    exception=exception,
+                    source=source,
+                ))
+
+    def start(self, auth_params: dict[str, Any] | None = None, **kwargs) -> None:
+        task = self._manage_lifecycle_task
+
+        if task is not None and not task.done():
+            return
+
+        if auth_params is None:
+            auth_params = {}
+
+        self._manage_lifecycle_task = asyncio.create_task(
+            self._manage_lifecycle(auth_params=auth_params, **kwargs)
+        )
+
+
+    async def _close(self):
+        try:
+            await self.mapper.close()
+        except Exception:
+            self._logger.exception('close failed')
+
+
+    async def _connect(self, manage_lifecycle_backoff, auth_params: dict | None = None, **kwargs: dict[str, Any]) -> None:
+        if auth_params is None:
+            auth_params = {}
+        await self.mapper.connect()
+        if not self.mapper.logged or not self.mapper.token:
+            await self.mapper.login(kwargs.get('url_callback'), login_backoff=manage_lifecycle_backoff)
+            self.mapper.logged = True
+        await self.mapper._auth(
+            token=self.mapper.token,
+            user_agent=self.mapper.user_agent,
+            **auth_params
+        )
+        self.mapper._authorized.set()
+        self._logger.debug('auth token sent')
+
+
+    async def _establish_connection(self, manage_lifecycle_backoff, auth_params: dict[str, Any] | None = None, close_firstly: bool = True, **kwargs: dict[str, Any]):
+        try:
+            if close_firstly:
+                self._state = _LifecycleStates.DISCONNECTING
+                await self._close()
+                self._state = _LifecycleStates.DISCONNECTED
+            self._state = _LifecycleStates.CONNECTING
+            await self._connect(manage_lifecycle_backoff=manage_lifecycle_backoff, auth_params=auth_params, kwargs=kwargs)
+            await self._next_generation()
+            self._state = _LifecycleStates.CONNECTED
+        except Exception as e:
+            try:
+                self._state = _LifecycleStates.DISCONNECTING
+                await self._close()
+            finally:
+                self._state = _LifecycleStates.DISCONNECTED
+
+            self._logger.warning('connection failed', exc_info=True)
+            raise
         except asyncio.CancelledError:
-            self._logger.warning('fallback waiter already cancelled')
+            try:
+                self._state = _LifecycleStates.DISCONNECTING
+                await self._close()
+            finally:
+                self._state = _LifecycleStates.DISCONNECTED
 
-        self._logger.info('fallback waiter stopped')
-        await self.stop()
+            self._logger.warning('connection cancelled')
+            raise
+
+    async def _manage_lifecycle(self, auth_params: dict[str, Any], **kwargs) -> None:
+        manage_lifecycle_backoff = Backoff(DEFAULT_BACKOFF_CONFIG)
+        while True:
+            if self._state in (
+                _LifecycleStates.DISCONNECTED,
+                _LifecycleStates.DISCONNECTING
+            ):
+                try:
+                    try:
+                        await asyncio.wait_for(self._establish_connection(auth_params=auth_params,
+                                                         manage_lifecycle_backoff=manage_lifecycle_backoff,
+                                                         close_firstly=True,
+                                                                          **kwargs),
+                                               timeout=self.connect_timeout)
+                        await manage_lifecycle_backoff.asleep()
+                    except BackoffError:
+                        self._logger.debug('timeout while waiting for lifecycle backoff')
+                    manage_lifecycle_backoff.reset()
+                except asyncio.TimeoutError:
+                    continue
+                except Exception as e:
+                    self._logger.exception('unexpected exception in _manage_lifecycle while establish_connection')
+                    continue
+
+            current_error_state = await self._lifecycle_queue.get()
+            # self._lifecycle_queue.task_done()
+            self._logger.warning('catch protocol failed')
+            self._logger.error(
+f'''
+error: {current_error_state.exception}
+source: {current_error_state.source},
+gen: {current_error_state.generation},
+'''
+            )
+            if current_error_state.generation != await self.get_generation():
+                continue
+            while True:
+                try:
+                    try:
+                        await asyncio.wait_for(self._establish_connection(auth_params=auth_params, manage_lifecycle_backoff=manage_lifecycle_backoff, close_firstly=True, **kwargs), timeout=self.connect_timeout)
+                        # await self._drain_failures()
+                        break
+                    except asyncio.TimeoutError:
+                        self._logger.warning('timeout while waiting for connection after error')
+                        await manage_lifecycle_backoff.asleep()
+                    except Exception as e:
+                        self._logger.exception('establish connection failed')
+                        await manage_lifecycle_backoff.asleep()
+                        continue
+                except BackoffError:
+                    self._logger.warning('backoff timeout while waiting for connection after error')
+            manage_lifecycle_backoff.reset()
 
 
-
-    async def notify_about_exception(self, exception: Exception) -> None:
-        self._logger.debug('notify_about_exception %s', exception, exc_info=exception)
-        await self._cancel_lifecycle_task()
-        self._logger.debug('notify_about_exception manage lifecycle task was cancelled')
+    async def get_generation(self) -> int:
+        async with self._generation_lock:
+            return self._generation
 
 
+    async def get_next_generation(self) -> int:
+        return await self.get_generation() + 1
+
+
+    async def _next_generation(self) -> int:
+        async with self._generation_lock:
+            self._generation += 1
+            return self._generation
+
+
+    async def _drain_failures(self):
+        while True:
+            try:
+                failure = self._lifecycle_queue.get_nowait()
+                self._lifecycle_queue.task_done()
+
+            except asyncio.QueueEmpty:
+                return
+
+            self._logger.debug(
+                'dropping duplicated failure from %s',
+                failure.source,
+            )

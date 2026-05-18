@@ -7,10 +7,8 @@ class Correlator:
         self._counter_lock = asyncio.Lock()
 
 
-
-    async def get_counter(self) -> int:
+    async def next_counter(self) -> int:
         async with self._counter_lock:
-            return self._counter
-
-    def counter_increment(self) -> None:
-        self._counter += 1
+            counter = self._counter
+            self._counter += 1
+            return counter

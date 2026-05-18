@@ -14,10 +14,12 @@ class TransportMixin:
 
     protocol: EnvelopeProtocol
     _logger: logging.Logger
-    _keepalive_task: asyncio.Task
+    _keepalive_task: asyncio.Task | None
     _keepalive: Callable[..., Coroutine[Any, Any, Any]]
     _authorized: asyncio.Event
     _lifecycle_manager: 'LifecycleManager'
+    _lifecycle_manager_inited: asyncio.Event
+    _mapper_connected: asyncio.Event
 
     async def connect(
             self,
@@ -29,7 +31,7 @@ class TransportMixin:
         """
         try:
 
-            await self.protocol.connect()
+            await self.protocol.connect(await self._lifecycle_manager.get_next_generation())
         except ConnectProtocolError as e:
             self._logger.error('Connect failed', stack_info=True, exc_info=True)
             raise MapperConnectError('Connect failed') from e
@@ -45,18 +47,22 @@ class TransportMixin:
         self._logger.debug('start keepalive task')
         self._keepalive_task = asyncio.create_task(self._keepalive())
         self._logger.debug('keepalive task started')
+        self._mapper_connected.set()
 
     async def close(
             self,
     ) -> None:
+        self._mapper_connected.clear()
+        self._authorized.clear()
         await self.protocol.close()
-
-        if self._keepalive_task:
+        keepalive_task = self._keepalive_task
+        self._keepalive_task = None
+        if keepalive_task:
 
             try:
-                self._keepalive_task.cancel()
-                await self._keepalive_task
-            except asyncio.CancelledError:
+                keepalive_task.cancel()
+                await asyncio.wait_for(keepalive_task, timeout=5)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
                 self._logger.debug('keepalive task already cancelled')
 
     def log(self, level: int, msg: str) -> None:
@@ -89,9 +95,6 @@ class TransportMixin:
         """
         if data is None:
             data = {}
-
-        if self.protocol.failed.is_set():
-            raise AlreadyFailedError('Mapper protocol already failed, need restart')
         try:
 
             response_future = await self.protocol.send(
@@ -110,7 +113,7 @@ class TransportMixin:
         if check_errors and response.payload.get('error'):
             error = ErrorMessageResponse(**response.payload)
             error_msg = \
-                f"""
+            f"""
             error: {error.error},
             title: {error.title},
             localized_message: {error.localized_message},
@@ -128,7 +131,6 @@ class TransportMixin:
     async def send_raw_with_running_wait(self, method: BaseMethod, data: dict[Any, Any] | None = None) -> Envelope:
         if data is None:
             data = {}
-        await self.protocol.running.wait()
         response = await self.send_raw(method=method, data=data)
         return response
 
@@ -142,22 +144,42 @@ class TransportMixin:
         """
         if data is None:
             data = {}
+
+        storage = {
+            'gen': -1
+        }
         while True:
             try:
-                await self.protocol.running.wait()
+                await self._mapper_connected.wait()
                 await self._authorized.wait()
+                gen = await self._lifecycle_manager.get_generation()
+                storage['gen'] = gen
                 response = await self.send_raw(method=method, data=data)
                 return response
             except (MapperCancelledError, AlreadyFailedError) as e:
-                await self._lifecycle_manager.notify_about_exception(e)
+                if self._lifecycle_manager is None:
+                    self._logger.warning('lifecycle manager not available, wait init')
+                    await self._lifecycle_manager_inited.wait()
 
+                self._lifecycle_manager.notify_about_exception(
+                    e,
+                    generation=storage['gen'],
+                    source='mapper.send',
+                )
                 self._logger.warning(f'Request {method.__class__.__name__} was cancelled', exc_info=True, stack_info=True)
                 if return_exception:
                     raise MapperCancelledError('Cancelled request') from e
             except Exception as e:
                 self._logger.warning(f'Caught exception when sending request: %s'
                                       f'method: {method.__class__.__name__}', e, exc_info=True, stack_info=True)
-                await self._lifecycle_manager.notify_about_exception(e)
+                if self._lifecycle_manager is None:
+                    self._logger.warning('lifecycle manager not available, wait init')
+                    await self._lifecycle_manager_inited.wait()
+                self._lifecycle_manager.notify_about_exception(
+                    e,
+                    generation=storage['gen'],
+                    source='mapper.send',
+                )
                 self._authorized.clear()
                 if return_exception:
                     raise MapperTransportError('unknown exception was catch while send') from e
