@@ -44,10 +44,7 @@ class ConstructorMixin(AsyncInitializerMixin):
         self._lifecycle_manager_inited: asyncio.Event = Event()
         self._mapper_connected: asyncio.Event = Event()
 
-        from ..Mapper import Mapper
-        self._lifecycle_manager = LifecycleManager(
-            mapper=cast(Mapper, self),
-        )
+        self._lifecycle_manager: LifecycleManager | None = None
 
 
     @property
@@ -85,6 +82,7 @@ class ConstructorMixin(AsyncInitializerMixin):
             interactive: bool = True,
             keep_alive_interactive: bool | None = None,
             url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
+            connection_timeout: int | None = None,
             **kwargs: Any
     ) -> None:
         if device_type not in self.DEVICE_TYPE_TO_USERAGENT_MODEL:
@@ -100,6 +98,11 @@ class ConstructorMixin(AsyncInitializerMixin):
             keep_alive_interactive = interactive
         self.keep_alive_interactive = keep_alive_interactive
         self.protocol_version = protocol_version
+        from ..Mapper import Mapper
+        self._lifecycle_manager = LifecycleManager(
+            mapper=cast(Mapper, self),
+            connect_timeout=connection_timeout
+        )
 
         self.protocol.set_generation_getter(self._lifecycle_manager.get_generation)
         self.protocol.set_exceptions_callback(self._lifecycle_manager.notify_about_exception)

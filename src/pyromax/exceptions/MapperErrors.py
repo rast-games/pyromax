@@ -33,3 +33,7 @@ class MapperTransportError(BaseMapperError):
 
 class MapperConnectError(BaseMapperError):
     """Raised when connect fails."""
+
+
+class MapperLifecycleError(BaseMapperError):
+    pass

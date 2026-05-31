@@ -195,9 +195,6 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
             await self._close()
 
 
-
-
-
     async def send(self, method: BaseMaxProtocolMethod[Envelope], data: Any | None = None) -> Future[Envelope]:
         """
         send a envelope
@@ -215,22 +212,17 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         if not isinstance(data, dict):
             raise TypeError('data must be dict instance')
         envelope = await self.from_request(request_data=data)
-        event_router = await self.get_event_router()
-        gen = self._current_generation
-        if gen is None:
-            raise RuntimeError('protocol not connected')
-
-        if not event_router:
-            raise RuntimeError('no event router while send')
         try:
             request = await method(request=envelope)
         except Exception as e:
             self.__logger.exception('failed to create envelope, method: %s', method.__class__.__name__)
-            event_router.cancel_request(envelope, gen=gen)
             raise SendingProtocolError('failed to create envelope') from e
-
-
-
+        event_router = await self.get_event_router()
+        if not event_router:
+            raise RuntimeError('no event router while send')
+        gen = self._current_generation
+        if gen is None:
+            raise RuntimeError('protocol not connected')
         try:
             record = event_router.create_record(request, gen=gen)
         except AlreadyCancelledError:

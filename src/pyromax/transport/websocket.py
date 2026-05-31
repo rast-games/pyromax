@@ -48,20 +48,24 @@ class WebSocketTransport(StreamTransport):
 
 
 
-    async def connect(self) -> None:
+    async def connect(self, **kwargs) -> None:
         if self.ws:
             self.__logger.info('WebSocket already connected to %s', self.url)
             await self.close()
             self.__logger.info('WebSocket was close')
         self.__logger.info('Connecting to %s', self.url)
-        self.ws = await connect(
-            self.url,
-            origin=self.origin,
-            user_agent_header=self.user_agent_header,
-            # ping_interval=1,
-            # ping_timeout=0.01,
-            # just a for tests
-        )
+        try:
+            self.ws = await connect(
+                self.url,
+                origin=self.origin,
+                user_agent_header=self.user_agent_header,
+                # ping_interval=1,
+                # ping_timeout=0.01,
+                # just a for tests
+            )
+        except asyncio.TimeoutError as e:
+            self.__logger.warning('connection handshake timed out')
+            raise WebSocketException('connection handshake timed out') from e
         self.__logger.info('WebSocket connected to %s', self.url)
 
     async def close(self) -> None:

@@ -30,7 +30,6 @@ class TransportMixin:
             MapperConnectError
         """
         try:
-
             await self.protocol.connect(await self._lifecycle_manager.get_next_generation())
         except ConnectProtocolError as e:
             self._logger.error('Connect failed', stack_info=True, exc_info=True)
@@ -109,6 +108,9 @@ class TransportMixin:
         try:
             response = await response_future
         except asyncio.CancelledError:
+            # if asyncio.current_task().cancelling():
+            #     raise
+            self._logger.error('response future was cancelled (Mapper.send_raw)', stack_info=True)
             raise MapperCancelledError('try response was cancelled while wait it')
         if check_errors and response.payload.get('error'):
             error = ErrorMessageResponse(**response.payload)
@@ -166,7 +168,8 @@ class TransportMixin:
                     generation=storage['gen'],
                     source='mapper.send',
                 )
-                self._logger.warning(f'Request {method.__class__.__name__} was cancelled', exc_info=True, stack_info=True)
+                msg = f'Request {method.__class__.__name__} was cancelled'
+                self._logger.warning(msg, exc_info=True, stack_info=True)
                 if return_exception:
                     raise MapperCancelledError('Cancelled request') from e
             except Exception as e:

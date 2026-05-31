@@ -236,6 +236,10 @@ class AuthMixin:
             self._logger.warning('Cancelled auth')
             self._authorized.clear()
             raise RestartMapperError('Auth failed') from e
+        except Exception as e:
+            self._logger.warning('Unexpected error while auth: %s', e)
+            self._authorized.clear()
+            raise RestartMapperError('Auth failed') from e
 
 
     async def _keepalive(

@@ -93,7 +93,6 @@ class EventRouter(Generic[request, response]):
 
         for pop_updates_task in self.__pop_updates_calls:
             pop_updates_task.cancel()
-
         try:
             await asyncio.gather(*tuple(self.__pop_updates_calls), return_exceptions=True)
         except CancelledError:

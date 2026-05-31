@@ -52,8 +52,6 @@ class MaxApi(AsyncInitializerMixin):
         if workflow_data is None:
             workflow_data = {}
 
-        print(workflow_data)
-
 
         """Asynchronously initialize transport, protocol, and mapper.
 

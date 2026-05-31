@@ -1,12 +1,14 @@
 from __future__ import annotations
 import asyncio
-from typing import TYPE_CHECKING, Any
+from asyncio import wait_for
+from collections.abc import Callable, Generator
+from typing import TYPE_CHECKING, Any, Coroutine, cast
 import logging
 from enum import Enum
 
 from ....utils import Backoff
 from .constants import DEFAULT_BACKOFF_CONFIG
-from ....exceptions import RestartMapperError, AlreadyFailedError, BackoffError, MapperCancelledError
+from ....exceptions import RestartMapperError, AlreadyFailedError, BackoffError, MapperCancelledError, MapperLifecycleError
 
 if TYPE_CHECKING:
     from .Mapper import Mapper
@@ -30,16 +32,13 @@ class LifecycleFailure:
         return f'exception: {self.exception}, source: {self.source}, generation: {self.generation}'
 
 class LifecycleManager:
-    def __init__(self, mapper: Mapper, connect_timeout: int = 5):
+    def __init__(self, mapper: Mapper, connect_timeout: int | None = 15):
+        if connect_timeout is None:
+            connect_timeout = 5
         self.mapper = mapper
         self._logger = logging.getLogger('LifecycleManagerEnvelopeMapperV11')
         self._manage_lifecycle_task: asyncio.Task | None = None
         self.connect_timeout = connect_timeout
-        # self._fallback_waiter_task: asyncio.Task | None = None
-        # self._lifecycle_task_lock: asyncio.Lock = asyncio.Lock()
-        # self._mapper_correctly_running: asyncio.Event = asyncio.Event()
-        # self.__fallback_waiter_timeout = fallback_waiter_timeout
-        # self._has_lifecycle_task: asyncio.Event = asyncio.Event()
 
 
         self._lifecycle_queue: asyncio.Queue[LifecycleFailure] = asyncio.Queue(maxsize=1)
@@ -112,6 +111,7 @@ class LifecycleManager:
 
 
     async def _establish_connection(self, manage_lifecycle_backoff, auth_params: dict[str, Any] | None = None, close_firstly: bool = True, **kwargs: dict[str, Any]):
+
         try:
             if close_firstly:
                 self._state = _LifecycleStates.DISCONNECTING
@@ -136,9 +136,49 @@ class LifecycleManager:
                 await self._close()
             finally:
                 self._state = _LifecycleStates.DISCONNECTED
-
             self._logger.warning('connection cancelled')
             raise
+
+    async def _observe_auth_error(self):
+        while True:
+            gen = await self.get_next_generation()
+            if not self.mapper._authorized.is_set():
+                error_state = await self._lifecycle_queue.get()
+            else:
+                return
+            if error_state and error_state.generation != gen:
+                continue
+            if not self.mapper._authorized.is_set():
+                raise Exception('_observe_error')
+            elif self.mapper._authorized.is_set():
+                try:
+                    self._lifecycle_queue.put_nowait(error_state)
+                except asyncio.QueueFull:
+                    pass
+
+
+    async def _observe_task(
+            self,
+            observer_coroutine: Coroutine[Any, Any, None],
+            first_observe_coroutine: Coroutine[Any, Any, Any],
+            *other_coroutines: Coroutine[Any, Any, Any],
+    ) -> None:
+        try:
+            all_tasks = [first_observe_coroutine, *other_coroutines]
+            async with asyncio.TaskGroup() as tg:
+                observe_task = tg.create_task(observer_coroutine)
+                main_tasks = []
+                for task in all_tasks:
+                    main_tasks.append(tg.create_task(cast(Generator, task)))
+                await asyncio.gather(*main_tasks)
+                observe_task.cancel()
+
+
+        except* Exception as eg:
+            original_error = eg.exceptions[0] if eg.exceptions else eg
+            self._logger.exception(f'Exception occurred while observing tasks: {[first_observe_coroutine, *other_coroutines]}', exc_info=True)
+            raise MapperLifecycleError('observe task failed') from original_error
+
 
     async def _manage_lifecycle(self, auth_params: dict[str, Any], **kwargs) -> None:
         manage_lifecycle_backoff = Backoff(DEFAULT_BACKOFF_CONFIG)
@@ -147,28 +187,41 @@ class LifecycleManager:
                 _LifecycleStates.DISCONNECTED,
                 _LifecycleStates.DISCONNECTING
             ):
-                try:
+                while True:
                     try:
-                        await asyncio.wait_for(self._establish_connection(auth_params=auth_params,
-                                                         manage_lifecycle_backoff=manage_lifecycle_backoff,
-                                                         close_firstly=True,
-                                                                          **kwargs),
-                                               timeout=self.connect_timeout)
-                        await manage_lifecycle_backoff.asleep()
+                        try:
+                            self.mapper._authorized.clear()
+                            await self._observe_task(
+                                observer_coroutine=self._observe_auth_error(),
+                                first_observe_coroutine=wait_for(
+                                    self._establish_connection(
+                                        auth_params=auth_params,
+                                        manage_lifecycle_backoff=manage_lifecycle_backoff,
+                                        close_firstly=True,
+                                        **kwargs
+                                    ),
+                                    timeout=self.connect_timeout
+                                ),
+                            )
+
+                            manage_lifecycle_backoff.reset()
+                            break
+                        except asyncio.TimeoutError:
+                            await manage_lifecycle_backoff.asleep()
+                            continue
+                        except Exception as e:
+                            self._logger.exception('unexpected exception in _manage_lifecycle while establish_connection')
+                            await self._close()
+                            await manage_lifecycle_backoff.asleep()
+                            continue
                     except BackoffError:
                         self._logger.debug('timeout while waiting for lifecycle backoff')
-                    manage_lifecycle_backoff.reset()
-                except asyncio.TimeoutError:
-                    continue
-                except Exception as e:
-                    self._logger.exception('unexpected exception in _manage_lifecycle while establish_connection')
-                    continue
-
+                        manage_lifecycle_backoff.reset()
             current_error_state = await self._lifecycle_queue.get()
-            # self._lifecycle_queue.task_done()
             self._logger.warning('catch protocol failed')
             self._logger.error(
 f'''
+
 error: {current_error_state.exception}
 source: {current_error_state.source},
 gen: {current_error_state.generation},
@@ -179,19 +232,33 @@ gen: {current_error_state.generation},
             while True:
                 try:
                     try:
-                        await asyncio.wait_for(self._establish_connection(auth_params=auth_params, manage_lifecycle_backoff=manage_lifecycle_backoff, close_firstly=True, **kwargs), timeout=self.connect_timeout)
-                        # await self._drain_failures()
+                        self.mapper._authorized.clear()
+                        await self._observe_task(
+                            observer_coroutine=self._observe_auth_error(),
+                            first_observe_coroutine=wait_for(
+                                self._establish_connection(
+                                    auth_params=auth_params,
+                                    manage_lifecycle_backoff=manage_lifecycle_backoff,
+                                    close_firstly=True,
+                                    **kwargs
+                                ),
+                                timeout=self.connect_timeout
+                            ),
+                        )
+                        manage_lifecycle_backoff.reset()
                         break
                     except asyncio.TimeoutError:
                         self._logger.warning('timeout while waiting for connection after error')
                         await manage_lifecycle_backoff.asleep()
+                        continue
                     except Exception as e:
                         self._logger.exception('establish connection failed')
+                        await self._close()
                         await manage_lifecycle_backoff.asleep()
                         continue
                 except BackoffError:
                     self._logger.warning('backoff timeout while waiting for connection after error')
-            manage_lifecycle_backoff.reset()
+                    manage_lifecycle_backoff.reset()
 
 
     async def get_generation(self) -> int:
