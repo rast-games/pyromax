@@ -19,6 +19,14 @@ class TranslateContact(BaseTranslateMappingModel):
             description=contact.description,
             first_name=contact.names[0].first_name if contact.names else '',
             last_name=contact.names[0].last_name if contact.names else '',
+            phone=str(contact.phone),
+            avatar_url=contact.base_url,
+            raw_avatar_url=contact.base_raw_url,
+            photo_id=str(contact.photo_id),
+            country=contact.country,
+            account_status=contact.account_status,
+            email=contact.email,
+            registration_time=contact.registration_time,
         )
 
 TRANSLATE_MAPPING_MODELS: dict[type[CamelCaseModel], type[BaseTranslateMappingModel]] = {

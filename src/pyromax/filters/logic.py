@@ -6,11 +6,11 @@ from ..models import BaseMaxObject
 from .base import Filter
 
 
-class _logicFilter(Filter, ABC):
+class _LogicFilter(Filter, ABC):
     pass
 
 
-class _invertFilter(_logicFilter):
+class _InvertFilter(_LogicFilter):
 
     def __init__(self, target: Filter) -> None:
         super().__init__()

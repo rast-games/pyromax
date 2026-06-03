@@ -23,8 +23,8 @@ def reverse_translate_message(message: Message) -> MessageMappingModel | None:
             status=cast(Literal['USER', 'EDITED', 'REPLY'], status),
             time=message.time,
             type=message.type,
-            text=message.text,
-            elements=message.elements,
+            text=message.text if message.text else None,
+            elements=message.elements if message.elements and message.text else None,
             chat_id=message.chat_id,
             link=MessageLinkMappingModel(
                 type=message_link.type,
@@ -36,7 +36,7 @@ def reverse_translate_message(message: Message) -> MessageMappingModel | None:
         status=cast(Literal['USER', 'EDITED', 'REPLY'], status),
         time=message.time,
         type=message.type,
-        text=message.text,
-        elements=message.elements,
+        text=message.text if message.text else None,
+        elements=message.elements if message.elements and message.text else None,
         chat_id=message.chat_id,
     )

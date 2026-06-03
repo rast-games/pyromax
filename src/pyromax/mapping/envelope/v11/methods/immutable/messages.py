@@ -14,10 +14,10 @@ class SendMessageMethod(BaseMethod):
         request.payload = SendMessageRequest(
             chat_id=self.args['chat_id'],
             message=MessageMappingModel(
-                text=self.args['text'],
+                text=self.args['text'] if self.args['text'] else None,
                 cid=self.args['cid'],
                 attaches=self.args['attaches'],
-                elements=self.args['elements'],
+                elements=self.args['elements'] if self.args['text'] and self.args['elements'] else None,
                 link=MessageLinkMappingModel(
                     type=main_link.type,
                     message_id=int(main_link.message_id),

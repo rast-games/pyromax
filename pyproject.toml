@@ -18,6 +18,7 @@ dependencies = [
     "aiofiles>=25.1.0",
     "aiohttp>=3.13.3",
     "lz4>=4.4.5",
+    "magic-filter>=1.0.12",
     "msgpack>=1.1.2",
     "pillow==12.1.0",
     "pydantic>=2.12.5",

@@ -92,6 +92,7 @@ class ContactMappingModel(CamelCaseModel):
     update_time: int
     registration_time: int
     base_url: str | None = None
+    base_raw_url: str | None = None
 
 class ProfileMappingModel(CamelCaseModel):
     contact: ContactMappingModel

@@ -51,8 +51,8 @@ class Filter(ABC):
         return await self._check(**check_args)
 
     def __invert__(self) -> Filter:
-        from .logic import _invertFilter
-        return _invertFilter(self)
+        from .logic import _InvertFilter
+        return _InvertFilter(self)
 
     @property
     @abstractmethod
