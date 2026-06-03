@@ -55,7 +55,7 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         self.event_router_lock = asyncio.Lock()
         self.exceptions_callback: Callable[[Exception, int, str], Any] | None = None
         self._network_lock = asyncio.Lock()
-        self.event_router: EventRouter | None = None
+        self.event_router: EventRouter[Envelope, Envelope] | None = None
         self.__logger = logging.getLogger('EnvelopeProtocol')
         self.__transport = transport
         self._reader_task: asyncio.Task[Any] | None = None
@@ -64,7 +64,7 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         self._current_generation: int | None = None
 
 
-    def set_generation_getter(self, generation_getter: Callable[..., Awaitable[int]]):
+    def set_generation_getter(self, generation_getter: Callable[..., Awaitable[int]]) -> None:
         self._generation_getter = generation_getter
 
     def set_exceptions_callback(self, exceptions_callback: Callable[[Exception, int, str], Any]) -> None:
@@ -79,17 +79,10 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         # We intentionally reuse __init__ to keep IDE/type-checkers
         # aware of attribute initialization.
         await asyncio.to_thread(
-            self.__init__,
+            self.__init__, # type: ignore[misc]
             transport=transport,
             ping_interval=ping_interval,
         )
-
-        # self.__init__(
-        #     transport=transport,
-        #     ping_interval=ping_interval,
-        #     # exceptions_callback=exceptions_callback,
-        #     # generation_getter=generation_getter,
-        # )
 
         await self.set_event_router(EventRouter[Envelope, Envelope]())
         self.__logger.info('protocol connected')
@@ -100,12 +93,12 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         return self.__transport
 
 
-    async def get_event_router(self) -> EventRouter | None:
+    async def get_event_router(self) -> EventRouter[Envelope, Envelope] | None:
         async with self.event_router_lock:
             return self.event_router
 
 
-    async def set_event_router(self, event_router: EventRouter | None) -> None:
+    async def set_event_router(self, event_router: EventRouter[Envelope, Envelope] | None) -> None:
         async with self.event_router_lock:
             self.event_router = event_router
 
@@ -150,7 +143,9 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
 
                 await self.set_event_router(EventRouter())
                 reader_task = asyncio.create_task(self.receive_reader(gen=current_gen))
-                reader_task.add_done_callback(lambda t, gen=current_gen: self._reader_done(t, gen))
+                def reader_done_callback_wrapper(t: asyncio.Task[Any], gen: int = current_gen) -> None:
+                    self._reader_done(t, gen)
+                reader_task.add_done_callback(reader_done_callback_wrapper)
                 self._reader_task = reader_task
                 self.__logger.info('background tasks started')
 
@@ -258,7 +253,7 @@ class EnvelopeProtocol(StreamMaxProtocol[Envelope, Envelope]):
         return record
 
 
-    def _reader_done(self, task: asyncio.Task[Any], gen: int | None):
+    def _reader_done(self, task: asyncio.Task[Any], gen: int | None) -> None:
         from ...utils import debug_tasks
         self.__logger.debug('%s', debug_tasks())
 

@@ -8,10 +8,9 @@ from ..payloads.responses import GetContactResponse
 from ..methods.immutable import GetGeneralInfoAboutMemberMethod
 from ..translate.ToDTO import translate_models
 
-class UserMixin:
-    send: Callable[..., Coroutine[Any, Any, Envelope]]
+from .MixinProtocol import MixinProtocol
 
-
+class UserMixin(MixinProtocol):
     async def get_member_by_id(self, member_id: int | list[int]) -> Sequence[BaseMaxObject | CamelCaseModel]:
         contact_ids: list[int]
         if isinstance(member_id, int):

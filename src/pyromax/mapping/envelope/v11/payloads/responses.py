@@ -33,7 +33,7 @@ class PasswordChallengeResponse(CamelCaseModel):
 
 class TwoFactorLoginResponse(CamelCaseModel):
     password_challenge: PasswordChallengeResponse
-    token_attrs: dict
+    token_attrs: dict[Any, Any]
     TwoFactor: ClassVar[bool] = True
 
 class ChoiceLoginVariantResponse(CamelCaseModel):

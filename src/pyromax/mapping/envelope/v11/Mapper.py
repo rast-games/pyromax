@@ -28,6 +28,8 @@ class Mapper(FullMixin):
             while True:
                 try:
                     await self._mapper_connected.wait()
+                    if self._lifecycle_manager is None:
+                        raise RuntimeError('Lifecycle manager not set')
                     gen = await self._lifecycle_manager.get_generation()
                     updates = await self.protocol.get_updates()
                 except RuntimeError as e:
@@ -35,7 +37,7 @@ class Mapper(FullMixin):
                         self._logger.warning('lifecycle manager not available, wait init')
                         await self._lifecycle_manager_inited.wait()
                     self._logger.error('get_updates failed: %s', e)
-                    self._lifecycle_manager.notify_about_exception(
+                    self._lifecycle_manager.notify_about_exception( #type: ignore[union-attr]
                         e,
                         generation=gen,
                         source='Mapper.listen_updates',
@@ -49,7 +51,7 @@ class Mapper(FullMixin):
                             error: {error.error},
                             title: {error.title},
                             localized_message: {error.localized_message},
-                            message: {error.message}
+                            message: {error.error_message}
                             """
                         raise MapperApiError(error_msg)
                     yield cast(Update, update_translate(update, context=context))

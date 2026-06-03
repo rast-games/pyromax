@@ -131,12 +131,12 @@ class MaxApi(AsyncInitializerMixin):
             password: str | None = None,
             transport: str | BaseTransport | None = None,
             protocol: str | BaseMaxProtocol[Any, Any] | None = None,
-            mapper: BaseMapper[Any] | None = None,
+            mapper: BaseMapper[Any, Any] | None = None,
             transport_options: dict[str, Any] | None = None,
             token: str | None = None,
             logger: logging.Logger | None = None,
             workflow_data: dict[Any, Any] | None = None,
-            **kwargs
+            **kwargs: Any
 
     ) -> None:
 

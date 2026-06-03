@@ -20,5 +20,5 @@ class StreamTransport(BaseTransport):
 
 
     @abstractmethod
-    async def connect(self, **kwargs) -> None:
+    async def connect(self, **kwargs: Any) -> None:
         pass

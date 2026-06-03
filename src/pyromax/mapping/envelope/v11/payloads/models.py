@@ -26,7 +26,7 @@ class BaseUserAgentMappingModel(BaseUserAgent, CamelCaseModel, ABC):
 
 
     @abstractmethod
-    def to_request(self) -> BaseUserAgentRequest: pass
+    def to_request(self) -> BaseUserAgentRequest: ...
 
 
 class WebUserAgentMappingModel(BaseUserAgentMappingModel):
@@ -56,13 +56,6 @@ class AppUserAgentMappingModel(BaseUserAgentMappingModel):
         device_id = self.device_id
         from .requests import AppUserAgentRequest
         return AppUserAgentRequest(device_id=device_id, client_session_id=client_session_id, user_agent=self)
-        # user_agent = self.model_dump(by_alias=True)
-        # return {
-        #     'clientSessionId': client_session_id,
-        #     'deviceId': device_id,
-        #     'userAgent': user_agent,
-        # }
-
 
 
 class AuthMappingModel(CamelCaseModel):
@@ -109,7 +102,7 @@ class BaseFileMappingModel(BaseFileAttachment, CamelCaseModel, ABC):
     is_attach: ClassVar[bool] = True
     is_downloadable: ClassVar[bool] = True
     message_id: str | None = None
-    uploaded: bool = False
+    uploaded: bool = Field(default=False, exclude=True)
     chat_id: int | None = None
     type: str = Field(serialization_alias='_type', validation_alias=AliasChoices(
         AliasPath('type'),

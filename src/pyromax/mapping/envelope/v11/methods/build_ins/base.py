@@ -22,17 +22,19 @@ if TYPE_CHECKING:
 
 class BaseBuildInMappingMethod(ABC):
     @abstractmethod
-    async def __call__(self, mapper: Mapper, *args, **kwargs) -> Any: pass
+    async def __call__(self, mapper: Mapper, *args: Any, **kwargs: Any) -> Any: pass
 
 
 class LoginBuildInMappingMethod(BaseBuildInMappingMethod):
+    @abstractmethod
     async def __call__(
             self,
             mapper: Mapper,
-            *args,
+            *args: Any,
             login_backoff: Backoff | None = None,
-            **kwargs
+            **kwargs: Any
     ) -> ChoiceLoginVariantResponse: pass
+        # raise NotImplementedError()
 
     @staticmethod
     async def _track_login(
@@ -79,7 +81,7 @@ class LoginBuildInMappingMethod(BaseBuildInMappingMethod):
             metadata: MetadataResponse,
             url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
 
-    ):
+    ) -> None:
 
         if not url_callback:
             async def url_callback(url: str) -> None:

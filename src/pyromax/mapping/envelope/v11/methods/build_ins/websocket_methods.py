@@ -18,10 +18,10 @@ class WebSocketLoginBuildInMappingMethod(LoginBuildInMappingMethod):
     async def __call__(
             self,
             mapper: Mapper,
-            *args,
+            *args: Any,
             metadata: MetadataResponse | None = None,
             url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
-            **kwargs
+            **kwargs: Any
     ) -> ChoiceLoginVariantResponse:
         if metadata is None:
             raise MapperApiError('Metadata not given for login')

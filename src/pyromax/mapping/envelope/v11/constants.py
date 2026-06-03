@@ -1,9 +1,12 @@
 from ..constants import *
-from .payloads.models import WebUserAgentMappingModel, AppUserAgentMappingModel
+from .payloads.models import WebUserAgentMappingModel, AppUserAgentMappingModel, BaseUserAgentMappingModel
 from ....utils import BackoffConfig
 
 
-DEVICE_TYPE_TO_USERAGENT_MODEL = {
+DEVICE_TYPE_TO_USERAGENT_MODEL: dict[
+    str,
+    type[BaseUserAgentMappingModel]
+] = {
     'WEB': WebUserAgentMappingModel,
     'DESKTOP': AppUserAgentMappingModel,
 }

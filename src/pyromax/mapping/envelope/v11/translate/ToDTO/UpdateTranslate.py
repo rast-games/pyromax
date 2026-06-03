@@ -5,6 +5,7 @@ import pydantic
 from pydantic import BaseModel
 
 from ......models import BaseMaxObject, Message, MessageLink, EmojiReaction
+from ......exceptions import MapperApiError
 from ......protocol import Envelope
 from ....constants import Opcode
 from ...payloads.responses import PushUpdateResponse, EmojiReactionUpdateResponse
@@ -85,7 +86,12 @@ class PushTranslateModel(TranslateModel):
         if self.payload.message is None:
             raise RuntimeError('self.payload.message is None')
 
-        return translate_message(self.payload.message, self.payload.chat_id)
+        translated_message = translate_message(self.payload.message, self.payload.chat_id)
+
+        if translated_message is None:
+            raise MapperApiError('translated_message is None (UpdateTranslate.PushTranslateModel), message: %s', self.payload.message)
+
+        return translated_message
 
 
 class EmojiReactionModel(TranslateModel):

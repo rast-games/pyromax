@@ -23,13 +23,13 @@ class SocketLoginBuildInMappingMethod(LoginBuildInMappingMethod):
     async def __call__(
             self,
             mapper: Mapper,
-            *args,
+            *args: Any,
             login_backoff: Backoff | None = None,
             code_getter: Callable[..., Coroutine[Any, Any, int]] | None = None,
             sms_auth: bool = True,
             metadata: MetadataResponse | None = None,
             url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
-            **kwargs
+            **kwargs: Any
     ) -> ChoiceLoginVariantResponse:
         if sms_auth:
             return await self._resolve_sms_auth(
@@ -37,6 +37,8 @@ class SocketLoginBuildInMappingMethod(LoginBuildInMappingMethod):
                 code_getter=code_getter,
             )
         else:
+            if metadata is None:
+                raise MapperApiError('Metadata must be provided')
             await self._resolve_qr(
                 mapper=mapper,
                 metadata=metadata,
@@ -94,7 +96,7 @@ class SocketLoginBuildInMappingMethod(LoginBuildInMappingMethod):
                         mapper.log(20, f'Error while login with SMS code: {error}')
                         raise e
 
-        verify_code: int
+        verify_code: int | str
         password_challenge_response: TwoFactorLoginResponse | None = None
         if temp_token is None:
             raise RuntimeError('temp token not given')
@@ -108,7 +110,7 @@ class SocketLoginBuildInMappingMethod(LoginBuildInMappingMethod):
                     method=VerifySMSCodeMethod(
                         temp_token=temp_token,
                         auth_token_type='CHECK_CODE',
-                        verify_code=verify_code,
+                        verify_code=str(verify_code),
                     ),
                     check_errors=True
                 )

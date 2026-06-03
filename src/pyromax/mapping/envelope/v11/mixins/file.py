@@ -1,7 +1,10 @@
+from __future__ import annotations
+import logging
+
 import aiohttp
 
 from collections.abc import Callable, Coroutine
-from typing import Any, cast
+from typing import Any, cast, TYPE_CHECKING
 
 from ..methods.immutable import GetUrlToUploadFileMethod
 from ..payloads.responses import ResponseWithUrl
@@ -12,9 +15,9 @@ from ....bases import BaseMapper
 from .....protocol import BaseMaxProtocol, Envelope
 from .....exceptions import DownloadFileError
 
-class FileMixin:
-    send: Callable[..., Coroutine[Any, Any, Envelope]]
+from .MixinProtocol import MixinProtocol
 
+class FileMixin(MixinProtocol):
     async def _create_cell_for_file(
             self,
             opcode: int,
@@ -57,16 +60,16 @@ class FileMixin:
 
         return uploaded_file
 
-    async def download_file(  # type: ignore[override]
+    async def download_file(
             self,
             file: BaseFileMappingModel,
             cookies_to_download: dict[str, str] | None = None,
             headers_to_download: dict[str, str] | None = None,
             **kwargs: Any
     ) -> tuple[bytes, dict[str, str]] | tuple[None, None]:
-        url = await get_file_url(file=file, mapper=cast(BaseMapper[BaseMaxProtocol[Any, Any]], self), **kwargs)
+        url = await get_file_url(file=file, mapper=cast(BaseMapper[BaseMaxProtocol[Any, Any], Any], self), **kwargs)
         if url is None:
-            self.__logger.warning('cannot get a download url for file')
+            self._logger.warning('cannot get a download url for file')
             return None, None
         api = self.max_api
         if api is None:
@@ -95,7 +98,7 @@ class FileMixin:
         async with aiohttp.ClientSession(headers=headers, cookies=cookies) as session:
             async with session.get(url=url) as response:
                 if response.status > 299:
-                    self.__logger.warning('Download failed for file')
+                    self._logger.warning('Download failed for file')
                     raise DownloadFileError('Download failed for file')
                 chunks = []
                 async for chunk in response.content.iter_chunked(8192):

@@ -12,4 +12,4 @@ if TYPE_CHECKING:
 
 PROTOCOLS: dict[str, type[BaseMaxProtocol[Any, Any]]] = _PROTOCOLS
 TRANSPORTS: dict[str, type[BaseTransport]] = _TRANSPORTS
-MAPPERS: dict[str, type[BaseMapper[Any]]] = _MAPPERS
+MAPPERS: dict[str, type[BaseMapper[Any, Any]]] = _MAPPERS

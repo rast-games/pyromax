@@ -9,15 +9,17 @@ from typing import cast
 from .....mixins import AsyncInitializerMixin
 from .....protocol import EnvelopeProtocol
 from ..payloads.models import BaseUserAgentMappingModel
-from ..constants import DEVICE_TYPE_TO_USERAGENT_MODEL, DEFAULT_BACKOFF_CONFIG
+from ..constants import DEVICE_TYPE_TO_USERAGENT_MODEL as DEVICE_TYPE_TO_USER_AGENT_MAP
 from ..LifecycleManager import LifecycleManager
 
 if TYPE_CHECKING:
     from .....core import MaxApi
     from ..Mapper import Mapper
 
+from .MixinProtocol import MixinProtocol
 
-class ConstructorMixin(AsyncInitializerMixin):
+class ConstructorMixin(AsyncInitializerMixin, MixinProtocol):
+
     def __init__(
             self,
             protocol: EnvelopeProtocol,
@@ -39,7 +41,7 @@ class ConstructorMixin(AsyncInitializerMixin):
         self.user_agent: BaseUserAgentMappingModel | None = None
         self.logged: bool = False
         self.password: str | None = None
-        self.phone = None
+        self.phone: str | None = None
         self.sms_auth = False
         self._lifecycle_manager_inited: asyncio.Event = Event()
         self._mapper_connected: asyncio.Event = Event()
@@ -49,7 +51,7 @@ class ConstructorMixin(AsyncInitializerMixin):
 
     @property
     def DEVICE_TYPE_TO_USERAGENT_MODEL(self) -> dict[str, type[BaseUserAgentMappingModel]]:
-        return DEVICE_TYPE_TO_USERAGENT_MODEL
+        return DEVICE_TYPE_TO_USER_AGENT_MAP
 
 
     async def _async_init(
@@ -74,11 +76,11 @@ class ConstructorMixin(AsyncInitializerMixin):
             self,
             token: str | None = None,
             device_id: str | None = None,
-            protocol_version: str = 11,
+            protocol_version: int = 11,
             device_type: str = 'WEB',
             password: str | None = None,
             phone: str | None = None,
-            sms_auth=False,
+            sms_auth: bool = False,
             interactive: bool = True,
             keep_alive_interactive: bool | None = None,
             url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
@@ -90,6 +92,11 @@ class ConstructorMixin(AsyncInitializerMixin):
         user_agent_model = self.DEVICE_TYPE_TO_USERAGENT_MODEL[device_type]
         user_agent = user_agent_model(device_type=device_type)
         self.user_agent = user_agent
+        if token is None:
+            from .....utils import read_token
+            token = await read_token(
+                name_of_token=self.TOKEN_NAME
+            )
         self.token = token
         self.password = password
         self.phone = phone
@@ -103,6 +110,9 @@ class ConstructorMixin(AsyncInitializerMixin):
             mapper=cast(Mapper, self),
             connect_timeout=connection_timeout
         )
+
+        if self._lifecycle_manager is None:
+            raise RuntimeError('Cannot create a new lifecycle manager')
 
         self.protocol.set_generation_getter(self._lifecycle_manager.get_generation)
         self.protocol.set_exceptions_callback(self._lifecycle_manager.notify_about_exception)

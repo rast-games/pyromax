@@ -19,7 +19,6 @@ class _LifecycleStates(Enum):
     CONNECTING = 2
     DISCONNECTED = 3
     DISCONNECTING = 4
-    # ERROR = 5
 
 class LifecycleFailure:
     def __init__(self, exception: Exception, source: str, generation: int):
@@ -37,7 +36,7 @@ class LifecycleManager:
             connect_timeout = 5
         self.mapper = mapper
         self._logger = logging.getLogger('LifecycleManagerEnvelopeMapperV11')
-        self._manage_lifecycle_task: asyncio.Task | None = None
+        self._manage_lifecycle_task: asyncio.Task[Any] | None = None
         self.connect_timeout = connect_timeout
 
 
@@ -73,7 +72,7 @@ class LifecycleManager:
                     source=source,
                 ))
 
-    def start(self, auth_params: dict[str, Any] | None = None, **kwargs) -> None:
+    def start(self, auth_params: dict[str, Any] | None = None, **kwargs: Any) -> None:
         task = self._manage_lifecycle_task
 
         if task is not None and not task.done():
@@ -87,30 +86,44 @@ class LifecycleManager:
         )
 
 
-    async def _close(self):
+    async def _close(self) -> None:
         try:
             await self.mapper.close()
         except Exception:
             self._logger.exception('close failed')
 
 
-    async def _connect(self, manage_lifecycle_backoff, auth_params: dict | None = None, **kwargs: dict[str, Any]) -> None:
+    async def _connect(self, manage_lifecycle_backoff: Backoff, auth_params: dict[str, Any] | None = None, url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None, **kwargs: Any) -> None:
         if auth_params is None:
             auth_params = {}
         await self.mapper.connect()
         if not self.mapper.logged or not self.mapper.token:
-            await self.mapper.login(kwargs.get('url_callback'), login_backoff=manage_lifecycle_backoff)
+            await self.mapper.login(url_callback=url_callback, login_backoff=manage_lifecycle_backoff)
             self.mapper.logged = True
+
+        token = self.mapper.token
+        user_agent = self.mapper.user_agent
+
+        assert token is not None
+        assert user_agent is not None
+
         await self.mapper._auth(
-            token=self.mapper.token,
-            user_agent=self.mapper.user_agent,
+            token=token,
+            user_agent=user_agent,
             **auth_params
         )
         self.mapper._authorized.set()
         self._logger.debug('auth token sent')
 
 
-    async def _establish_connection(self, manage_lifecycle_backoff, auth_params: dict[str, Any] | None = None, close_firstly: bool = True, **kwargs: dict[str, Any]):
+    async def _establish_connection(self, manage_lifecycle_backoff: Backoff, auth_params: dict[str, Any] | None = None, close_firstly: bool = True, **kwargs: Any) -> None:
+        # from random import random
+        #
+        # rnd = random()
+        # print(rnd)
+        # if rnd > 0.5:
+        #     print('sleeping')
+        #     await asyncio.sleep(20)
 
         try:
             if close_firstly:
@@ -118,7 +131,7 @@ class LifecycleManager:
                 await self._close()
                 self._state = _LifecycleStates.DISCONNECTED
             self._state = _LifecycleStates.CONNECTING
-            await self._connect(manage_lifecycle_backoff=manage_lifecycle_backoff, auth_params=auth_params, kwargs=kwargs)
+            await self._connect(manage_lifecycle_backoff=manage_lifecycle_backoff, auth_params=auth_params, **kwargs)
             await self._next_generation()
             self._state = _LifecycleStates.CONNECTED
         except Exception as e:
@@ -139,7 +152,7 @@ class LifecycleManager:
             self._logger.warning('connection cancelled')
             raise
 
-    async def _observe_auth_error(self):
+    async def _observe_auth_error(self) -> None:
         while True:
             gen = await self.get_next_generation()
             if not self.mapper._authorized.is_set():
@@ -149,7 +162,7 @@ class LifecycleManager:
             if error_state and error_state.generation != gen:
                 continue
             if not self.mapper._authorized.is_set():
-                raise Exception('_observe_error')
+                raise MapperLifecycleError('_observe_error')
             elif self.mapper._authorized.is_set():
                 try:
                     self._lifecycle_queue.put_nowait(error_state)
@@ -169,7 +182,7 @@ class LifecycleManager:
                 observe_task = tg.create_task(observer_coroutine)
                 main_tasks = []
                 for task in all_tasks:
-                    main_tasks.append(tg.create_task(cast(Generator, task)))
+                    main_tasks.append(tg.create_task(task))
                 await asyncio.gather(*main_tasks)
                 observe_task.cancel()
 
@@ -180,43 +193,67 @@ class LifecycleManager:
             raise MapperLifecycleError('observe task failed') from original_error
 
 
-    async def _manage_lifecycle(self, auth_params: dict[str, Any], **kwargs) -> None:
+    async def _authorize(self, auth_params: dict[str, Any] | None, manage_lifecycle_backoff: Backoff, **kwargs: Any) -> None:
+
+        need_login = not self.mapper.token
+
+        conn_coroutine: Coroutine[Any, Any, None]
+        if need_login:
+            conn_coroutine = self._establish_connection(
+                    auth_params=auth_params,
+                    manage_lifecycle_backoff=manage_lifecycle_backoff,
+                    close_firstly=True,
+                    **kwargs
+                )
+        else:
+            conn_coroutine = wait_for(
+                self._establish_connection(
+                    auth_params=auth_params,
+                    manage_lifecycle_backoff=manage_lifecycle_backoff,
+                    close_firstly=True,
+                    **kwargs
+                ),
+                timeout=self.connect_timeout
+            )
+
+        self.mapper._authorized.clear()
+        await self._observe_task(
+            observer_coroutine=self._observe_auth_error(),
+            first_observe_coroutine=conn_coroutine,
+            )
+
+
+    async def _authorize_cycle(self, auth_params: dict[str, Any] | None, manage_lifecycle_backoff: Backoff, **kwargs: Any) -> None:
+        while True:
+            try:
+                try:
+
+                    await self._authorize(auth_params=auth_params,
+                                          manage_lifecycle_backoff=manage_lifecycle_backoff, **kwargs)
+                    manage_lifecycle_backoff.reset()
+                    break
+                except asyncio.TimeoutError:
+                    self._logger.warning('timeout while waiting for connection after error')
+                    await manage_lifecycle_backoff.asleep()
+                    continue
+                except Exception as e:
+                    self._logger.exception('establish connection failed')
+                    await self._close()
+                    await manage_lifecycle_backoff.asleep()
+                    continue
+            except BackoffError:
+                self._logger.warning('backoff timeout while waiting for connection after error')
+                manage_lifecycle_backoff.reset()
+
+    async def _manage_lifecycle(self, auth_params: dict[str, Any] | None = None, **kwargs: Any) -> None:
         manage_lifecycle_backoff = Backoff(DEFAULT_BACKOFF_CONFIG)
         while True:
             if self._state in (
                 _LifecycleStates.DISCONNECTED,
                 _LifecycleStates.DISCONNECTING
             ):
-                while True:
-                    try:
-                        try:
-                            self.mapper._authorized.clear()
-                            await self._observe_task(
-                                observer_coroutine=self._observe_auth_error(),
-                                first_observe_coroutine=wait_for(
-                                    self._establish_connection(
-                                        auth_params=auth_params,
-                                        manage_lifecycle_backoff=manage_lifecycle_backoff,
-                                        close_firstly=True,
-                                        **kwargs
-                                    ),
-                                    timeout=self.connect_timeout
-                                ),
-                            )
-
-                            manage_lifecycle_backoff.reset()
-                            break
-                        except asyncio.TimeoutError:
-                            await manage_lifecycle_backoff.asleep()
-                            continue
-                        except Exception as e:
-                            self._logger.exception('unexpected exception in _manage_lifecycle while establish_connection')
-                            await self._close()
-                            await manage_lifecycle_backoff.asleep()
-                            continue
-                    except BackoffError:
-                        self._logger.debug('timeout while waiting for lifecycle backoff')
-                        manage_lifecycle_backoff.reset()
+                await self._authorize_cycle(auth_params=auth_params, manage_lifecycle_backoff=manage_lifecycle_backoff,
+                                           **kwargs)
             current_error_state = await self._lifecycle_queue.get()
             self._logger.warning('catch protocol failed')
             self._logger.error(
@@ -229,36 +266,9 @@ gen: {current_error_state.generation},
             )
             if current_error_state.generation != await self.get_generation():
                 continue
-            while True:
-                try:
-                    try:
-                        self.mapper._authorized.clear()
-                        await self._observe_task(
-                            observer_coroutine=self._observe_auth_error(),
-                            first_observe_coroutine=wait_for(
-                                self._establish_connection(
-                                    auth_params=auth_params,
-                                    manage_lifecycle_backoff=manage_lifecycle_backoff,
-                                    close_firstly=True,
-                                    **kwargs
-                                ),
-                                timeout=self.connect_timeout
-                            ),
-                        )
-                        manage_lifecycle_backoff.reset()
-                        break
-                    except asyncio.TimeoutError:
-                        self._logger.warning('timeout while waiting for connection after error')
-                        await manage_lifecycle_backoff.asleep()
-                        continue
-                    except Exception as e:
-                        self._logger.exception('establish connection failed')
-                        await self._close()
-                        await manage_lifecycle_backoff.asleep()
-                        continue
-                except BackoffError:
-                    self._logger.warning('backoff timeout while waiting for connection after error')
-                    manage_lifecycle_backoff.reset()
+
+            await self._authorize_cycle(auth_params=auth_params, manage_lifecycle_backoff=manage_lifecycle_backoff,**kwargs)
+
 
 
     async def get_generation(self) -> int:
@@ -276,7 +286,7 @@ gen: {current_error_state.generation},
             return self._generation
 
 
-    async def _drain_failures(self):
+    async def _drain_failures(self) -> None:
         while True:
             try:
                 failure = self._lifecycle_queue.get_nowait()

@@ -42,6 +42,7 @@ class BaseFileMapping(BaseFileAttachment, BaseModel, Generic[BodyType, DumpRetur
                 file_size = len(data)
             else:
                 file_size = 0
+
         self = cls(data=data, uploaded=uploaded, file_size=file_size, **kwargs)
         if uploaded:
             return self
@@ -97,7 +98,7 @@ class BaseFileMapping(BaseFileAttachment, BaseModel, Generic[BodyType, DumpRetur
 
     @staticmethod
     @abstractmethod
-    async def get_url_to_download(mapper: BaseMapper[BaseMaxProtocol[Any, Any]], file: Any, **kwargs: Any) -> str | None: pass
+    async def get_url_to_download(mapper: BaseMapper[BaseMaxProtocol[Any, Any], BaseFileMappingModel], file: Any, **kwargs: Any) -> str | None: pass
 
 
 class PhotoMapping(BaseFileMapping[Optional[dict[str, bytes]], PhotoMappingModel], PhotoAttachment):
@@ -111,7 +112,7 @@ class PhotoMapping(BaseFileMapping[Optional[dict[str, bytes]], PhotoMappingModel
             dumped.append(
                 PhotoMappingModel(
                     type='PHOTO',
-                    photo_id=self.photo_ids[i],
+                    photo_id=self.photo_ids[i] if i in self.photo_ids else None,
                     **photo
                 )
             )
@@ -139,7 +140,7 @@ class PhotoMapping(BaseFileMapping[Optional[dict[str, bytes]], PhotoMappingModel
 
     @staticmethod
     async def get_url_to_download(
-            mapper: BaseMapper[BaseMaxProtocol[Any, Any]],
+            mapper: BaseMapper[BaseMaxProtocol[Any, Any], BaseFileMappingModel],
             file: PhotoMappingModel,
             **kwargs: Any
     ) -> str | None:
@@ -174,7 +175,7 @@ class VideoMapping(BaseFileMapping[Optional[bytes], VideoMappingModel], VideoAtt
 
     @staticmethod
     async def get_url_to_download(
-            mapper: BaseMapper[BaseMaxProtocol[Any, Any]],
+            mapper: BaseMapper[BaseMaxProtocol[Any, Any], BaseFileMappingModel],
             file: VideoMappingModel,
             **kwargs: Any
     ) -> str | None:
@@ -223,7 +224,7 @@ class FileMapping(BaseFileMapping[Optional[bytes], FileMappingModel], FileAttach
 
     @staticmethod
     async def get_url_to_download(
-            mapper: BaseMapper[BaseMaxProtocol[Any, Any]],
+            mapper: BaseMapper[BaseMaxProtocol[Any, Any], BaseFileMappingModel],
             file: VideoMappingModel,
             **kwargs: Any
     ) -> str | None:
@@ -299,7 +300,7 @@ MAPPING_MODEL_TO_FILE_MAPPING: dict[type[BaseFileMappingModel], type[BaseFileMap
 }
 
 
-async def get_file_url(mapper: BaseMapper[BaseMaxProtocol[Any, Any]], file: BaseFileMappingModel, **kwargs: Any) -> str | None:
+async def get_file_url(mapper: BaseMapper[BaseMaxProtocol[Any, Any], BaseFileMappingModel], file: BaseFileMappingModel, **kwargs: Any) -> str | None:
     if not file.uploaded:
         raise DownloadFileError('File has not been uploaded to chat, cannot download it')
 

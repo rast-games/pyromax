@@ -14,7 +14,7 @@ class AppUserAgentRequest(BaseUserAgentRequest):
     client_session_id: int
 
 
-class WebUserAgentRequest(CamelCaseModel):
+class WebUserAgentRequest(BaseUserAgentRequest):
     user_agent: WebUserAgentMappingModel
     device_id: str
 

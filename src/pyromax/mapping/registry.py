@@ -6,9 +6,9 @@ from .bases import BaseMapper
 MAPPERS = {}
 
 
-def register_mapper(mapper: str) -> Callable[[type[BaseMapper[Any]]], type[BaseMapper[Any]]]:
+def register_mapper(mapper: str) -> Callable[[type[BaseMapper[Any, Any]]], type[BaseMapper[Any, Any]]]:
     global MAPPERS
-    def wrapper(cls: type[BaseMapper[Any]]) -> type[BaseMapper[Any]]:
+    def wrapper(cls: type[BaseMapper[Any, Any]]) -> type[BaseMapper[Any, Any]]:
         MAPPERS[mapper] = cls
         return cls
     return wrapper

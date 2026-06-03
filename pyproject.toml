@@ -13,7 +13,7 @@ classifiers = [
     "Framework :: AsyncIO",
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "aiofiles>=25.1.0",
     "aiohttp>=3.13.3",
@@ -46,5 +46,5 @@ dev = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 strict = true

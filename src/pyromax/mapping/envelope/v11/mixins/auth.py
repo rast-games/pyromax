@@ -9,40 +9,20 @@ import qrcode
 from .....protocol.envelope import Envelope, EnvelopeProtocol
 from ..payloads.models import BaseUserAgentMappingModel
 from ..methods.immutable import SendUserAgentMethod, SendAuthTokenMethod, GetMetadataForLoginMethod, SendKeepAlivePingMethod, Resolve2FAMethod
-from ..payloads.responses import AuthResponse, SuccessLoginResponse, MetadataResponse, ChoiceLoginVariantResponse
+from ..payloads.responses import AuthResponse, SuccessLoginResponse, MetadataResponse, ChoiceLoginVariantResponse, \
+    TwoFactorLoginResponse
 from .....utils import read_token, write_token, Backoff
 from .....exceptions import MapperCancelledError, RestartMapperError, BaseMapperError, MapperTransportError
 from ..constants import DEFAULT_BACKOFF_CONFIG
 
-if TYPE_CHECKING:
-    from .....core import MaxApi
 
-class AuthMixin:
-    _logger: logging.Logger
+from .MixinProtocol import MixinProtocol
 
-    send_raw: Callable[..., Coroutine[Any, Any, Envelope]]
-    max_api: MaxApi
-    TOKEN_NAME: str
-    user_agent: BaseUserAgentMappingModel
-    _resolve_two_factor: Callable[..., Coroutine[Any, Any, Any]]
-    sms_auth: bool
-    _call_build_in_method: Callable[..., Coroutine[Any, Any, Any]]
-    _authorized: asyncio.Event
-    protocol: EnvelopeProtocol
-    _keepalive_ping_interval: int
-    keep_alive_interactive: bool
-    send: Callable[..., Coroutine[Any, Any, Envelope]]
-    send_raw_with_running_wait: Callable[..., Coroutine[Any, Any, Envelope]]
-    _lifecycle_manager: Any
-    password: str
-
-
-
+class AuthMixin(MixinProtocol):
     async def _send_user_agent(
             self,
             user_agent: BaseUserAgentMappingModel,
     ) -> None:
-
 
         await self.send_raw(
             method=SendUserAgentMethod(
@@ -91,13 +71,14 @@ class AuthMixin:
             url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
             login_backoff: Backoff | None = None,
     ) -> SuccessLoginResponse | None:
-        token = await read_token(
-            name_of_token=self.TOKEN_NAME
-        )
 
-        if not token:
+        token = self.token
+
+        if token is None:
 
             self._logger.info('haven`t token. Start login...')
+            if self.user_agent is None:
+                raise RuntimeError('user agent is not initialized.')
             user = await self._login(
                 user_agent=self.user_agent,
                 login_backoff=login_backoff,
@@ -107,7 +88,7 @@ class AuthMixin:
             self._logger.info('get token from login...')
 
             token = user.token_attrs.token
-            self.token = token
+            self.token: str | None = token
 
             await write_token(
                 token=token,
@@ -125,7 +106,7 @@ class AuthMixin:
             self,
             user_agent: BaseUserAgentMappingModel,
             login_backoff: Backoff | None = None,
-            code_getter = None,
+            code_getter: Callable[..., Coroutine[Any, Any, int]] | None = None,
             url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
     ) -> SuccessLoginResponse:
         if login_backoff is None:
@@ -167,7 +148,7 @@ class AuthMixin:
             )
             user: SuccessLoginResponse
 
-            if choice.payload.TwoFactor:
+            if isinstance(choice.payload, TwoFactorLoginResponse):
                 user = await self._resolve_two_factor(
                     track_id=choice.payload.password_challenge.track_id
                 )

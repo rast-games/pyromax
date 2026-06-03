@@ -48,7 +48,7 @@ class WebSocketTransport(StreamTransport):
 
 
 
-    async def connect(self, **kwargs) -> None:
+    async def connect(self, **kwargs: Any) -> None:
         if self.ws:
             self.__logger.info('WebSocket already connected to %s', self.url)
             await self.close()

@@ -140,7 +140,7 @@ class SocketTransport(StreamTransport):
         )
 
 
-    async def connect(self, **kwargs) -> None:
+    async def connect(self, **kwargs: Any) -> None:
         try:
 
             self.__reader, self.__writer = await asyncio.open_connection(self.url, self.port, ssl=self._ssl_context)
@@ -210,7 +210,7 @@ class SocketTransportEnvelope(SocketTransport):
         await super().close()
 
 
-    async def connect(self, **kwargs) -> None:
+    async def connect(self, **kwargs: Any) -> None:
         await super().connect(**kwargs)
 
 

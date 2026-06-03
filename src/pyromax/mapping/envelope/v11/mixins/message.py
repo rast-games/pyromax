@@ -14,22 +14,19 @@ from ..methods.immutable import SendMessageMethod
 from .....exceptions import SendMessageFileError, SendMessageNotFoundError, SendMessageError, BackoffError
 from ..payloads.responses import SendMessageResponse
 
+from .MixinProtocol import MixinProtocol
 
 if TYPE_CHECKING:
     from .....models import MessageLink
 
-class MessageMixin:
-    send: Callable[..., Coroutine[Any, Any, Envelope]]
-    _logger: logging.Logger
-    protocol: EnvelopeProtocol
-
-
-    async def send_message( # type: ignore[override]
+class MessageMixin(MixinProtocol):
+    async def send_message(
             self,
             chat_id: int,
             text: str | None = None,
             attaches: Sequence[BaseFileMappingModel] | None = None,
             link: MessageLink | None = None,
+            **kwargs: Any
     ) -> MessageMappingModel | None:
         """
 

@@ -24,7 +24,7 @@ def debug_tasks() -> str:
     return msg
 
 
-def get_caller_info(depth=1) -> str:
+def get_caller_info(depth:int=1) -> str:
     """Точное место вызова: file:line:function"""
     frame = sys._getframe(depth)
     filename = frame.f_code.co_filename
@@ -37,7 +37,7 @@ class EventFake:
     def __init__(self, event: asyncio.Event) -> None:
         self.event = event
 
-    def _get_caller_info(self, depth=1):
+    def _get_caller_info(self, depth:int=1) -> str:
         """Точное место вызова: file:line:function"""
         frame = sys._getframe(depth)
         filename = frame.f_code.co_filename
