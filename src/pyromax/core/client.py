@@ -11,7 +11,7 @@ from ..exceptions import SendMessageError
 if TYPE_CHECKING:
     from ..dispatcher.event import Update
     from ..methods import BaseMaxApiMethod
-    from .. import BaseFileAttachment, MessageLink
+    from ..models import BaseFileAttachment, MessageLink
 
 from .context import *
 
