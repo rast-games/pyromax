@@ -1,0 +1,14 @@
+# All filters
+- **Message**:
+    - FromMeFilter
+    - ReplyToMessageFilter
+    - MessageForwardFromFilter
+    - MessageRemovedFilter
+    - FromChatFilter
+    - HaveAttachFilter
+    - **Command Filters**:
+        - Command
+        - CommandStart
+    - **Emoji Reaction Filters**:
+        - EmojiReactionAddFilter
+        - EmojiReactionRemoveFilter

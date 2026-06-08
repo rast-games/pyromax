@@ -2,5 +2,5 @@
 *.egg-info/
 pyromax.egg-info/*
 __pycache__
-bot.py
-tokens.json
+../pyromax_old/bot.py
+pyromax_old

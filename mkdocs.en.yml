@@ -1,0 +1,62 @@
+docs_dir: docs/en
+site_name: Pyromax Docs
+site_description: Asynchronous framework for userbots in MAX Messenger
+site_url: https://github.com/rast-games/Pyromax
+repo_url: https://github.com/rast-games/Pyromax
+site_author: Rast
+theme:
+  name: material
+  language: en
+  features:
+    - content.tabs.link
+    - navigation.sections
+    - navigation.top
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Quick Start: quickstart.md
+#      - Installation: installation.md
+  - Core:
+      - Routers:
+          - Overview: routers/index.md
+          - Include Routers: routers/include-routers.md
+      - Filters:
+          - Overview: filters/index.md
+          - Built-in Filters: filters/built-in.md
+          - Custom Filters: filters/custom.md
+      - Handlers and event listeners: handlers_and_event_listeners/index.md
+  - API Reference:
+      - Core:
+          - MaxApi: api/maxapi.md
+          - Supporting transports and device types: api/support-device-type-transport.md
+          - Initializations:
+              - With phone number: api/phone-number-init.md
+              - With QR code: api/QR-Code-init.md
+              - With token: api/token-init.md
+          - Dispatcher: api/dispatcher.md
+#      - Events:
+#          - Handler: api/handler.md
+#          - Observers: api/observers.md
+plugins:
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            summary: true
+            show_source: true
+            show_root_heading: true
+            show_category: true
+            members_order: source
+  - search
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+#  - pymdownx.emoji:
+#      emoji_index: !!python/name:materialx.emoji.twemoji
+#      emoji_name_icons: true
+
+extra:
+  version:
+    provider: mike
