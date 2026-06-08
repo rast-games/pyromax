@@ -4,7 +4,7 @@ from typing import Any
 from .StandardMaxEventObserver import StandardMaxEventObserver
 from ...models import Message
 from ...filters import Filter, FromMeFilter, MessageForwardFromFilter, ReplyToMessageFilter, MessageRemovedFilter
-from .Handler import Handler
+from .Handler import Handler, FilterObject
 
 
 class MessageEventObserver(StandardMaxEventObserver[Message]):
@@ -46,7 +46,7 @@ class MessageForwardEventObserver(MessageEventObserver):
             self,
             update: Message
     ) -> bool:
-        forward_filter = MessageForwardFromFilter()
+        forward_filter = FilterObject(MessageForwardFromFilter())
         return await StandardMaxEventObserver.is_my_update(self, update) and bool(await forward_filter(update, data={Message: update}))
 
 
@@ -56,7 +56,7 @@ class ReplyToMessageEventObserver(MessageEventObserver):
             self,
             update: Message
     ) -> bool:
-        reply_filter = ReplyToMessageFilter()
+        reply_filter = FilterObject(ReplyToMessageFilter())
         return await StandardMaxEventObserver.is_my_update(self, update) and bool(await reply_filter(update, data={Message: update}))
 
 
@@ -67,5 +67,5 @@ class RemovedMessageEventObserver(MessageEventObserver):
             self,
             update: Message
     ) -> bool:
-        removed_filter = MessageRemovedFilter()
+        removed_filter = FilterObject(MessageRemovedFilter())
         return await StandardMaxEventObserver.is_my_update(self, update) and bool(await removed_filter(update, data={Message: update}))

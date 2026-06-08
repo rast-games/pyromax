@@ -16,5 +16,5 @@ __all__ = [
     'FileAttachment',
     'ShareAttachment',
     'Contact',
-    'BaseUserAgent'
+    'BaseUserAgent',
 ]

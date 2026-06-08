@@ -1,10 +1,9 @@
-from magic_filter import F
-
 from .core import MaxApi
 from .dispatcher import Router, Dispatcher
 from .transport import *
 from .protocol import *
 from .mapping import *
+from .filters import F
 # from .models import *
 # from .mixins import *
 # from .methods import *

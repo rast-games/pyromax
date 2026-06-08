@@ -18,9 +18,11 @@ class Filter(ABC):
     Subclasses must implement the asynchronous _check method and
     define which update types they accept through work_with.
     """
-
     def __init__(self) -> None:
         self._logger = logging.getLogger(f'{self.__class__.__name__}')
+
+
+    _SKIP_CHECK_PREPARATIONS: bool = False
 
 
     # if TYPE_CHECKING:
@@ -31,6 +33,9 @@ class Filter(ABC):
     # else:  # pragma: no cover
 
     async def __call__(self, update: Update, data: dict[Any, Any], *args: Any, **kwargs: Any) -> bool | dict[str, Any]:
+        if self._SKIP_CHECK_PREPARATIONS:
+            return await self._check(update, data, *args, **kwargs)
+
         if not type(update) in self.work_with:
             return False
 
@@ -51,12 +56,13 @@ class Filter(ABC):
         return await self._check(**check_args)
 
     def __invert__(self) -> Filter:
-        from .logic import _InvertFilter
-        return _InvertFilter(self)
+        from .logic import invert_f
+        return invert_f(self)
+
 
     @property
     @abstractmethod
-    def work_with(self) -> tuple[type[BaseMaxObject]]: pass
+    def work_with(self) -> tuple[type[BaseMaxObject], ...]: pass
 
 
     @property

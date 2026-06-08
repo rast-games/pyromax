@@ -9,7 +9,10 @@ from .MessageFilters import (
 )
 from .EmojiReactionFilters import EmojiReactionAddFilter, EmojiReactionRemoveFilter
 from .Command import Command, CommandStart, CommandObject
+from .logic import invert_f, and_f, or_f
+from .magic import F
 
+# from magic_filter import F
 
 __all__ = [
     'Filter',
@@ -23,5 +26,9 @@ __all__ = [
     'CommandStart',
     'CommandObject',
     'FromChatFilter',
-    'HaveAttachFilter'
+    'HaveAttachFilter',
+    'invert_f',
+    'and_f',
+    'or_f',
+    'F'
 ]
