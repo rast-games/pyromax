@@ -10,7 +10,7 @@ from ..ObserverPattern import Observer
 from ...utils import inspect_and_form
 from ...filters.magic import MagicFilter
 
-from .UpdateType import Update
+from .UpdateType import Update, UNHANDLED
 
 
 from magic_filter.magic import MagicFilter as OriginalMagicFilter
@@ -23,7 +23,7 @@ CallbackType = Callable[..., Any]
 
 @dataclass
 class FilterObject:
-    filter: Filter | MagicFilter
+    filter: Callable[..., Any]
     magic: Optional[OriginalMagicFilter | MagicFilter] = None
 
     def __post_init__(self):
@@ -49,7 +49,6 @@ class FilterObject:
 
 
     async def _resolve(self, update, data) -> bool | dict[str, Any]:
-        # from ...filters import Filter
         assert not isinstance(self.filter, MagicFilter)
         return await self.filter(update, data)
 
@@ -57,9 +56,10 @@ class FilterObject:
     async def __call__(self, update: Update, data: dict[Any, Any], *args, **kwargs) -> Any:
         return await self.resolve(update, data)
 
+
 class Handler(Observer, Generic[Update]):
     """Wrap a callable handler with filters and a pattern."""
-    def __init__(self, function: Callable[..., Any], filters: Iterable[Filter | MagicFilter], pattern: Callable[[Update], Any] | None = None):
+    def __init__(self, function: Callable[..., Any], filters: list[FilterObject], pattern: Callable[[Update], Any] | None = None):
         """Create a handler wrapper.
 
         Parameters
@@ -72,7 +72,7 @@ class Handler(Observer, Generic[Update]):
             Optional predicate used as a final condition.
         """
         self.function = function
-        self.filters = [FilterObject(f) for f in filters]
+        self.filters = filters
         self.pattern = pattern
         self.function = function
 
@@ -91,15 +91,18 @@ class Handler(Observer, Generic[Update]):
         return True
 
 
+    async def check(self, update: Update, data: dict[Any, Any]) -> bool:
+        return await self._propagate_update(update, data)
+
+
     async def update(self, update: Update, data: dict[Any, Any] | None = None) -> bool:
         if data is None:
             raise ValueError('data cannot be None')
         check = await self._propagate_update(update, data)
         if check:
             args = inspect_and_form(self.function, data)
-            await self.function(**args)
-            return True
-        return False
+            return await self.function(**args)
+        return UNHANDLED
 
 
     def __repr__(self) -> str:

@@ -4,6 +4,8 @@ from .EmojiReaction import EmojiReaction
 from .Files import *
 from .Contact import Contact
 from .UserAgent import BaseUserAgent
+from .Helpers import DataDict, MapperUpdateTranslator
+from .ErrorEvent import ErrorEvent
 
 __all__ = [
     'BaseMaxObject',
@@ -17,4 +19,7 @@ __all__ = [
     'ShareAttachment',
     'Contact',
     'BaseUserAgent',
+    'DataDict',
+    'MapperUpdateTranslator',
+    'ErrorEvent'
 ]

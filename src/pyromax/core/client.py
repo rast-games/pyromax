@@ -2,14 +2,15 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Any, TYPE_CHECKING, AsyncGenerator
-from collections.abc import Sequence
+from collections.abc import Sequence, Callable
 
 from ..mixins import AsyncInitializerMixin
 from ..methods import SendMessageMethod
 from ..exceptions import SendMessageError
 
 if TYPE_CHECKING:
-    from ..dispatcher.event import Update
+    from ..dispatcher.event import Update, MaxObject
+    from ..protocol import Response
     from ..methods import BaseMaxApiMethod
     from ..models import BaseFileAttachment, MessageLink
 
@@ -179,7 +180,7 @@ class MaxApi(AsyncInitializerMixin):
         )
 
 
-    def listen_updates(self, context: Any) -> AsyncGenerator[Update, None]:
+    def listen_updates(self, context: Any) -> tuple[Callable[[Response], MaxObject], AsyncGenerator[Response, None]]:
         """Yield incoming updates forever.
 
         Parameters

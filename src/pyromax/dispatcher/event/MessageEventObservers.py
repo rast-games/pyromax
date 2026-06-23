@@ -4,7 +4,7 @@ from typing import Any
 from .StandardMaxEventObserver import StandardMaxEventObserver
 from ...models import Message
 from ...filters import Filter, FromMeFilter, MessageForwardFromFilter, ReplyToMessageFilter, MessageRemovedFilter
-from .Handler import Handler, FilterObject
+from .Handler import FilterObject
 
 
 class MessageEventObserver(StandardMaxEventObserver[Message]):
@@ -29,8 +29,7 @@ class MessageEventObserver(StandardMaxEventObserver[Message]):
             filters_list.append(~FromMeFilter())
 
         def decorator(func: Callable[..., Any]) -> None:
-            handler = Handler(func, filters=filters_list, pattern=pattern)
-            self.handlers.append(handler)
+            self.register(func, *filters_list, pattern=pattern)
         return decorator
 
     async def is_my_update(

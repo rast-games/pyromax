@@ -41,7 +41,7 @@ MY_CHAT_ID = 24843722
 
 class FromMyChat(Filter):
     @property
-    def work_with(self) -> tuple[type[Message]]:
+    def work_with(self) -> tuple[type[Message], ...]:
         return (Message,)
     
     async def _check(
@@ -73,7 +73,7 @@ class FromMyChat(Filter):
         self.chat_id = chat_id
     
     @property
-    def work_with(self) -> tuple[type[Message]]:
+    def work_with(self) -> tuple[type[Message], ...]:
         return (Message,)
     
     async def _check(
@@ -113,7 +113,7 @@ class HaveWord(Filter):
         self.word = word
     
     @property
-    def work_with(self) -> tuple[type[Message]]:
+    def work_with(self) -> tuple[type[Message], ...]:
         return (Message,)
     
     async def _check(
@@ -124,10 +124,6 @@ class HaveWord(Filter):
         if msg.text and self.word in msg.text:
             word_inx = msg.text.index(self.word)
             result = HaveWordObj(word_start=word_inx)
-            # return {
-            #     type(result): result
-            # }
-            # or
             return {
                 HaveWordObj: result
             }

@@ -1,7 +1,10 @@
 from __future__ import annotations
 from collections.abc import AsyncGenerator
-from typing import Any, cast
+from typing import Any, cast, Callable
+from functools import partial
 
+from ....protocol import Response
+from ....protocol.envelope import Envelope
 from ....exceptions import MapperApiError
 from .payloads.responses import ErrorMessageResponse
 from .translate.ToDTO import update_translate
@@ -10,6 +13,8 @@ from ....dispatcher.event.UpdateType import Update
 
 
 from .mixins import FullMixin
+from ....models import BaseMaxObject
+
 
 # if TYPE_CHECKING:
 #     from ....models import MessageLink
@@ -18,7 +23,7 @@ from .mixins import FullMixin
 
 @register_mapper('EnvelopeV11')
 class Mapper(FullMixin):
-    async def listen_updates(
+    async def _listen_updates(
             self,
             context: Any,
     ) -> AsyncGenerator[Update, None]:
@@ -54,4 +59,9 @@ class Mapper(FullMixin):
                             message: {error.error_message}
                             """
                         raise MapperApiError(error_msg)
-                    yield cast(Update, update_translate(update, context=context))
+                    # yield cast(Update, update_translate(update, context=context))
+                    yield update
+
+
+    def listen_updates(self, context: Any) -> tuple[Callable[[Envelope], Envelope | BaseMaxObject], AsyncGenerator[Envelope, None]]:
+        return partial(update_translate, context=context), self._listen_updates(context=context)

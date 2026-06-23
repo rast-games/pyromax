@@ -9,9 +9,10 @@ from .event import (
     RemovedMessageEventObserver,
     EmojiReactionAddObserver,
     EmojiReactionRemoveObserver,
-    Update, StandardMaxEventObserver,
+    Update, UNHANDLED, UNKNOWN_UPDATE, StandardMaxEventObserver, UpdateMaxEventObserver
 )
-from ..models import EmojiReaction, Message, BaseMaxObject
+from ..models import EmojiReaction, Message, ErrorEvent, BaseMaxObject, DataDict
+from ..protocol.bases import Response
 
 
 class Router(Subject):
@@ -24,7 +25,7 @@ class Router(Subject):
         events: a dict with all event observers(listeners)
 
     """
-    def __init__(self) -> None:
+    def __init__(self, handlers_can_skip_yourself_when_return_unhandled: bool = False) -> None:
         self.sub_routers: list[Router] = []
         self._parent_router: None | Router = None
 
@@ -38,16 +39,21 @@ class Router(Subject):
         self.message_reaction = StandardMaxEventObserver(self, 'MESSAGE_REACTION', type_of_update=EmojiReaction)
         self.message_added_reaction = EmojiReactionAddObserver(self, 'MESSAGE_ADDED_REACTION', type_of_update=EmojiReaction)
         self.message_deleted_reaction = EmojiReactionRemoveObserver(self, 'MESSAGE_DELETED_REACTION', type_of_update=EmojiReaction)
+        self.error = StandardMaxEventObserver(self, 'ERROR', type_of_update=ErrorEvent)
+        # self.raw_update = UpdateMaxEventObserver(self, 'RAW_UPDATE', type_of_update=Response)
         self.events: dict[str, StandardMaxEventObserver[Any]] = {
-            'EDITED_MESSAGE': self.edited_message,
-            'REPLY_TO_MESSAGE': self.reply_to_message,
-            'FORWARD_MESSAGE': self.forward_message,
-            'MESSAGE_REMOVED': self.message_removed,
-            'MESSAGE': self.message,
+            'EDITED': self.edited_message,
+            'REPLY': self.reply_to_message,
+            'FORWARD': self.forward_message,
+            'REMOVED': self.message_removed,
+            'USER': self.message,
             'MESSAGE_ADDED_REACTION': self.message_added_reaction,
             'MESSAGE_DELETED_REACTION': self.message_deleted_reaction,
             'MESSAGE_REACTION': self.message_reaction,
+            'ERROR': self.error,
+            # 'RAW_UPDATE': self.raw_update,
         }
+
 
 
 
@@ -133,7 +139,7 @@ class Router(Subject):
         router.parent_router = self
         return router
 
-    async def notify(self, update: Update, data: dict[Any, Any] | None = None) -> bool:
+    async def notify(self, update: Update, data: dict[Any, Any] | None = None, event_types: list[str] | None = None) -> Any:
         """Propagate an update through handlers and child routers.
 
            Parameters
@@ -142,23 +148,61 @@ class Router(Subject):
                Incoming update object.
            data
                Context data available to handlers.
+           event_types
+               keys of Router.events
 
            Returns
            -------
            bool
-               True if the update was handled, otherwise False.
+               Any if the update was handled, otherwise UNHANDLED.
            """
+
+        if event_types is None:
+            event_types = []
+        
         if data is None:
             raise ValueError("data cannot be None")
 
-        for event in self.events.values():
-            if await event.is_my_update(update):
-                handled = await event.update(update, data=data)
-                if handled:
-                    return True
+        unknown_update = False
 
+        for key, event in self.events.items():
+            if await event.is_my_update(update):
+                if key not in event_types:
+                    event_types.append(key)
+        if not event_types:
+            unknown_update = True
+
+        response = UNHANDLED
+
+        for event_type in event_types:
+            observer = self.events.get(event_type)
+            if observer:
+                result = await observer.check_root_filters(update, data)
+                if not result:
+                    continue
+                response = await observer.wrap_outer_middleware(
+                    observer.update,
+                    update,
+                    data=data
+                )
+                if response is not UNHANDLED:
+                    return response
+
+        if not self.sub_routers and unknown_update:
+            return UNKNOWN_UPDATE
+
+        if not self.sub_routers and not unknown_update:
+            return UNHANDLED
+
+        update_type_in_sub_routers = False
         for router in self.sub_routers:
-            handled = await router.notify(update=update, data=data)
-            if handled:
-                return True
-        return False
+            response = await router.notify(update=update, data=data, event_types=event_types)
+            if response is UNHANDLED:
+                update_type_in_sub_routers = True
+
+            if response is not UNHANDLED and response is not UNKNOWN_UPDATE:
+                return response
+        else:
+            if update_type_in_sub_routers:
+                return UNHANDLED
+            return UNKNOWN_UPDATE
