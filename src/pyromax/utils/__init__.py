@@ -3,7 +3,7 @@ from .debug import debug_tasks, get_caller_info, EventFake
 from .return_self import return_self_after_method
 from .inspect_func_and_form_args import inspect_and_form
 from .write_token import *
-from .get_random_string import *
+from .get_random_creeds import *
 from .backoff import Backoff, BackoffConfig
 from .html_parser import DeepestTagScanner
 from .clean_and_map import clean_and_map
@@ -22,6 +22,7 @@ __all__ = [
     'BackoffConfig',
     'clean_and_map',
     'get_random_device_id_numeric',
+    'get_random_app_version_and_build_number',
     'get_caller_info',
     'EventFake'
 ]

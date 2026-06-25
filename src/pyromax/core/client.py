@@ -48,6 +48,7 @@ class MaxApi(AsyncInitializerMixin):
             mapper: str = 'EnvelopeV11',
             transport_options: dict[str, Any] | None = None,
             workflow_data: dict[Any, Any] | None = None,
+            user_agent_params: dict[str, Any] | None = None,
             **kwargs: Any
     ) -> None:
         if workflow_data is None:
@@ -122,6 +123,7 @@ class MaxApi(AsyncInitializerMixin):
             token=token,
             device_type=device_type,
             password=password,
+            user_agent_params=user_agent_params,
             **kwargs
         )
 

@@ -11,8 +11,7 @@ from websockets.asyncio.client import ClientConnection, connect
 
 from .bases import StreamTransport
 from .registry import register_transport
-from random_user_agent.user_agent import UserAgent
-
+from ..config import DEFAULT_WEB_HEADER_USER_AGENT
 
 
 # Just aliases
@@ -30,7 +29,7 @@ class WebSocketTransport(StreamTransport):
             self,
             url: str = "wss://ws-api.oneme.ru/websocket",
             origin: str='https://web.max.ru',
-            user_agent_header: str=UserAgent().get_random_user_agent(),
+            user_agent_header: str=DEFAULT_WEB_HEADER_USER_AGENT,
     ) -> None:
         self.url = url
         self.origin = Origin(origin)

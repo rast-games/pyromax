@@ -23,7 +23,6 @@ dependencies = [
     "pillow==12.1.0",
     "pydantic>=2.12.5",
     "qrcode==8.2",
-    "random-user-agent>=1.0.1",
     "websockets==16.0",
 ]
 [project.urls]

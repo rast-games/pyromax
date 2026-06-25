@@ -1404,7 +1404,7 @@ wheels = [
 
 [[package]]
 name = "pyromax"
-version = "0.7"
+version = "0.7.1"
 source = { virtual = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -1415,7 +1415,6 @@ dependencies = [
     { name = "pillow" },
     { name = "pydantic" },
     { name = "qrcode" },
-    { name = "random-user-agent" },
     { name = "websockets" },
 ]
 
@@ -1445,7 +1444,6 @@ requires-dist = [
     { name = "pillow", specifier = "==12.1.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "qrcode", specifier = "==8.2" },
-    { name = "random-user-agent", specifier = ">=1.0.1" },
     { name = "websockets", specifier = "==16.0" },
 ]
 
@@ -1554,15 +1552,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/8f/b2/7fc2931bfae0af02d5f53b174e9cf701adbb35f39d69c2af63d4a39f81a9/qrcode-8.2.tar.gz", hash = "sha256:35c3f2a4172b33136ab9f6b3ef1c00260dd2f66f858f24d88418a015f446506c", size = 43317, upload-time = "2025-05-01T15:44:24.726Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/dd/b8/d2d6d731733f51684bbf76bf34dab3b70a9148e8f2cef2bb544fccec681a/qrcode-8.2-py3-none-any.whl", hash = "sha256:16e64e0716c14960108e85d853062c9e8bba5ca8252c0b4d0231b9df4060ff4f", size = 45986, upload-time = "2025-05-01T15:44:22.781Z" },
-]
-
-[[package]]
-name = "random-user-agent"
-version = "1.0.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ab/29/7bfe8fec7002a62ebf3317af6c52251f229516d7ff405ea9b168f8417404/random_user_agent-1.0.1.tar.gz", hash = "sha256:8f8ca26ec8cb1d24ad1758d8b8f700d154064d641dbe9a255cfec42960fbd012", size = 8237117, upload-time = "2018-12-26T08:12:58.56Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/88/8a953b6f08d7cc709695be1a640cdd3a50996636e675381c2b3ec2d7ec44/random_user_agent-1.0.1-py3-none-any.whl", hash = "sha256:535636a55fb63fe3d74fd0260d854c241d9f2946447026464e578e68eac17dac", size = 8235140, upload-time = "2018-12-26T08:12:33.069Z" },
 ]
 
 [[package]]
