@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
+from ...models import BaseMaxObject
+
 
 class Response(ABC):
     pass
@@ -8,8 +10,6 @@ class Response(ABC):
 T_response = TypeVar('T_response', bound=Response)
 
 class Request(ABC, Generic[T_response]):
-    # def __init__(self, data: dict[str, Any]):
-    #     self.data = data
 
 
     @abstractmethod

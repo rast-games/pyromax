@@ -2,6 +2,9 @@ import random
 import string
 
 
+from ..config import APP_VERSIONS
+
+
 def get_random_string(length: int, chars: str) -> str:
     """
     Generate a random string of specified length using characters from the provided set.
@@ -39,3 +42,16 @@ def get_random_device_id_numeric() -> str:
 
     random_string += '00'
     return random_string
+
+
+def get_random_app_version_and_build_number() -> tuple[str, int]:
+
+    app_version, build_number = random.choice(APP_VERSIONS)
+
+    return app_version, build_number
+
+# def get_app_version_by_build_number(build_num: int) -> str:
+#     for app_version, build_number in APP_VERSIONS:
+#         if build_number == build_num:
+#             return app_version
+#     return APP_VERSIONS[0][0]

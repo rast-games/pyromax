@@ -3,12 +3,12 @@ from abc import abstractmethod, ABC
 import random
 from typing import Annotated, Literal, Any, ClassVar, TYPE_CHECKING
 
-from pydantic import Field, BeforeValidator, AliasChoices, AliasPath
-from random_user_agent.user_agent import UserAgent
+from pydantic import Field, BeforeValidator, AliasChoices, AliasPath, model_validator
 
 from .....models import BaseFileAttachment, PhotoAttachment, VideoAttachment, FileAttachment, ShareAttachment, BaseUserAgent
 from .shared import CamelCaseModel
-from .....utils import get_random_device_id_numeric, get_random_device_id
+from .....utils import get_random_device_id_numeric, get_random_device_id, get_random_app_version_and_build_number
+from .....config import WEB_APP_VERSION, WEB_SCREEN, DEFAULT_WEB_HEADER_USER_AGENT
 
 if TYPE_CHECKING:
     from .requests import BaseUserAgentRequest, AppUserAgentRequest, WebUserAgentRequest
@@ -32,9 +32,9 @@ class BaseUserAgentMappingModel(BaseUserAgent, CamelCaseModel, ABC):
 class WebUserAgentMappingModel(BaseUserAgentMappingModel):
     device_type: str = 'WEB'
     device_id: str = Field(default=get_random_device_id(), exclude=True)
-    header_user_agent: str = UserAgent().get_random_user_agent()
-    app_version: str = '26.2.10'
-    screen: str = '1440x2560 1.0x'
+    header_user_agent: str = DEFAULT_WEB_HEADER_USER_AGENT
+    app_version: str = WEB_APP_VERSION
+    screen: str = WEB_SCREEN
 
 
     def to_request(self) -> WebUserAgentRequest:
@@ -46,10 +46,23 @@ class WebUserAgentMappingModel(BaseUserAgentMappingModel):
 class AppUserAgentMappingModel(BaseUserAgentMappingModel):
     device_type: str = 'DESKTOP'
     screen: str = '2.0x'
-    device_id: str = Field(default=get_random_device_id_numeric(), exclude=True)
-    client_session_id: int = Field(default=random.randint(1, 30), exclude=True)
-    build_number: int = 54367
-    app_version: str = '26.14.0'
+    device_id: str = Field(default_factory=get_random_device_id_numeric, exclude=True)
+    client_session_id: int = Field(default_factory=lambda: random.randint(1, 30), exclude=True)
+    build_number: int
+    app_version: str
+
+    @model_validator(mode='before')
+    @classmethod
+    def set_random_version_pair(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if 'build_number' in data and 'app_version' not in data or 'app_version' in data and 'build_number' not in data:
+                raise ValueError('you need give pair from build_number and app_version')
+
+            if 'build_number' not in data and 'app_version' not in data:
+                app_ver, build_num = get_random_app_version_and_build_number()
+                data['build_number'] = build_num
+                data['app_version'] = app_ver
+        return data
 
     def to_request(self) -> AppUserAgentRequest:
         client_session_id = self.client_session_id

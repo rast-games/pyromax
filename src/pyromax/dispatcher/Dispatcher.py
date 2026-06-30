@@ -1,16 +1,21 @@
 from __future__ import annotations
 import logging
-from typing import cast, AsyncGenerator, Any, TYPE_CHECKING
+from typing import cast, AsyncGenerator, Any, TYPE_CHECKING, TypeVar
 
 from .Router import Router
-from .event import Update
+from .event import UpdateMaxEventObserver, UNHANDLED, Update, UNKNOWN_UPDATE, skip, MaxObject
 
-# from .. import BaseMaxObject, Response
-from ..models import BaseMaxObject
+from ..models import BaseMaxObject, DataDict, MapperUpdateTranslator
 from ..protocol import Response
+from .middlewares.error import ErrorsMiddleware
+
 
 if TYPE_CHECKING:
     from ..core.client import MaxApi
+
+
+# class DataDict(dict):
+#     """Just helper class for data in notify method"""
 
 
 class Dispatcher(Router):
@@ -22,7 +27,36 @@ class Dispatcher(Router):
     def __init__(self) -> None:
         super().__init__()
 
+        self.update = UpdateMaxEventObserver(
+            router=self,
+            event_name="UPDATE",
+            type_of_update=MaxObject
+        )
+
+        async def notify_wrapper(update: Update, data: DataDict) -> Any:
+            # try:
+            mapper_update_translator = data.pop(MapperUpdateTranslator)
+            # except KeyError:
+            #     skip()
+            resolved_update = mapper_update_translator(update)
+            data.update(
+                {
+                    type(resolved_update): resolved_update,
+                }
+            )
+            result = await self.notify(resolved_update, data)
+            if result is UNKNOWN_UPDATE:
+                skip()
+            return result
+
+        self.update.register(notify_wrapper)
+
+        self.update.outer_middleware(
+            ErrorsMiddleware(self)
+        )
+
         self.__logger = logging.getLogger('MaxDispatcher')
+
 
 
     async def start_polling(self, max_api: MaxApi) -> None:
@@ -38,20 +72,36 @@ class Dispatcher(Router):
             'max_api': max_api
         }
 
-        async for update in cast(AsyncGenerator[Response | BaseMaxObject, None], max_api.listen_updates(context=context)):
+        update_translator, updates = max_api.listen_updates(context=context)
+        # async for update in cast(AsyncGenerator[Response | BaseMaxObject, None], max_api.listen_updates(context=context)):
+        async for update in updates:
 
             self.__logger.debug('Received update: %s', update)
 
-            data = {
+            data: dict[type | TypeVar, Any] = {
                 type(max_api): max_api,
-                type(update): update,
+                Update: update
             }
+
+            data.update(
+                {
+                    MapperUpdateTranslator: update_translator
+                }
+            )
             data.update(max_api.workflow_data)
 
-            handled = await self.notify(
-                update=update,
-                data=data,
+            update_observer = self.update
+
+            data[DataDict] = data
+
+            response = await update_observer.wrap_outer_middleware(
+                update_observer.update,
+                update,
+                data=data
             )
-            self.__logger.debug(f'update %s was{"" if handled else "n`t"} handled: %s', update, handled)
+
+            handled = response is not UNHANDLED and response is not UNKNOWN_UPDATE
+
+            self.__logger.debug(f'update %s was{"" if handled is not UNHANDLED else "n`t"} handled: %s', update, handled)
 
 

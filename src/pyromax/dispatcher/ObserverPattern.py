@@ -29,7 +29,7 @@ class Subject(ABC):
 
 
     @abstractmethod
-    async def notify(self, update: Any, data: dict[Any, Any] | None = None) -> bool:
+    async def notify(self, update: Any, data: Any) -> bool:
         ...
 
 

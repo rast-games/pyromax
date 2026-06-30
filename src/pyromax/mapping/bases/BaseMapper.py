@@ -1,11 +1,12 @@
 from __future__ import annotations
 from abc import abstractmethod
-from collections.abc import AsyncGenerator, Sequence, Mapping
+from collections.abc import AsyncGenerator, Sequence, Mapping, Callable
 from typing import Any, Generic, TypeVar, TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from ...mixins import AsyncInitializerMixin
+from ...protocol import Response
+from ...mixins import AsyncInitializerMixin, AsyncConstructorMeta
 
 
 if TYPE_CHECKING:
@@ -38,7 +39,7 @@ class BaseMapper(AsyncInitializerMixin, Generic[T_protocol, T_file]):
 
 
     @abstractmethod
-    def listen_updates(self, context: Any) -> AsyncGenerator[Update, None]: pass
+    def listen_updates(self, context: Any) -> tuple[Callable[[Response], Response | BaseMaxObject], AsyncGenerator[Response, None]]: pass
 
 
     @abstractmethod

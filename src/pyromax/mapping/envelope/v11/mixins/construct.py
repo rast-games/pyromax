@@ -4,9 +4,10 @@ from asyncio import Task, Lock, Event
 import logging
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable, Coroutine
-from typing import cast
 
-from .....mixins import AsyncInitializerMixin
+from typing import cast, Protocol
+
+from .....mixins import AsyncInitializerMixin, AsyncConstructorMeta
 from .....protocol import EnvelopeProtocol
 from ..payloads.models import BaseUserAgentMappingModel
 from ..constants import DEVICE_TYPE_TO_USERAGENT_MODEL as DEVICE_TYPE_TO_USER_AGENT_MAP
@@ -18,7 +19,12 @@ if TYPE_CHECKING:
 
 from .MixinProtocol import MixinProtocol
 
-class ConstructorMixin(AsyncInitializerMixin, MixinProtocol):
+ProtocolMeta: type = type(Protocol)
+
+class AsyncInitializerMixinProtocol(AsyncConstructorMeta, ProtocolMeta):
+    pass
+
+class ConstructorMixin(AsyncInitializerMixin, MixinProtocol, metaclass=AsyncInitializerMixinProtocol):
 
     def __init__(
             self,
@@ -85,12 +91,20 @@ class ConstructorMixin(AsyncInitializerMixin, MixinProtocol):
             keep_alive_interactive: bool | None = None,
             url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
             connection_timeout: int | None = None,
+            user_agent_params: dict[str, Any] | None = None,
             **kwargs: Any
     ) -> None:
+        if user_agent_params is None:
+            user_agent_params = {
+                'device_type': device_type,
+            }
+            if device_id is not None:
+                user_agent_params['device_id'] = device_id
+
         if device_type not in self.DEVICE_TYPE_TO_USERAGENT_MODEL:
             raise RuntimeError(f'Unknown device type: {device_type}')
         user_agent_model = self.DEVICE_TYPE_TO_USERAGENT_MODEL[device_type]
-        user_agent = user_agent_model(device_type=device_type)
+        user_agent = user_agent_model(**user_agent_params)
         self.user_agent = user_agent
         if token is None:
             from .....utils import read_token

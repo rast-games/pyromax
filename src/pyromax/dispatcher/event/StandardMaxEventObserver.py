@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Awaitable
 from typing import TypeVar, Generic, TYPE_CHECKING, Any
 
+from .base import SkipHandler
 from ..ObserverPattern import Observer
-from .Handler import Handler
+from .Handler import Handler, FilterObject
+from ..middlewares.manager import MiddlewareManager
+from ..middlewares.base import MiddlewareType
 from ...models import BaseMaxObject
 from ...protocol import Response
-from .UpdateType import Update
+from .UpdateType import Update, MaxObject, UNHANDLED
 
 if TYPE_CHECKING:
     from ...filters import Filter
     from ..Router import Router
+    from ...filters.magic import MagicFilter
 
 
 
@@ -36,18 +40,50 @@ class StandardMaxEventObserver(Observer, Generic[Update]):
         type_of_update
             Update type accepted by this observer.
         """
-        self.type_of_update = type_of_update
+        self.type_of_update: type[Update] = type_of_update
         self.router = router
         self.event_name: str = event_name
         self.handlers: list[Handler[Update]] = []
 
-        # self.middleware = MiddlewareManager()
-        # self.outer_middleware = MiddlewareManager()
+        self.middleware = MiddlewareManager()
+        self.outer_middleware = MiddlewareManager()
 
         # Re-used filters check method from already implemented handler object
         # with dummy callback which never will be used
-        # self._handler = Handler(pattern=lambda: True, filters=[])
+        async def handler_dummy() -> bool:
+            return True
+        self._handler: Handler = Handler(pattern=lambda _: True, filters=[], function=handler_dummy)
 
+    def register(self, callback: Callable[..., Awaitable[Any]], *filters: Filter | MagicFilter, pattern: Callable[[Update], Any] | None = None) -> None:
+        """Register a new handler with this observer."""
+        self.handlers.append(
+            Handler(
+                function=callback,
+                filters=[FilterObject(filter_) for filter_ in filters],
+                pattern=pattern
+            )
+        )
+
+    def filter(self, *filters: Filter | MagicFilter) -> None:
+        """
+        Register filter for all handlers of this event observer
+
+        :param filters: positional filters
+        """
+        if self._handler.filters is None:
+            self._handler.filters = []
+        self._handler.filters.extend([FilterObject(filter_) for filter_ in filters])
+
+
+
+    def _resolve_middlewares(self) -> list[MiddlewareType[MaxObject]]:
+        middlewares: list[MiddlewareType[MaxObject]] = []
+        for router in reversed(tuple(self.router.chain_head)):
+            observer = router.events.get(self.event_name)
+            if observer:
+                middlewares.extend(observer.middleware)
+
+        return middlewares
 
     async def is_my_update(
             self,
@@ -56,14 +92,46 @@ class StandardMaxEventObserver(Observer, Generic[Update]):
         """Check whether the update belongs to this observer."""
         return type(update) is self.type_of_update
 
-    async def update(self, update: Update, data: dict[Any, Any] | None = None) -> bool:
+
+    def wrap_outer_middleware(
+        self,
+        callback: Any,
+        event: MaxObject,
+        data: dict[Any, Any],
+    ) -> Any:
+        wrapped_outer = self.middleware.wrap_middlewares(
+            self.outer_middleware,
+            callback,
+        )
+        return wrapped_outer(event, data)
+
+
+    async def check_root_filters(self, event: MaxObject, data: dict[Any, Any]) -> Any:
+        return await self._handler.check(event, data)
+
+
+    async def update(self, update: Update, data: dict[Any, Any] | None = None) -> Any:
         """Pass an update through registered handlers."""
         if data is None:
             raise ValueError('data cannot be None')
         for handler in self.handlers:
-            if await handler.update(update, data=data):
-                return True
-        return False
+            if await handler.check(update, data=data):
+                data.update(
+                    {
+                        Handler: handler
+                    }
+                )
+
+                try:
+                    wrapped_inner = MiddlewareManager.wrap_middlewares(
+                        self._resolve_middlewares(),
+                        handler.update
+                    )
+
+                    return await wrapped_inner(update, data)
+                except SkipHandler:
+                    continue
+        return UNHANDLED
 
 
     def include_event(self, event: StandardMaxEventObserver[Update]) -> None:
@@ -77,12 +145,11 @@ class StandardMaxEventObserver(Observer, Generic[Update]):
             self.include_event(event)
 
 
-    def __call__(self, *filters: Filter, pattern: Callable[[Update], Any] | None = None)\
+    def __call__(self, *filters: Any, pattern: Callable[[Update], Any] | None = None)\
             -> Callable[[Callable[..., Any]], None]:
         """Register a handler decorator for this observer."""
         def decorator(func: Callable[..., Any]) -> None:
-            handler = Handler(func, filters=filters, pattern=pattern)
-            self.handlers.append(handler)
+            self.register(func, *filters, pattern=pattern)
         return decorator
 
 
