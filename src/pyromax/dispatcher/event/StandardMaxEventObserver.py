@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Awaitable
 from typing import TypeVar, Generic, TYPE_CHECKING, Any
 
 from .base import SkipHandler
@@ -15,6 +15,7 @@ from .UpdateType import Update, MaxObject, UNHANDLED
 if TYPE_CHECKING:
     from ...filters import Filter
     from ..Router import Router
+    from ...filters.magic import MagicFilter
 
 
 
@@ -39,7 +40,7 @@ class StandardMaxEventObserver(Observer, Generic[Update]):
         type_of_update
             Update type accepted by this observer.
         """
-        self.type_of_update = type_of_update
+        self.type_of_update: type[Update] = type_of_update
         self.router = router
         self.event_name: str = event_name
         self.handlers: list[Handler[Update]] = []
@@ -51,9 +52,9 @@ class StandardMaxEventObserver(Observer, Generic[Update]):
         # with dummy callback which never will be used
         async def handler_dummy() -> bool:
             return True
-        self._handler = Handler(pattern=lambda _: True, filters=[], function=handler_dummy)
+        self._handler: Handler = Handler(pattern=lambda _: True, filters=[], function=handler_dummy)
 
-    def register(self, callback: Callable[Update, dict[Any, Any]], *filters: Callable[..., Any], pattern: Callable[[Update], Any] | None = None) -> None:
+    def register(self, callback: Callable[..., Awaitable[Any]], *filters: Filter | MagicFilter, pattern: Callable[[Update], Any] | None = None) -> None:
         """Register a new handler with this observer."""
         self.handlers.append(
             Handler(
@@ -63,7 +64,7 @@ class StandardMaxEventObserver(Observer, Generic[Update]):
             )
         )
 
-    def filter(self, *filters: Callable[..., Any]) -> None:
+    def filter(self, *filters: Filter | MagicFilter) -> None:
         """
         Register filter for all handlers of this event observer
 

@@ -1,7 +1,12 @@
+from __future__ import annotations
+
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from .bases import BaseMaxProtocol
+
+if TYPE_CHECKING:
+    from ..mixins import AsyncConstructorType
 
 PROTOCOLS = {}
 

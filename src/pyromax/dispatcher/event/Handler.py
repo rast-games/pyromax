@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Awaitable, Iterable, Coroutine
-from typing import Any, TYPE_CHECKING, Generic, Union, Optional
+from typing import Any, TYPE_CHECKING, Generic, Union, Optional, Literal
 from dataclasses import dataclass
 import logging
 
@@ -19,11 +19,10 @@ if TYPE_CHECKING:
     from ...filters import Filter
     from ...models import BaseMaxObject
 
-CallbackType = Callable[..., Any]
 
 @dataclass
 class FilterObject:
-    filter: Callable[..., Any]
+    filter: Filter
     magic: Optional[OriginalMagicFilter | MagicFilter] = None
 
     def __post_init__(self):
@@ -43,17 +42,17 @@ class FilterObject:
                 )
 
 
-    async def _magic_resolve(self, update, *args) -> Any:
+    async def _magic_resolve(self, update: Update, *args: Any) -> Any:
         self.magic: MagicFilter
         return self.magic.resolve(update)
 
 
-    async def _resolve(self, update, data) -> bool | dict[str, Any]:
+    async def _resolve(self, update: Update, data: dict[Any, Any]) -> bool | dict[str, Any]:
         assert not isinstance(self.filter, MagicFilter)
         return await self.filter(update, data)
 
 
-    async def __call__(self, update: Update, data: dict[Any, Any], *args, **kwargs) -> Any:
+    async def __call__(self, update: Update, data: dict[Any, Any], *args: Any, **kwargs: Any) -> Any:
         return await self.resolve(update, data)
 
 
@@ -95,7 +94,7 @@ class Handler(Observer, Generic[Update]):
         return await self._propagate_update(update, data)
 
 
-    async def update(self, update: Update, data: dict[Any, Any] | None = None) -> bool:
+    async def update(self, update: Update, data: dict[Any, Any] | None = None) -> Any:
         if data is None:
             raise ValueError('data cannot be None')
         check = await self._propagate_update(update, data)

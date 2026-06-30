@@ -18,7 +18,7 @@ class BaseMiddleware(ABC):
     @abstractmethod
     async def __call__(
         self,
-        handler: Callable[[MaxObject, dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[MaxObject, dict[type[Any] | str, Any]], Awaitable[Any]],
         event: MaxObject,
         data: dict[type[Any] | str, Any],
     ) -> Any:
@@ -33,7 +33,7 @@ class BaseMiddleware(ABC):
 
 
 
-MiddlewareEventType = TypeVar("MiddlewareEventType", BaseMaxObject, Response)
+MiddlewareEventType = TypeVar("MiddlewareEventType", bound=BaseMaxObject | Response)
 
 NextMiddlewareType = Callable[[MiddlewareEventType, dict[str, Any]], Awaitable[Any]]
 

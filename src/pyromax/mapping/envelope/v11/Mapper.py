@@ -26,7 +26,7 @@ class Mapper(FullMixin):
     async def _listen_updates(
             self,
             context: Any,
-    ) -> AsyncGenerator[Update, None]:
+    ) -> AsyncGenerator[Response, None]:
         """Endless updates reader"""
         async with self._update_listener_lock:
 
@@ -63,5 +63,5 @@ class Mapper(FullMixin):
                     yield update
 
 
-    def listen_updates(self, context: Any) -> tuple[Callable[[Envelope], Envelope | BaseMaxObject], AsyncGenerator[Envelope, None]]:
+    def listen_updates(self, context: Any) -> tuple[Callable[[Response], Response | BaseMaxObject], AsyncGenerator[Response, None]]:
         return partial(update_translate, context=context), self._listen_updates(context=context)

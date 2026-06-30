@@ -4,9 +4,10 @@ from asyncio import Task, Lock, Event
 import logging
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable, Coroutine
-from typing import cast
 
-from .....mixins import AsyncInitializerMixin
+from typing import cast, Protocol
+
+from .....mixins import AsyncInitializerMixin, AsyncConstructorMeta
 from .....protocol import EnvelopeProtocol
 from ..payloads.models import BaseUserAgentMappingModel
 from ..constants import DEVICE_TYPE_TO_USERAGENT_MODEL as DEVICE_TYPE_TO_USER_AGENT_MAP
@@ -18,7 +19,12 @@ if TYPE_CHECKING:
 
 from .MixinProtocol import MixinProtocol
 
-class ConstructorMixin(AsyncInitializerMixin, MixinProtocol):
+ProtocolMeta: type = type(Protocol)
+
+class AsyncInitializerMixinProtocol(AsyncConstructorMeta, ProtocolMeta):
+    pass
+
+class ConstructorMixin(AsyncInitializerMixin, MixinProtocol, metaclass=AsyncInitializerMixinProtocol):
 
     def __init__(
             self,

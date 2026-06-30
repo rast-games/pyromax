@@ -104,7 +104,8 @@ class MaxApi(AsyncInitializerMixin):
         # max_protocol: BaseMaxProtocol[Any, Any] = await PROTOCOLS[protocol](transport=max_transport) # type: ignore
         logger.info('Protocol initialized.')
         logger.info('Initializing mapper...')
-        max_mapper = await MAPPERS[mapper](self, protocol=max_protocol)
+        map_class = MAPPERS[mapper]
+        max_mapper = await map_class(self, protocol=max_protocol)
         logger.info('Mapper initialized.')
         await asyncio.to_thread(
             self.__init__, # type: ignore[misc]

@@ -5,7 +5,7 @@ from asyncio import Event
 from collections.abc import Awaitable, Iterable
 from typing import Any, TYPE_CHECKING, TypeVar, Generic
 
-from ...mixins import AsyncInitializerMixin
+from ...mixins import AsyncInitializerMixin, AsyncConstructorMeta
 from .request_response import Request, Response
 if TYPE_CHECKING:
     from .methods import BaseMaxProtocolMethod

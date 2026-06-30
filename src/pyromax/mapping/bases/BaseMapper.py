@@ -6,7 +6,7 @@ from typing import Any, Generic, TypeVar, TYPE_CHECKING
 from pydantic import BaseModel
 
 from ...protocol import Response
-from ...mixins import AsyncInitializerMixin
+from ...mixins import AsyncInitializerMixin, AsyncConstructorMeta
 
 
 if TYPE_CHECKING:

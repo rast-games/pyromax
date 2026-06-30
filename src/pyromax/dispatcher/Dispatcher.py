@@ -1,6 +1,6 @@
 from __future__ import annotations
 import logging
-from typing import cast, AsyncGenerator, Any, TYPE_CHECKING
+from typing import cast, AsyncGenerator, Any, TYPE_CHECKING, TypeVar
 
 from .Router import Router
 from .event import UpdateMaxEventObserver, UNHANDLED, Update, UNKNOWN_UPDATE, skip, MaxObject
@@ -78,7 +78,7 @@ class Dispatcher(Router):
 
             self.__logger.debug('Received update: %s', update)
 
-            data: dict[type, Any] = {
+            data: dict[type | TypeVar, Any] = {
                 type(max_api): max_api,
                 Update: update
             }

@@ -1,6 +1,6 @@
 from typing import Any
 
-from ...mixins import AsyncInitializerMixin
+from ...mixins import AsyncInitializerMixin, AsyncConstructorMeta
 
 
 class BaseTransport(AsyncInitializerMixin):
