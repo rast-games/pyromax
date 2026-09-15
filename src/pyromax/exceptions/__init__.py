@@ -34,6 +34,8 @@ from .MapperErrors import (
     MapperTransportNotSupportedForMethodError,
     ReactionMapperError,
     MapperRestartCycleError,
+    MapperNeedReloginLifecycleError,
+    NeedReloginMapperError,
 )
 from .RoutingErrors import AlreadyCancelledError, RoutingError, RequestWasCancelledError
 from .ProtocolErrors import (
@@ -92,4 +94,6 @@ __all__ = [
     "ReactionError",
     "BaseMaxApiMethodError",
     "MapperRestartCycleError",
+    "MapperNeedReloginLifecycleError",
+    "NeedReloginMapperError",
 ]

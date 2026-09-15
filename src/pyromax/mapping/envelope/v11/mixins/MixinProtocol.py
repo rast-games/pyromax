@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .....core import MaxApi
     from ..LifecycleManager import LifecycleManager
     from .....utils import FingerprintGenerator
-    from .....config import EnvelopeMapperConfigV11
+    from .....config import EnvelopeMapperConfigV11, ExtraConfig
     from .....models import BaseMaxObject
     from .....models.Chat import Chat
     from .....models.Contact import Contact
@@ -25,12 +25,14 @@ T_USER = TypeVar("T_USER", bound="Contact")
 
 class MixinProtocol(Protocol):
     mapper_config: EnvelopeMapperConfigV11
+    extra_config: ExtraConfig
     token: str | None
     password: str | None
     phone: str | None
     fingerprint_generator: FingerprintGenerator
-    TOKEN_NAME: str
+    # TOKEN_NAME: str
     max_api: MaxApi | None
+    logged: bool
     user_agent: BaseUserAgentMappingModel | None
     _resolve_two_factor: Callable[..., Coroutine[Any, Any, Any]]
     sms_auth: bool
@@ -50,6 +52,8 @@ class MixinProtocol(Protocol):
     _mapper_connected: asyncio.Event
     _protocol_connected: asyncio.Event
     _telemetry: TelemetryManager | None
+
+    async def close(self, pending_requests_exc: Exception | None = None) -> None: ...
 
     # DEVICE_TYPE_TO_USERAGENT_MODEL: dict[str, type[BaseUserAgentMappingModel]]
 

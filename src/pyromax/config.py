@@ -1,14 +1,22 @@
 # MIN_PREFERRED_BUILD = 6712
+import json
 import logging
 import time
 from collections.abc import Callable, Coroutine
 import random
 from logging import Logger
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar, cast, Self
 from uuid import uuid4
 from abc import ABC, abstractmethod
 
-from pydantic import ConfigDict, BaseModel, Field, model_validator
+from pydantic import (
+    ConfigDict,
+    BaseModel,
+    Field,
+    model_validator,
+    PrivateAttr,
+    field_validator,
+)
 
 from .encoding import MsgPackDictEncoding
 from .models import (
@@ -20,24 +28,26 @@ from .models import (
     DeviceType,
 )
 from .models.enum.Registrys import BaseRegistry
+from .models.Session import SessionInfo, SyncOverrides
+from .session import BaseSessionStorage
 
 from .utils import get_random_device_id, get_random_device_id_numeric
 
 APP_VERSIONS: tuple[tuple[str, int], ...] = (
-    # ("26.25.0", 6790),
-    # ("26.24.0", 6784),
-    # ("26.23.2", 6779),
-    # ("26.23.1", 6778),
-    # ("26.23.0", 6777),
-    # ("26.22.2", 6773),
-    # ("26.22.1", 6772),
-    # ("26.22.0", 6770),
-    # ("26.21.1", 6763),
-    # ("26.20.2", 6758),
-    # ("26.20.1", 6740),
-    # ("26.19.3", 6734),
-    # ("26.19.2", 6732),
-    # ("26.19.1", 6729),
+    ("26.25.0", 6790),
+    ("26.24.0", 6784),
+    ("26.23.2", 6779),
+    ("26.23.1", 6778),
+    ("26.23.0", 6777),
+    ("26.22.2", 6773),
+    ("26.22.1", 6772),
+    ("26.22.0", 6770),
+    ("26.21.1", 6763),
+    ("26.20.2", 6758),
+    ("26.20.1", 6740),
+    ("26.19.3", 6734),
+    ("26.19.2", 6732),
+    ("26.19.1", 6729),
     # ("26.19.0", 6727),
     # ("26.18.4", 6724),
     # ("26.18.2", 6720),
@@ -49,15 +59,15 @@ APP_VERSIONS: tuple[tuple[str, int], ...] = (
     # ("26.16.2", 6701),
     # ("26.16.1", 6700),
     # ("26.16.0", 6698),
-    ("26.15.3", 6695),
-    ("26.15.1", 6690),
-    ("26.15.0", 6689),
-    ("26.14.1", 6686),
-    ("26.14.0", 6685),
-    ("26.13.0", 6683),
-    ("26.12.2", 6681),
-    ("26.12.1", 6679),
-    ("26.12.0", 6676),
+    # ("26.15.3", 6695),
+    # ("26.15.1", 6690),
+    # ("26.15.0", 6689),
+    # ("26.14.1", 6686),
+    # ("26.14.0", 6685),
+    # ("26.13.0", 6683),
+    # ("26.12.2", 6681),
+    # ("26.12.1", 6679),
+    # ("26.12.0", 6676),
     # ("26.11.3", 6670),
     # ("26.11.2", 6669),
     # ("26.11.1", 6665),
@@ -161,8 +171,14 @@ DEFAULT_WEB_HEADER_USER_AGENT = (
 #             raise ValueError("Phone must be provided when no saved session exists.")
 
 
+NOT_HAS = object()
+
+
 class BaseConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    # def __getattr__(self, name: str):
+    #     return NOT_HAS
 
 
 class BaseTransportConfig(BaseConfig):
@@ -181,6 +197,7 @@ class WebSocketTransportConfig(BaseTransportConfig):
     proxy: str | None = None
     origin: str = "https://web.max.ru"
     user_agent_header: str = DEFAULT_WEB_HEADER_USER_AGENT
+    max_size: int = 1024 * 1024 * 10
 
 
 class BaseEncodingConfig(BaseConfig):
@@ -212,26 +229,72 @@ class EnvelopeProtocolConfig(BaseProtocolConfig):
     pass
 
 
-class BaseMapperConfig(BaseConfig, ABC):
-    token: str | None = None
-    password: str | None = None
-    device_type: DeviceType
-    phone: str | None = None
-
-
 class BaseEnvelopeMappingUserAgentConfigV11(BaseConfig):
     device_type: str
     locale: str = "ru"
-    device_id: str = Field(default_factory=lambda: get_random_device_id())
+    device_id: str = Field(default_factory=get_random_device_id)
     timezone: str = "Europe/Moscow"
     device_locale: str = "ru"
     os_version: str = "Windows 10 Version 22H2"
     device_name: str = "WINDOWS10"
     client_session_id: int = Field(default_factory=lambda: random.randint(1, 30))
 
+    @property
+    def is_custom_device_id(self) -> bool:
+        return "device_id" in self.model_fields_set
+
+    def to_string(self) -> str:
+        parts = [f"type={type(self).__name__}"]
+        for field_name, field_value in self.model_dump().items():
+            if isinstance(field_value, dict):
+                field_value = json.dumps(field_value)
+            parts.append(f"{field_name}={field_value}")
+
+        return ",".join(parts)
+
+    @classmethod
+    def from_string(cls: type[Self], string: str) -> Self:
+        string = string.strip(",")
+        parts = (part.split("=", maxsplit=1) for part in string.split(","))
+        attrs = {field_name: field_value for field_name, field_value in tuple(parts)}
+        user_agent_config_types = {cls.__name__: cls}
+        user_agent_config_types.update(
+            {subcls.__name__: subcls for subcls in cls.__subclasses__()}
+        )
+
+        user_agent_config_type_name = attrs["type"]
+        user_agent_config_type = user_agent_config_types.get(
+            user_agent_config_type_name
+        )
+        if user_agent_config_type is None:
+            raise ValueError("Invalid user_agent_config_type")
+
+        return user_agent_config_type(**attrs)
+
+    @classmethod
+    def from_session_info(
+        cls: type[Self], session_info: SessionInfo, *args: Any, **kwargs: Any
+    ) -> Self:
+        restored_config = cls.from_string(session_info.user_agent_config)
+
+        restored_data = restored_config.model_dump()
+        restored_data["device_id"] = session_info.device_id
+        restored_data.update(kwargs)
+
+        restored_type = type(restored_config)
+
+        return restored_type(
+            *args,
+            **restored_data,
+        )
+
+    @property
+    def session_info_params(self) -> dict[str, Any]:
+        return {}
+
 
 class WebEnvelopeMappingUserAgentConfigV11(BaseEnvelopeMappingUserAgentConfigV11):
-    device_type: str = "WEB"
+    device_type: str = DeviceType.Web
     device_id: str = Field(default_factory=get_random_device_id)
     header_user_agent: str = DEFAULT_WEB_HEADER_USER_AGENT
     app_version: str = WEB_APP_VERSION
@@ -239,26 +302,71 @@ class WebEnvelopeMappingUserAgentConfigV11(BaseEnvelopeMappingUserAgentConfigV11
     client_session_id: int = Field(default_factory=lambda: round(time.time() * 1000))
 
 
+default_app_version, default_build_number = random.choice(APP_VERSIONS)
+
+
 class DesktopEnvelopeMappingUserAgentConfigV11(BaseEnvelopeMappingUserAgentConfigV11):
-    device_type: str = "DESKTOP"
+    device_type: str = DeviceType.Desktop
     screen: str = "2.0x"
     device_id: str = Field(default_factory=get_random_device_id_numeric)
-    build_number: int | None = None
-    app_version: str | None = None
+    build_number: int = default_build_number
+    app_version: str = default_app_version
 
 
 class AndroidEnvelopeMappingUserAgentConfigV11(BaseEnvelopeMappingUserAgentConfigV11):
-    device_type: str = "ANDROID"
+    device_type: str = DeviceType.Android
     os_version: str = "Android 13"
     arch: str = "arm64-v8a"
     device_name: str = "Samsung SM-A525F"
     push_device_type: str = "GCM"
-    app_version: str = "26.14.1"
-    build_number: int = 6686
-    device_id: str = Field(default_factory=lambda: str(uuid4()), exclude=True)
+    app_version: str = default_app_version
+    build_number: int = default_build_number
+    device_id: str = Field(default_factory=lambda: str(uuid4()))
     mt_instance_id: str = Field(
         default_factory=lambda: str(uuid4()),
     )
+
+    @classmethod
+    def from_session_info(
+        cls: type[Self],
+        session_info: SessionInfo,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Self:
+        return super().from_session_info(
+            session_info=session_info,
+            device_id=session_info.device_id,
+            mt_instance_id=session_info.mt_instance_id,
+            *args,
+            **kwargs,
+        )
+
+    @property
+    def session_info_params(self) -> dict[str, Any]:
+        return {
+            "mt_instance_id": self.mt_instance_id,
+        }
+
+
+class BaseMapperConfig(BaseConfig, ABC):
+    token: str | None = None
+    password: str | None = None
+    device_type: DeviceType
+    phone: str | None = None
+    user_agent_config: BaseEnvelopeMappingUserAgentConfigV11 = (
+        WebEnvelopeMappingUserAgentConfigV11()
+    )
+
+    @property
+    def is_custom_user_agent_config(self):
+        return "user_agent_config" in self.model_fields_set
+
+
+USER_AGENTS_V11_PER_DEVICE_TYPE = {
+    DeviceType.Android: AndroidEnvelopeMappingUserAgentConfigV11,
+    DeviceType.Web: WebEnvelopeMappingUserAgentConfigV11,
+    DeviceType.Desktop: DesktopEnvelopeMappingUserAgentConfigV11,
+}
 
 
 class EnvelopeMapperConfigV11(BaseMapperConfig):
@@ -277,21 +385,28 @@ class EnvelopeMapperConfigV11(BaseMapperConfig):
     )
     registration_config: RegistrationConfig | None = None
     use_mobile_fingerprint: bool = True
-    token_suffix: str | None = None
     use_telemetry: bool = True
     request_timeout: float = 30.0
     mapper_logger: Logger | None = None
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_sms_auth(self, data: Any) -> Any:
-        if isinstance(data, dict):
-            if "sms_auth" not in data:
-                device_type = data.get("device_type", DeviceType.Web)
-                data["sms_auth"] = False if device_type == DeviceType.Web else True
-            return data
-        else:
-            return data
+    @model_validator(mode="after")
+    def validate_config(self) -> Self:
+        original_fields_set = self.model_fields_set.copy()
+
+        device_type = self.device_type
+        if "sms_auth" not in original_fields_set:
+            self.sms_auth = False if device_type == DeviceType.Web else True
+        if "user_agent_config" not in original_fields_set:
+            user_agent_config_per_device_type = USER_AGENTS_V11_PER_DEVICE_TYPE.get(
+                device_type
+            )
+            user_agent_config = (
+                user_agent_config_per_device_type
+                or WebEnvelopeMappingUserAgentConfigV11
+            )
+            self.user_agent_config = user_agent_config()
+        self.__pydantic_fields_set__ = original_fields_set
+        return self
 
 
 CONFIG_SETS: dict[
@@ -393,8 +508,6 @@ def from_registry_to_config(
     else:
         reg_resolved = reg
 
-    # registry_family = reg.__class__
-
     CONFIGS_PER_REGISTRY_ITEM: dict[
         type[BaseRegistry], dict[BaseRegistry | None, type[BaseConfig]]
     ] = {
@@ -421,12 +534,20 @@ def from_registry_to_config(
 class ExtraConfig(BaseConfig):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    transport: BaseTransportConfig = DefaultTransportConfig()
+    transport: BaseTransportConfig = Field(default_factory=DefaultTransportConfig)
     encoding: BaseEncodingConfig = (
         DefaultEncodingConfig()
     )  # not used by now, for future
-    protocol: BaseProtocolConfig = DefaultProtocolConfig()
-    mapper: BaseMapperConfig = DefaultMapperConfig()
+    protocol: BaseProtocolConfig = Field(default_factory=DefaultProtocolConfig)
+    mapper: BaseMapperConfig = Field(default_factory=DefaultMapperConfig)
+
+    session_storage: BaseSessionStorage | None = None
+    work_dir: str = "."
+    session_name: str = "session.db"
+    session_id: str | None = None
+    restore_user_agent_from_session: bool = True
+
+    sync: SyncOverrides = Field(default_factory=SyncOverrides)
 
     _logger: ClassVar[Logger] = logging.getLogger("ExtraConfig")
 
@@ -434,12 +555,23 @@ class ExtraConfig(BaseConfig):
     @classmethod
     def validate_transport(self, data: Any) -> Any:
         if isinstance(data, dict):
+            extra_config_device_type = data.get("device_type", DeviceType.Web)
+        elif isinstance(data, BaseModel):
+            extra_config_device_type = data.model_dump().get(
+                "device_type", DeviceType.Web
+            )
+        else:
+            extra_config_device_type = DeviceType.Web
+
+        if isinstance(data, dict):
             if "mapper" in data and "transport" not in data:
                 mapper = data["mapper"]
                 if isinstance(mapper, dict):
-                    device_type = mapper.get("device_type", DeviceType.Web)
+                    device_type = mapper.get("device_type", extra_config_device_type)
                 elif isinstance(mapper, BaseModel):
-                    device_type = mapper.model_dump().get("device_type", DeviceType.Web)
+                    device_type = mapper.model_dump().get(
+                        "device_type", extra_config_device_type
+                    )
                 else:
                     return data
                 data["transport"] = (
@@ -458,12 +590,6 @@ class ExtraConfig(BaseConfig):
         protocol: ProtocolRegistry | None,
         mapper: MapperRegistry | None,
     ) -> "ExtraConfig":
-        # extra_config_copy = self.model_copy()
-
-        # from .transport.registry import TRANSPORTS
-        # from .encoding.registry import ENCODINGS
-        # from .protocol.registry import PROTOCOLS
-        # from .mapping.registry import MAPPERS
 
         device_type = self.mapper.device_type
 
@@ -529,6 +655,23 @@ class ExtraConfig(BaseConfig):
                 "Your chosen settings not found in presets, a big chance for errors."
             )
 
+        mapper_user_agent_config = self.mapper.user_agent_config
+
+        mapper_dump = self.mapper.model_dump()
+        for key in mapper_dump.copy():
+            if key not in self.mapper.model_fields_set:
+                del mapper_dump[key]
+        if not self.mapper.is_custom_user_agent_config:
+            mapper_dump.pop("user_agent_config", None)
+        else:
+            mapper_dump["user_agent_config"] = mapper_user_agent_config
+
+        other_params = self.model_dump()
+        other_params.pop("transport")
+        other_params.pop("encoding")
+        other_params.pop("protocol")
+        other_params.pop("mapper")
+
         config_updated = ExtraConfig(
             transport=cast(
                 BaseTransportConfig,
@@ -542,8 +685,7 @@ class ExtraConfig(BaseConfig):
                 BaseProtocolConfig,
                 protocol_config.model_validate(self.protocol.model_dump()),
             ),
-            mapper=cast(
-                BaseMapperConfig, mapper_config.model_validate(self.mapper.model_dump())
-            ),
+            mapper=cast(BaseMapperConfig, mapper_config.model_validate(mapper_dump)),
+            **other_params,
         )
         return config_updated

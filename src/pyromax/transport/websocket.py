@@ -65,6 +65,8 @@ class WebSocketTransport(StreamTransport[BaseEncoding[Any, Any, Any, Any]]):
         self.proxy = self.transport_config.proxy
         self.origin = Origin(self.transport_config.origin)
         self.user_agent_header = self.transport_config.user_agent_header
+        self.max_size = transport_config.max_size
+
 
         self.ws: ClientConnection | None = None
         self.__logger = logging.getLogger("WebSocketTransport")
@@ -106,12 +108,14 @@ class WebSocketTransport(StreamTransport[BaseEncoding[Any, Any, Any, Any]]):
                     self.url,
                     origin=self.origin,
                     proxy=self.proxy,
+                    max_size=self.max_size,
                 )
             else:
                 self.ws = await connect(
                     self.url,
                     origin=self.origin,
                     user_agent_header=self.user_agent_header,
+                    max_size=self.max_size,
                     # ping_interval=1,
                     # ping_timeout=0.01,
                     # just a for tests

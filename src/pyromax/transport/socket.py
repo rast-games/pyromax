@@ -55,7 +55,6 @@ class SocketTransport(StreamTransport[SocketEncoding[Any, Any]]):
         encoding: SocketEncoding[Any, Any],
         extra_config: ExtraConfig,
         *args: Any,
-        # url: str = "api.oneme.ru",
         **kwargs: Any,
     ) -> None:
         """Async init.
@@ -104,7 +103,7 @@ class SocketTransport(StreamTransport[SocketEncoding[Any, Any]]):
         transport_config = self.extra_config.transport
         if not isinstance(transport_config, SocketTransportConfig):
             raise TypeError(
-                "transport config must be an instance of WebSocketTransportConfig for this transport"
+                "transport config must be an instance of SocketTransportConfig for this transport"
             )
         self.transport_config = transport_config
 
@@ -202,8 +201,6 @@ class SocketTransport(StreamTransport[SocketEncoding[Any, Any]]):
             self.__logger.error("Socket recv failed while try recv message header: %s", e)
             raise ConnectionTransportError("Socket recv") from e
         payload_length = self._encoding.unpack_header_to_get_payload_length(header_raw)
-        # ver, cmd, seq, opcode, cof, payload_len = struct.unpack(">BBHHB3s", header_raw)
-        # payload_length = int.from_bytes(payload_len, "big")
         if payload_length > 0:
             try:
                 payload_raw = await self._recv_raw(payload_length)

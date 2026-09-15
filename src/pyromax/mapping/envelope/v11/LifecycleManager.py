@@ -16,6 +16,8 @@ from ....exceptions import (
     MapperLifecycleError,
     MapperConnectError,
     MapperRestartCycleError,
+    MapperNeedReloginLifecycleError,
+    NeedReloginMapperError,
 )
 
 if TYPE_CHECKING:
@@ -223,11 +225,15 @@ class LifecycleManager:
                     send_user_agent=send_user_agent,
                     **auth_params,
                 )
+            except NeedReloginMapperError as e:
+                self._need_login = True
+                self._logger.exception("Exception while try to connect=%s", e)
+                raise MapperNeedReloginLifecycleError("Auth failed") from e
             except RestartMapperError as e:
                 self._logger.exception("Exception while try to connect=%s", e)
                 raise MapperRestartCycleError("Auth failed") from e
             self.mapper._authorized.set()
-            self._logger.debug("auth token sent")
+            self._logger.debug("Auth token sent")
 
     async def _establish_connection(
         self,
@@ -285,7 +291,6 @@ class LifecycleManager:
                 self._state = _LifecycleStates.DISCONNECTED
 
             self._logger.exception("Connection failed", exc_info=True)
-            # raise MapperRestartCycleError("Unknown connection error") from e
             raise e
         except asyncio.CancelledError:
             try:
@@ -403,14 +408,6 @@ class LifecycleManager:
                 ) from e
             except RestartMapperError as e:
                 raise MapperLifecycleError() from e
-            # except Exception as e:
-            #     self._logger.exception(
-            #         "got an unexpected exception while authorizing=%s",
-            #         e,
-            #         exc_info=True,
-            #         stack_info=True,
-            #     )
-            #     raise MapperLifecycleError("Unexpected error") from e
 
         self.mapper._authorized.clear()
         try:
@@ -470,7 +467,9 @@ class LifecycleManager:
                 except Exception as e:
                     self._logger.exception("establish connection failed")
                     await self._close(exception)
-                    # await manage_lifecycle_backoff.asleep()
+                    raise
+                except asyncio.CancelledError:
+                    await self.mapper.max_api.stop()
                     raise
             except BackoffError:
                 self._logger.warning(
@@ -543,18 +542,3 @@ class LifecycleManager:
         async with self._generation_lock:
             self._generation += 1
             return self._generation
-
-    async def _drain_failures(self) -> None:
-        """Drain failures."""
-        while True:
-            try:
-                failure = self._lifecycle_queue.get_nowait()
-                self._lifecycle_queue.task_done()
-
-            except asyncio.QueueEmpty:
-                return
-
-            self._logger.debug(
-                "dropping duplicated failure from %s",
-                failure.source,
-            )

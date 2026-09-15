@@ -1,16 +1,24 @@
 from __future__ import annotations
 import asyncio
 import logging
+import uuid
+from contextlib import suppress
 from typing import (
     TYPE_CHECKING,
     AsyncGenerator,
+    Union,
 )
-from collections.abc import Callable
+from collections.abc import Callable, Awaitable
 from typing import Any, cast
 
-from ..config import ExtraConfig, from_config_to_registry
+from ..config import (
+    ExtraConfig,
+    from_config_to_registry,
+    BaseEnvelopeMappingUserAgentConfigV11,
+)
 from ..mixins import AsyncInitializerMixin
 from ..utils import hide_func_call
+from ..session import AioSqLiteSessionStorage
 
 if TYPE_CHECKING:
     from ..dispatcher.event import MaxObject
@@ -30,6 +38,8 @@ if TYPE_CHECKING:
         ProtocolRegistry,
         MapperRegistry,
         DeviceType,
+        SessionInfo,
+        SessionKey,
     )
     from ..auth import AuthMiddlewareManager
 
@@ -58,7 +68,11 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         device_type: DeviceType | None = None,  # default "WEB"
         password: str | None = None,
         token: str | None = None,
+        session_id: str | None = None,
         phone: str | None = None,
+        token_suffix: str = "MaxApi",
+        work_dir: str | None = None,
+        session_name: str | None = None,
         transport: TransportRegistry | None = None,
         encoding: EncodingRegistry | None = None,
         protocol: ProtocolRegistry | None = None,
@@ -106,9 +120,8 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
             EncodingRegistry,
             ProtocolRegistry,
             MapperRegistry,
+            SessionInfo,
         )
-
-        default_mapper_conf = type(ExtraConfig().mapper)
 
         if extra_config is None:
             device_type = device_type or DeviceType.Web
@@ -117,22 +130,6 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
                 # dummy for type-checker, because it see it by "str | DeviceType | None | Literal[DeviceType.Web]",
                 # not "str | DeviceType"
                 raise RuntimeError("Never")
-
-            extra_config = ExtraConfig(
-                mapper=default_mapper_conf(
-                    token=token,
-                    password=password,
-                    device_type=device_type,
-                    phone=phone,
-                )
-            )
-            extra_config = extra_config.config_rebuild(
-                transport=transport,
-                protocol=protocol,
-                encoding=encoding,
-                mapper=mapper,
-            )
-
         else:
             device_type = (
                 device_type or extra_config.mapper.device_type or DeviceType.Web
@@ -144,34 +141,119 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
                 raise RuntimeError("Never")
 
             extra_config.mapper.device_type = device_type
+        self.device_type = device_type
 
-            if token is not None:
-                extra_config.mapper.token = token
-
-            if password is not None:
-                extra_config.mapper.password = password
-
-            if phone is not None:
-                extra_config.mapper.phone = phone
-
-            extra_config = extra_config.config_rebuild(
-                transport=transport,
-                encoding=encoding,
-                protocol=protocol,
-                mapper=mapper,
+        if extra_config is None:
+            default_mapper_conf = type(ExtraConfig().mapper)
+            extra_config = ExtraConfig(
+                mapper=default_mapper_conf(
+                    token=token,
+                    password=password,
+                    device_type=device_type,
+                    phone=phone,
+                )
             )
 
+        if token is not None:
+            extra_config.mapper.token = token
+        if password is not None:
+            extra_config.mapper.password = password
+        if phone is not None:
+            extra_config.mapper.phone = phone
+        if session_id is not None:
+            extra_config.session_id = session_id
+        if work_dir is not None:
+            extra_config.work_dir = work_dir
+        if session_name is not None:
+            extra_config.session_name = session_name
+
+        self.extra_config = extra_config.config_rebuild(
+            transport=transport,
+            protocol=protocol,
+            encoding=encoding,
+            mapper=mapper,
+        )
+
+        self.session = SessionInfo(
+            phone=self.extra_config.mapper.phone,
+            device_id=self.extra_config.mapper.user_agent_config.device_id,
+            token=self.extra_config.mapper.token,
+            session_id=self.extra_config.session_id,
+            user_agent_config=self.extra_config.mapper.user_agent_config.to_string(),
+        )
+        self.token_suffix = token_suffix
+
+        self._session_updates_queue = asyncio.Queue()
+        self.session_storage = (
+            self.extra_config.session_storage
+            or AioSqLiteSessionStorage(
+                work_dir=self.extra_config.work_dir,
+                db_name=self.extra_config.session_name,
+            )
+        )
+        self._session_updates_task = asyncio.create_task(self._update_session())
+
+        session_info = await self.session_storage.load_session(self.session_key)
+
+        has_session_info = session_info is not None
+
+        if has_session_info:
+            if self.session_id is None and session_info.session_id is not None:
+                self.session_id = session_info.session_id
+            elif self.session_id is None and session_info.session_id is None:
+                self.session_id = session_info.session_id = str(uuid.uuid4())
+
+            if self.token is None:
+                self.token = session_info.token
+            if self.phone is None:
+                self.phone = session_info.phone
+            custom_user_agent_config = extra_config.mapper.is_custom_user_agent_config
+            if (
+                session_info.user_agent_config is not None
+                and not custom_user_agent_config
+                and self.extra_config.restore_user_agent_from_session
+            ):
+                user_agent_config = (
+                    BaseEnvelopeMappingUserAgentConfigV11.from_session_info(
+                        session_info
+                    )
+                )
+                self.extra_config.mapper.user_agent_config = user_agent_config
+                self.session.user_agent_config = session_info.user_agent_config
+            if session_info.sync:
+                current_sync = self.session.sync
+                saved_sync = session_info.sync
+
+                from ..models.Session import SyncState
+
+                default_sync = SyncState()
+
+                if current_sync.presence_sync == default_sync.presence_sync:
+                    current_sync.presence_sync = saved_sync.presence_sync
+                if current_sync.chats_sync == default_sync.chats_sync:
+                    current_sync.chats_sync = saved_sync.chats_sync
+                if current_sync.drafts_sync == default_sync.drafts_sync:
+                    current_sync.drafts_sync = saved_sync.drafts_sync
+                if current_sync.contacts_sync == default_sync.contacts_sync:
+                    current_sync.contacts_sync = saved_sync.contacts_sync
+                if str(current_sync.config_hash) == str(default_sync.config_hash):
+                    current_sync.config_hash = saved_sync.config_hash
+        else:
+            if self.session_id is None:
+                self.session_id = str(uuid.uuid4())
+
         transport = cast(
-            TransportRegistry, from_config_to_registry(type(extra_config.transport))
+            TransportRegistry,
+            from_config_to_registry(type(self.extra_config.transport)),
         )
         encoding = cast(
-            EncodingRegistry, from_config_to_registry(type(extra_config.encoding))
+            EncodingRegistry, from_config_to_registry(type(self.extra_config.encoding))
         )
         protocol = cast(
-            ProtocolRegistry, from_config_to_registry(type(extra_config.protocol))
+            ProtocolRegistry, from_config_to_registry(type(self.extra_config.protocol))
         )
         mapper = cast(
-            MapperRegistry, from_config_to_registry(type(extra_config.mapper))
+            MapperRegistry, from_config_to_registry(type(self.extra_config.mapper))
         )
 
         if workflow_data is None:
@@ -192,12 +274,12 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
 
         max_encoding: BaseEncoding[Any, Any, Any, Any] = from_registry(
             ENCODINGS, encoding
-        )(extra_config)
+        )(self.extra_config)
 
         logger.info("Initializing transport...")
 
         max_transport = await from_registry(TRANSPORTS, transport)(
-            max_encoding, extra_config
+            max_encoding, self.extra_config
         )
         logger.info("Transport initialized.")
 
@@ -205,7 +287,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         protocol_res: Any = await from_registry(PROTOCOLS, protocol)(
             transport=max_transport,
             encoding=max_encoding,
-            extra_config=extra_config,
+            extra_config=self.extra_config,
         )
         max_protocol: BaseMaxProtocol[Any, Any] = protocol_res
         logger.info("Protocol initialized.")
@@ -215,7 +297,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         max_mapper = await map_class(
             self,
             protocol=max_protocol,
-            extra_config=extra_config,
+            extra_config=self.extra_config,
         )
         logger.info("Mapper initialized.")
 
@@ -223,26 +305,31 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
             type(self).__init__,
             self,
             protocol=max_protocol,
-            password=password,
+            password=extra_config.mapper.password,
             transport=max_transport,
             mapper=max_mapper,
-            token=token,
+            token=extra_config.mapper.token,
             logger=logger,
             workflow_data=workflow_data,
             device_type=device_type,
             auth_middleware_manager=auth_middleware_manager,
-            extra_config=extra_config,
+            extra_config=self.extra_config,
         )
+        await self.connect(**kwargs)
 
-        if token is None and self.auth_middleware_manager is not None:
+    async def connect(
+        self,
+        **kwargs: Any,
+    ) -> None:
+        if self._session_updates_task is None:
+            self._session_updates_task = asyncio.create_task(self._update_session())
+
+        if self.token is None and self.auth_middleware_manager is not None:
             from ..models.AuthFlow import AuthFlow
 
             await self.mapper.start_auth_flow(
-                device_type=device_type,
-                password=password,
-                # user_agent_params=user_agent_params,
-                # registration_config=registration_config,
-                # token_suffix=token_suffix,
+                max_api=self,
+                extra_config=self.extra_config,
                 **kwargs,
             )
 
@@ -298,25 +385,33 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
 
             resolved_flow = await wrapped(flow, cast(dict[Any, Any], data))
             token = resolved_flow.token
+
             if token:
                 await self.mapper.end_auth_flow(token)
+                self.token = token
             else:
                 await self.mapper.end_auth_flow(None)
 
-        await self.mapper.start(
-            # token=token,
-            # device_type=device_type,
-            # password=password,
-            # user_agent_params=user_agent_params,
-            # registration_config=registration_config,
-            # token_suffix=token_suffix,
-            # **kwargs,
-        )
+        await self.mapper.start()
+
+    async def stop(self):
+        if self._session_updates_task:
+            await self._session_updates_queue.join()
+            self._session_updates_task.cancel()
+            updates_task = self._session_updates_task
+            self._session_updates_task = None
+            with suppress(asyncio.CancelledError):
+                await updates_task
+
+        await self.mapper.stop()
+        await self.session_storage.close()
 
     def __init__(
         self,
-        device_type: str = "WEB",
+        device_type: DeviceType | None = None,  # default "WEB",
+        token_suffix: str = "MaxApi",
         password: str | None = None,
+        session_id: str | None = None,
         transport: BaseTransport[Any] | None = None,
         encoding: BaseEncoding[Any, Any, Any, Any] | None = None,
         protocol: BaseMaxProtocol[Any, Any] | None = None,
@@ -327,7 +422,6 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         workflow_data: dict[Any, Any] | None = None,
         auth_middleware_manager: AuthMiddlewareManager | None = None,
         registration_config: RegistrationConfig | None = None,
-        token_suffix: str | None = None,
         extra_config: ExtraConfig | None = None,
         **kwargs: Any,
     ) -> None:
@@ -362,6 +456,11 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         :type token_suffix: str | None
         :raises RuntimeError: If transport or protocol or mapper cannot be None.
         """
+        self.name: str
+        self.device_type: DeviceType
+        # self.session_id: str | None
+        self.session: SessionInfo
+
         if workflow_data is None:
             workflow_data = {}
 
@@ -377,10 +476,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         self.transport_options = transport_options
         self.protocol = protocol
         self.mapper = mapper
-        self.token = token
-        self.password = password
         self.id: int | None = None
-        self.phone: str | None = None
 
         self.me: Profile | None = None
         self.chats: list[Chat] | None = None
@@ -389,8 +485,113 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         self.users: dict[int, Contact] = {}
 
         self._logger: logging.Logger | None = logger
+        self._session_updates_queue: asyncio.Queue[tuple["SessionKey", SessionInfo]]
+        self._session_updates_task: asyncio.Task[None] | None
         self.workflow_data = workflow_data
         self.auth_middleware_manager = auth_middleware_manager
+
+    @property
+    def session_key(self) -> SessionKey:
+        from ..models import SessionKey
+
+        device_id = None
+
+        session = self.session.model_copy(deep=True)
+
+        if self.extra_config.mapper.user_agent_config.is_custom_device_id:
+            device_id = (
+                session.device_id
+                or self.extra_config.mapper.user_agent_config.device_id
+            )
+        else:
+            session.device_id = None
+
+        return SessionKey(
+            session_id=self.session_id,
+            session_name=self.token_suffix,
+            session_value=session.to_string(),
+            phone=self.phone,
+            device_id=device_id,
+            token=self.token,
+            device_type=self.device_type,
+        )
+
+    async def _update_session(self) -> None:
+
+        while True:
+            session_key, session_update = await self._session_updates_queue.get()
+            try:
+                await self.session_storage.update_session(session_key, session_update)
+            except Exception as e:
+                self._logger.error(
+                    "Error while updating session=%s, by session_key=%s",
+                    session_update,
+                    session_key,
+                    exc_info=e,
+                )
+            finally:
+                self._session_updates_queue.task_done()
+
+    @property
+    def phone(self) -> str | None:
+        return (
+            self.session.phone
+            or (self.extra_config and self.extra_config.mapper.phone)
+            or None
+        )
+
+    @phone.setter
+    def phone(self, phone: str) -> None:
+        self.session.phone = phone
+        self.extra_config.mapper.phone = phone
+
+        self._session_updates_queue.put_nowait(
+            (self.session_key, self.session.model_copy(deep=True))
+        )
+
+    @property
+    def password(self) -> str | None:
+        return (self.extra_config and self.extra_config.mapper.password) or None
+
+    @password.setter
+    def password(self, password: str) -> None:
+        self.extra_config.mapper.password = password
+
+    @property
+    def token(self) -> str | None:
+        return (
+            self.session.token
+            or (self.extra_config and self.extra_config.mapper.token)
+            or None
+        )
+
+    @token.setter
+    def token(self, token: str) -> None:
+        self.session.token = token
+        self.extra_config.mapper.token = token
+
+        self._session_updates_queue.put_nowait(
+            (self.session_key, self.session.model_copy(deep=True))
+        )
+
+    @property
+    def session_id(self) -> str | None:
+        return (
+            self.session.session_id
+            or (self.extra_config and self.extra_config.session_id)
+            or None
+        )
+
+    @session_id.setter
+    def session_id(self, session_id: str) -> None:
+        session_key = self.session_key
+
+        self.session.session_id = session_id
+        self.extra_config.session_id = session_id
+
+        update = self.session.model_copy(deep=True)
+
+        self._session_updates_queue.put_nowait((session_key, update))
 
     async def __call__(
         self, class_of_method: type[BaseMaxApiMethod[Any]], *args: Any, **kwargs: Any

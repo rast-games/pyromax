@@ -295,12 +295,16 @@ class MobileUserAgentMappingModel(AppUserAgentMappingModel):
 
 class AuthMappingModel(CamelCaseModel):
     token: str
-    chats_count: int
+    chats_count: int | None = None
     interactive: bool
     chats_sync: int
     contacts_sync: int
     presence_sync: int
     drafts_sync: int
+
+
+class AuthConfigMappingModel(CamelCaseModel):
+    hash: str | int | None = None
 
 
 class PasswordConfig(CamelCaseModel):

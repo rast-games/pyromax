@@ -107,6 +107,7 @@ class ImportContactsMethod(BaseMethod):
             contact_list={
                 contact_info.phone: ContactRequest(
                     first_name=contact_info.first_name,
+                    last_name=contact_info.last_name,
                 )
                 for contact_info in contacts_list
             },

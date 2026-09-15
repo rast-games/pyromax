@@ -1,11 +1,13 @@
 from __future__ import annotations
 import logging
 import asyncio
+import uuid
 from collections.abc import Callable, Coroutine
 from typing import Any, TYPE_CHECKING, cast
+
 import qrcode
 
-
+from .....config import ExtraConfig
 from .....protocol.envelope import Envelope, EnvelopeProtocol
 from .....models import (
     Profile,
@@ -14,7 +16,11 @@ from .....models import (
     Message,
     TwoFactorAction,
     RegistrationConfig,
+    SyncState,
+    SessionInfo,
+    DeviceType,
 )
+from .....config import EnvelopeMapperConfigV11
 from ..payloads.models import BaseUserAgentMappingModel, ProfileOptionsMappingModel
 from ..methods.immutable import (
     SendUserAgentMethod,
@@ -58,10 +64,13 @@ from .....exceptions import (
     BaseMapperError,
     MapperTransportError,
     MapperApiError,
+    NeedReloginMapperError,
 )
 from ..constants import DEFAULT_BACKOFF_CONFIG
 from ..LifecycleManager import LifecycleManager
 
+if TYPE_CHECKING:
+    from .....core import MaxApi
 
 from .MixinProtocol import MixinProtocol
 
@@ -90,12 +99,6 @@ class AuthMixin(MixinProtocol):
     async def _send_auth_token(
         self,
         token: str,
-        chats_count: int,
-        interactive: bool,
-        presence_sync: int,
-        chats_sync: int,
-        contacts_sync: int,
-        drafts_sync: int,
     ) -> None:
         """Send auth token.
 
@@ -116,21 +119,70 @@ class AuthMixin(MixinProtocol):
         :raises RuntimeError: If you try a send auth token, but not bound MaxApi instance to mapper.
         """
         self._logger.debug("sending auth token")
-        response = await self.send_raw(
-            method=SendAuthTokenMethod(
-                token=token,
-                chats_count=chats_count,
-                interactive=interactive,
-                presence_sync=presence_sync,
-                chats_sync=chats_sync,
-                contacts_sync=contacts_sync,
-                drafts_sync=drafts_sync,
+
+        if self.max_api.session is None:
+            raise RuntimeError("You try send auth token, without session.")
+        sync = self.extra_config.sync.resolve(self.max_api.session.sync)
+
+        try:
+            response = await self.send_raw(
+                method=SendAuthTokenMethod(
+                    token=token,
+                    chats_count=sync.chats_count,
+                    interactive=self.keep_alive_interactive,
+                    presence_sync=sync.presence_sync,
+                    chats_sync=sync.chats_sync,
+                    contacts_sync=sync.contacts_sync,
+                    drafts_sync=sync.drafts_sync,
+                ),
+                check_errors=True,
             )
-        )
+        except MapperApiError as e:
+            error = e.error
+            match error:
+                case "login.token":
+                    self._logger.error("Login error. Please log in again.")
+                    self.logged = False
+                    if self.max_api.session_storage is not None:
+                        self._logger.debug("deleting current session")
+                        await self.max_api.session_storage.delete_session(
+                            self.max_api.session_key
+                        )
+                    self.token = None
+                    # self.user_agent = None
+                    self.max_api.token = None
+                    raise NeedReloginMapperError(e.message)
+                case "login.cred":
+                    self._logger.error("Login error. Please log in again.")
+                    self.logged = False
+                    if self.max_api.session_storage is not None:
+                        self._logger.debug("deleting current session")
+                        await self.max_api.session_storage.delete_session(
+                            self.max_api.session_key
+                        )
+                    self.token = None
+                    # self.user_agent = None
+                    self.max_api.token = None
+                    raise NeedReloginMapperError(e.message)
+
+            raise e
 
         self._logger.debug("recv auth token response")
 
         auth_model = AuthResponse(**response.payload)
+        sync = auth_model.update_sync_state(self.max_api.session.sync)
+
+        updated = self.max_api.session.model_copy(
+            update={
+                "sync": sync,
+            },
+        )
+
+        self.max_api.session = updated
+
+        await self.max_api.session_storage.update_session(
+            self.max_api.session_key, updated
+        )
 
         if self.max_api is None:
             raise RuntimeError(
@@ -617,21 +669,24 @@ class AuthMixin(MixinProtocol):
     async def start_auth_flow(
         self,
         *args: Any,
-        connect_timeout: int | None = None,
-        device_type: str = "WEB",
-        user_agent_params: dict[str, Any] | None = None,
-        device_id: str | None = None,
+        extra_config: ExtraConfig,
+        max_api: MaxApi,
         **kwargs: Any,
     ) -> None:
-        if user_agent_params is None:
-            user_agent_params = {}
+        mapper_conf = extra_config.mapper
 
-        if user_agent_params is None:
-            user_agent_params = {
-                "device_type": device_type,
-            }
-            if device_id is not None:
-                user_agent_params["device_id"] = device_id
+        if not isinstance(mapper_conf, EnvelopeMapperConfigV11):
+            raise TypeError(
+                "mapper config must be an instance of EnvelopeMappingConfigV11 for this mapper"
+            )
+
+        connect_timeout = mapper_conf.connect_timeout
+        device_type = mapper_conf.device_type
+        user_agent_params = mapper_conf.user_agent_config.model_dump()
+        device_id = mapper_conf.user_agent_config.device_id
+
+        if not mapper_conf.user_agent_config.is_custom_device_id:
+            del user_agent_params["device_id"]
 
         user_agent_model = self.DEVICE_TYPE_TO_USERAGENT_MODEL[device_type]
         user_agent = user_agent_model.get_random_user_agent(**user_agent_params)
@@ -641,7 +696,9 @@ class AuthMixin(MixinProtocol):
         from ..Mapper import Mapper
 
         self._lifecycle_manager = LifecycleManager(
-            mapper=cast(Mapper, self), connect_timeout=connect_timeout
+            mapper=cast(Mapper, self),
+            connect_timeout=connect_timeout,
+            need_login=max_api.token is None,
         )
 
         self.protocol.set_generation_getter(self._lifecycle_manager.get_generation)
@@ -712,12 +769,30 @@ class AuthMixin(MixinProtocol):
             if token is None:
                 raise MapperApiError("Server not return token.")
 
-            await write_token(token=token, name_of_token=self.TOKEN_NAME)
-            self._logger.info("was write token in tokens.json successfully.")
+            if self.max_api.session_id is None:
+                self.max_api.session_id = str(uuid.uuid4())
+            # session = SessionInfo(
+            #     token=token,
+            #     device_id=self.mapper_config.user_agent_config.device_id,
+            #     phone=self.mapper_config.phone or "",
+            #     session_id=self.max_api.session_id,
+            #     user_agent_config=self.mapper_config.user_agent_config.to_string(),
+            #     **self.mapper_config.user_agent_config.session_info_params,
+            # )
+
+            self.max_api.token = token
+
+            # self.max_api.session = session
+
+            # await self.max_api.session_storage.save_session(
+            #     session, self.max_api.session_key
+            # )
+
+            # await write_token(token=token, name_of_token=self.TOKEN_NAME)
+            # self._logger.info("was write token in tokens.json successfully.")
             return user
         else:
-            self._logger.info("token was get from tokens.json")
-            self.token = token
+            self._logger.info("already has token, login skipped.")
             return None
 
     async def _login(
@@ -855,13 +930,9 @@ class AuthMixin(MixinProtocol):
         self,
         token: str,
         user_agent: BaseUserAgentMappingModel,
-        chats_count: int = 40,
-        interactive: bool = True,
-        presence_sync: int = -1,
-        chats_sync: int = 0,
-        contacts_sync: int = 0,
-        drafts_sync: int = 0,
+        # interactive: bool = True,
         send_user_agent: bool = True,
+        **kwargs: Any,
     ) -> None:
         """Auth.
 
@@ -884,6 +955,7 @@ class AuthMixin(MixinProtocol):
         :param send_user_agent: The send user agent value.
         :type send_user_agent: bool
         :raises RestartMapperError: If auth failed.
+        :raises NeedReloginMapperError: if session experied
         """
         try:
             if send_user_agent:
@@ -893,16 +965,14 @@ class AuthMixin(MixinProtocol):
 
             await self._send_auth_token(
                 token=token,
-                chats_count=chats_count,
-                interactive=interactive,
-                presence_sync=presence_sync,
-                chats_sync=chats_sync,
-                contacts_sync=contacts_sync,
-                drafts_sync=drafts_sync,
             )
             self._authorized.set()
             if self._telemetry is not None:
                 await self._telemetry.start()
+        except NeedReloginMapperError as e:
+            self._logger.warning("Need relogin")
+            self._authorized.clear()
+            raise NeedReloginMapperError("Auth failed") from e
 
         except BaseMapperError as e:
             self._logger.warning("Cancelled auth")

@@ -1,7 +1,7 @@
 docs_dir: docs
 site_name: Pyromax 0.8 Documentation
 site_description: Asynchronous framework for MAX Messenger userbots
-site_url: https://rast-games.github.io/pyromax/
+site_url: https://docs.pyromax.org/
 repo_url: https://github.com/rast-games/pyromax
 repo_name: rast-games/pyromax
 site_author: Rast

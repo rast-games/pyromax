@@ -213,8 +213,7 @@ class PhotoMapping(
 
     @property
     def headers(self) -> None:
-        """Photo not need headers
-        """
+        """Photo not need headers"""
         return None
 
     @property
@@ -560,13 +559,12 @@ async def get_file_url(
     :rtype: str | None
     :raises DownloadFileError: If file has not been uploaded to chat, cannot download it(Most likely, you uploaded the attachment but did not send a message with it.).
     """
-    print(file)
+
     if not file.uploaded:
         raise DownloadFileError(
             "File has not been uploaded to chat, cannot download it(Most likely, you uploaded the attachment but did not send a message with it.)"
         )
 
     translate_model = MAPPING_MODEL_TO_FILE_MAPPING[type(file)]
-    print(translate_model)
 
     return await translate_model.get_url_to_download(file=file, mapper=mapper, **kwargs)

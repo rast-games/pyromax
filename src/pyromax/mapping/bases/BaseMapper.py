@@ -75,6 +75,10 @@ class BaseMapper(AsyncInitializerMixin, Generic[T_protocol, T_file]):
         pass
 
     @abstractmethod
+    async def stop(self) -> None:
+        pass
+
+    @abstractmethod
     async def start_auth_flow(self, *args: Any, **kwargs: Any) -> Any: ...
 
     @abstractmethod

@@ -283,6 +283,7 @@ class SearchByPhoneRequest(CamelCaseModel):
 
 class ContactRequest(CamelCaseModel):
     first_name: str
+    last_name: str | None = None
 
 
 class ContactActionRequest(CamelCaseModel):

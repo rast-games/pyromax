@@ -64,7 +64,7 @@ class ConstructorMixin(
         self.protocol_version: int
 
         self.max_api: MaxApi | None = None
-        self.token: str | None = self.mapper_config.token
+        # self.token: str | None = self.mapper_config.token
 
         self.password: str | None = self.mapper_config.password
         self.phone: str | None = self.mapper_config.phone
@@ -81,7 +81,7 @@ class ConstructorMixin(
         user_agent = user_agent_model.get_random_user_agent(**user_agent_params)
         self.user_agent = user_agent
 
-        self.TOKEN_NAME: str
+        # self.TOKEN_NAME: str
 
         self.fingerprint_generator = FingerprintGenerator()
         self.logged: bool = False
@@ -157,34 +157,31 @@ class ConstructorMixin(
         if conf.device_type not in self.DEVICE_TYPE_TO_USERAGENT_MODEL:
             raise RuntimeError(f"Unknown device type: {self.mapper_config.device_type}")
 
-        self.TOKEN_NAME = (
-            "ENVELOPE_MAX_TOKEN_V11"
-            + self.protocol.transport.__class__.__name__
-            + conf.device_type
-            + (conf.token_suffix or "")
-        )
-
-        token = conf.token
-        if token is None:
-            token = await read_token(name_of_token=self.TOKEN_NAME)
-
-        if token is not None:
-            await write_token(token, self.TOKEN_NAME)
-
-        extra_config.mapper.token = token
-
         if not isinstance(max_api, MaxApi):
             raise TypeError("max_api must be an instance of MaxApi")
         if not isinstance(protocol, EnvelopeProtocol):
             raise TypeError("protocol must be an instance of EnvelopeProtocol")
+
+        # token = max_api.token or conf.token
+
+        # extra_config.mapper.token = token
+
         hide_func_call(
             type(self).__init__,
             self,
             protocol=protocol,
             extra_config=extra_config,
         )
-        # await asyncio.to_thread(self.__init__, protocol=protocol, keepalive_ping_interval=keepalive_ping_interval)  # type: ignore[misc]
+
         self.max_api = max_api
+
+    @property
+    def token(self) -> str | None:
+        return self.max_api.token
+
+    @token.setter
+    def token(self, token: str | None) -> None:
+        self.max_api.token = token
 
     async def start(
         self,
@@ -198,7 +195,7 @@ class ConstructorMixin(
         self._lifecycle_manager = LifecycleManager(
             mapper=cast(Mapper, self),
             connect_timeout=self.connect_timeout,
-            need_login=self.token is None,
+            need_login=self.max_api.token is None,
         )
 
         if self._lifecycle_manager is None:
@@ -227,6 +224,15 @@ class ConstructorMixin(
         await self._protocol_connected.wait()
 
         self._logger.info("Mapper initialized")
+
+    async def stop(self) -> None:
+        await self.close()
+        if self._lifecycle_manager is not None:
+            await self._lifecycle_manager.stop()
+        self._lifecycle_manager_inited.clear()
+        self._telemetry = None
+        self.protocol.set_generation_getter(None)
+        self.protocol.set_exceptions_callback(None)
 
     def bind_api_instance(self, obj: T) -> T:
         """Bind api instance.

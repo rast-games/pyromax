@@ -9,6 +9,10 @@ class RestartMapperError(BaseMapperError):
     """Raised when the mapper needs to be restarted."""
 
 
+class NeedReloginMapperError(RestartMapperError):
+    pass
+
+
 class GetQRError(BaseMapperError):
     """Raised when QR code retrieval fails."""
 
@@ -43,6 +47,10 @@ class MapperLifecycleError(BaseMapperError):
 
 
 class MapperRestartCycleError(MapperLifecycleError):
+    pass
+
+
+class MapperNeedReloginLifecycleError(MapperRestartCycleError):
     pass
 
 

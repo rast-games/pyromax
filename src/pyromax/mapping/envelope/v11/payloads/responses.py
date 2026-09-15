@@ -2,8 +2,10 @@ from typing import Any, ClassVar, Literal
 
 from typing_extensions import Self
 
-from .shared import CamelCaseModel
 from pydantic import Field, AliasPath, model_validator, AliasChoices
+
+from .....models import SyncState
+from .shared import CamelCaseModel
 from .models import (
     ProfileMappingModel,
     MessageMappingModel,
@@ -14,6 +16,7 @@ from .models import (
     ChatMappingModel,
     SessionMappingModel,
     PollStateMappingModel,
+    AuthConfigMappingModel,
 )
 
 
@@ -62,13 +65,32 @@ class ChoiceLoginVariantResponse(CamelCaseModel):
 
 class AuthResponse(CamelCaseModel):
     chats: list[ChatMappingModel]
-    config: dict[Any, Any] | None = None
+    # config: dict[Any, Any] | None = None
     contacts: list[ContactMappingModel | None] = Field(default_factory=list)
     messages: dict[int, list[MessageMappingModel]] = Field(default_factory=dict)
     presence: dict[Any, Any] | None = None
     profile: ProfileMappingModel | None = None
     time: int | None = None
     token: str | None = None
+    config: AuthConfigMappingModel | None = None
+
+    def update_sync_state(self, current: SyncState) -> SyncState:
+        sync_time = self.time
+        config_hash = self.config.hash if self.config is not None else None
+
+        return SyncState(
+            chats_sync=(sync_time if sync_time is not None else current.chats_sync),
+            contacts_sync=(
+                sync_time if sync_time is not None else current.contacts_sync
+            ),
+            drafts_sync=(sync_time if sync_time is not None else current.drafts_sync),
+            presence_sync=(
+                sync_time if sync_time is not None else current.presence_sync
+            ),
+            config_hash=(
+                config_hash if config_hash is not None else current.config_hash
+            ),
+        )
 
 
 class ConfirmRegistrationResponse(CamelCaseModel):
@@ -108,10 +130,12 @@ class EditMessageResponse(CamelCaseModel):
 
 class GetChatHistoryMessagesResponse(CamelCaseModel):
     messages: list[MessageMappingModel]
+    chat: ChatMappingModel | None = None
 
 
 class GetChatHistoryMessagesIdsResponse(CamelCaseModel):
     message_ids: list[str | int]
+    chat: ChatMappingModel | None = None
 
 
 class GetChatHistoryResponse(CamelCaseModel):

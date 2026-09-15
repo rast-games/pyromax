@@ -193,3 +193,4 @@ class Dispatcher(Router):
                     task.cancel()
                     await task
             await self.fsm.close()
+            await max_api.stop()

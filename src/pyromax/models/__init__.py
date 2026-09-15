@@ -16,7 +16,7 @@ from .Member import Member
 from .AuthFlow import AuthFlow
 from .RegistrationConfig import RegistrationConfig
 from .Folder import Folder, FolderUpdate, FolderList
-from .Session import Session
+from .Session import Session, SessionInfo, SyncState, SyncOverrides, SessionKey
 from .ContactInfo import ContactInfo
 from .Poll import Poll, PollState, PollVote, PollAnswer, PollResult
 
@@ -62,6 +62,10 @@ __all__ = [
     "FolderUpdate",
     "FolderList",
     "Session",
+    "SessionInfo",
+    "SyncState",
+    "SyncOverrides",
+    "SessionKey",
     "ContactInfo",
     "PhotoAttachment",
     "Poll",
