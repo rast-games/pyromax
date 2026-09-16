@@ -27,6 +27,7 @@ from ...models import (
     ReadState,
     Poll,
     PollState,
+    Chat,
 )
 from .CoreMixinsProtocol import CoreMixinsProtocol
 
@@ -203,7 +204,7 @@ class MessageMixin(CoreMixinsProtocol):
         forward_time: int = ...,
         from_time: int | None = ...,
         item_type: Literal["DELAYED", "REGULAR"] = ...,
-        get_chat: bool = ...,
+        get_chat: Literal[False] = False,
         get_messages: Literal[True] = True,
         interactive: bool = ...,
     ) -> list[Message]:
@@ -219,10 +220,42 @@ class MessageMixin(CoreMixinsProtocol):
         forward_time: int = ...,
         from_time: int | None = None,
         item_type: Literal["DELAYED", "REGULAR"] = ...,
-        get_chat: bool = ...,
+        get_chat: Literal[True] = True,
+        get_messages: Literal[True] = True,
+        interactive: bool = ...,
+    ) -> tuple[list[Message], Chat | None]:
+        pass
+
+    @overload
+    async def get_chat_history(
+        self,
+        chat_id: int,
+        forward: int = ...,
+        backward: int = ...,
+        backward_time: int = ...,
+        forward_time: int = ...,
+        from_time: int | None = None,
+        item_type: Literal["DELAYED", "REGULAR"] = ...,
+        get_chat: Literal[False] = False,
         get_messages: Literal[False] = False,
         interactive: bool = ...,
     ) -> list[str | int]:
+        pass
+
+    @overload
+    async def get_chat_history(
+        self,
+        chat_id: int,
+        forward: int = ...,
+        backward: int = ...,
+        backward_time: int = ...,
+        forward_time: int = ...,
+        from_time: int | None = None,
+        item_type: Literal["DELAYED", "REGULAR"] = ...,
+        get_chat: Literal[True] = True,
+        get_messages: Literal[False] = False,
+        interactive: bool = ...,
+    ) -> tuple[list[str | int], Chat | None]:
         pass
 
     @overload
@@ -238,7 +271,11 @@ class MessageMixin(CoreMixinsProtocol):
         get_chat: bool = ...,
         get_messages: bool = ...,
         interactive: bool = ...,
-    ) -> list[Message] | list[str | int]: ...
+    ) -> (
+        list[Message]
+        | list[str | int]
+        | tuple[list[Message] | list[str | int], Chat | None]
+    ): ...
 
     async def get_chat_history(
         self,
@@ -252,7 +289,11 @@ class MessageMixin(CoreMixinsProtocol):
         get_chat: bool = False,
         get_messages: bool = True,
         interactive: bool = False,
-    ) -> list[Message] | list[str | int]:
+    ) -> (
+        list[Message]
+        | list[str | int]
+        | tuple[list[Message] | list[str | int], Chat | None]
+    ):
         """Retrieve chat history.
 
         :param chat_id: Identifier of the chat.
@@ -275,12 +316,14 @@ class MessageMixin(CoreMixinsProtocol):
         :type get_messages: bool
         :param interactive: Request the messages themselves.
         :type interactive: bool
-        :returns: Message collection if get_messages is True else message ids collection.
-        :rtype: list[Message] | list[str]
+        :returns: History items, paired with the requested chat when ``get_chat`` is true.
+        :rtype: list[Message] | list[str | int] | tuple[list[Message] | list[str | int], Chat | None]
         """
 
         return cast(
-            list[Message] | list[str | int],
+            list[Message]
+            | list[str | int]
+            | tuple[list[Message] | list[str | int], Chat | None],
             await self(
                 GetChatHistoryMethod,
                 chat_id=chat_id,

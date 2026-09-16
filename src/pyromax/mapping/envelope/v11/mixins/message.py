@@ -49,7 +49,7 @@ from ..payloads.responses import (
 )
 from ..translate.ToDTO import translate_models
 from ..translate.FromDTO import reverse_translate_poll
-from .....models import Message, EmojiReaction, ReadState, Poll, PollState
+from .....models import Message, EmojiReaction, ReadState, Poll, PollState, Chat
 
 from .MixinProtocol import MixinProtocol
 
@@ -362,7 +362,7 @@ class MessageMixin(MixinProtocol):
         forward_time: int = ...,
         from_time: int | None = ...,
         item_type: str = ...,
-        get_chat: bool = ...,
+        get_chat: Literal[False] = False,
         get_messages: Literal[True] = True,
         interactive: bool = ...,
     ) -> list[Message]:
@@ -403,7 +403,22 @@ class MessageMixin(MixinProtocol):
         forward_time: int = ...,
         from_time: int | None = ...,
         item_type: str = ...,
-        get_chat: bool = ...,
+        get_chat: Literal[True] = True,
+        get_messages: Literal[True] = True,
+        interactive: bool = ...,
+    ) -> tuple[list[Message], Chat | None]: ...
+
+    @overload
+    async def get_chat_history(
+        self,
+        chat_id: int,
+        forward: int = ...,
+        backward: int = ...,
+        backward_time: int = ...,
+        forward_time: int = ...,
+        from_time: int | None = ...,
+        item_type: str = ...,
+        get_chat: Literal[False] = False,
         get_messages: Literal[False] = False,
         interactive: bool = ...,
     ) -> list[str | int]:
@@ -430,9 +445,43 @@ class MessageMixin(MixinProtocol):
         :param interactive: The interactive value.
         :type interactive: bool
         :returns: The resulting collection.
-        :rtype: list[str]
+        :rtype: list[str | int]
         """
         ...
+
+    @overload
+    async def get_chat_history(
+        self,
+        chat_id: int,
+        forward: int = ...,
+        backward: int = ...,
+        backward_time: int = ...,
+        forward_time: int = ...,
+        from_time: int | None = ...,
+        item_type: str = ...,
+        get_chat: Literal[True] = True,
+        get_messages: Literal[False] = False,
+        interactive: bool = ...,
+    ) -> tuple[list[str | int], Chat | None]: ...
+
+    @overload
+    async def get_chat_history(
+        self,
+        chat_id: int,
+        forward: int = ...,
+        backward: int = ...,
+        backward_time: int = ...,
+        forward_time: int = ...,
+        from_time: int | None = ...,
+        item_type: str = ...,
+        get_chat: bool = ...,
+        get_messages: bool = ...,
+        interactive: bool = ...,
+    ) -> (
+        list[Message]
+        | list[str | int]
+        | tuple[list[Message] | list[str | int], Chat | None]
+    ): ...
 
     async def get_chat_history(
         self,
@@ -446,8 +495,11 @@ class MessageMixin(MixinProtocol):
         get_chat: bool = False,
         get_messages: bool = True,
         interactive: bool = False,
-    ) -> list[Message] | list[str | int]:
-        # TODO: make return Chat object if get_chat==True, because now its doest make any and its just dummy to remember add this
+    ) -> (
+        list[Message]
+        | list[str | int]
+        | tuple[list[Message] | list[str | int], Chat | None]
+    ):
         """Retrieve chat history.
 
         :param chat_id: Identifier of the chat.
@@ -470,8 +522,8 @@ class MessageMixin(MixinProtocol):
         :type get_messages: bool
         :param interactive: The interactive value.
         :type interactive: bool
-        :returns: The resulting collection.
-        :rtype: list[Message] | list[str]
+        :returns: History items, paired with the requested chat when ``get_chat`` is true.
+        :rtype: list[Message] | list[str | int] | tuple[list[Message] | list[str | int], Chat | None]
         :raises MapperApiError: If server return unknown response different from expected.
         """
         response = await self.send(
@@ -490,6 +542,10 @@ class MessageMixin(MixinProtocol):
         )
 
         mapped_messages = GetChatHistoryResponse(payload=response.payload)
+        chat = None
+        if mapped_messages.payload.chat is not None:
+            chat = cast(Chat, translate_models(mapped_messages.payload.chat))
+
         if get_messages:
             if not isinstance(mapped_messages.payload, GetChatHistoryMessagesResponse):
                 raise MapperApiError(
@@ -504,12 +560,15 @@ class MessageMixin(MixinProtocol):
             ]
 
             msgs = cast(list[Message], messages)
-
+            if get_chat:
+                return [self.bind_api_instance(message) for message in msgs] or [], chat
             return [self.bind_api_instance(message) for message in msgs] or []
         if not isinstance(mapped_messages.payload, GetChatHistoryMessagesIdsResponse):
             raise MapperApiError(
                 "server return unknown response different from expected"
             )
+        if get_chat:
+            return mapped_messages.payload.message_ids or [], chat
         return mapped_messages.payload.message_ids or []
 
     async def delete_messages(

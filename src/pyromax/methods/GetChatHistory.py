@@ -1,11 +1,19 @@
 from typing import Union, overload, cast, Literal
 
 from .Base import BaseMaxApiMethod
+from ..models.Chat import Chat
 from ..models.Message import Message
 
 
-class GetChatHistoryMethod(BaseMaxApiMethod[Union[list[Message], list[str]]]):
-
+class GetChatHistoryMethod(
+    BaseMaxApiMethod[
+        Union[
+            list[Message],
+            list[str | int],
+            tuple[Union[list[Message], list[str | int]], Union[Chat, None]],
+        ]
+    ]
+):
     @overload
     async def __call__(
         self,
@@ -16,7 +24,7 @@ class GetChatHistoryMethod(BaseMaxApiMethod[Union[list[Message], list[str]]]):
         forward_time: int = ...,
         from_time: int | None = ...,
         item_type: str = ...,
-        get_chat: bool = ...,
+        get_chat: Literal[False] = False,
         get_messages: Literal[True] = True,
         interactive: bool = ...,
     ) -> list[Message]:
@@ -57,7 +65,22 @@ class GetChatHistoryMethod(BaseMaxApiMethod[Union[list[Message], list[str]]]):
         forward_time: int = ...,
         from_time: int | None = ...,
         item_type: str = ...,
-        get_chat: bool = ...,
+        get_chat: Literal[True] = True,
+        get_messages: Literal[True] = True,
+        interactive: bool = ...,
+    ) -> tuple[list[Message], Chat | None]: ...
+
+    @overload
+    async def __call__(
+        self,
+        chat_id: int,
+        forward: int = ...,
+        backward: int = ...,
+        backward_time: int = ...,
+        forward_time: int = ...,
+        from_time: int | None = ...,
+        item_type: str = ...,
+        get_chat: Literal[False] = False,
         get_messages: Literal[False] = False,
         interactive: bool = ...,
     ) -> list[str | int]:
@@ -84,9 +107,43 @@ class GetChatHistoryMethod(BaseMaxApiMethod[Union[list[Message], list[str]]]):
         :param interactive: The interactive value.
         :type interactive: bool
         :returns: The resulting collection.
-        :rtype: list[str]
+        :rtype: list[str | int]
         """
         pass
+
+    @overload
+    async def __call__(
+        self,
+        chat_id: int,
+        forward: int = ...,
+        backward: int = ...,
+        backward_time: int = ...,
+        forward_time: int = ...,
+        from_time: int | None = ...,
+        item_type: str = ...,
+        get_chat: Literal[True] = True,
+        get_messages: Literal[False] = False,
+        interactive: bool = ...,
+    ) -> tuple[list[str | int], Chat | None]: ...
+
+    @overload
+    async def __call__(
+        self,
+        chat_id: int,
+        forward: int = ...,
+        backward: int = ...,
+        backward_time: int = ...,
+        forward_time: int = ...,
+        from_time: int | None = ...,
+        item_type: str = ...,
+        get_chat: bool = ...,
+        get_messages: bool = ...,
+        interactive: bool = ...,
+    ) -> (
+        list[Message]
+        | list[str | int]
+        | tuple[list[Message] | list[str | int], Chat | None]
+    ): ...
 
     async def __call__(
         self,
@@ -100,7 +157,11 @@ class GetChatHistoryMethod(BaseMaxApiMethod[Union[list[Message], list[str]]]):
         get_chat: bool = False,
         get_messages: bool = True,
         interactive: bool = False,
-    ) -> list[Message] | list[str | int]:
+    ) -> (
+        list[Message]
+        | list[str | int]
+        | tuple[list[Message] | list[str | int], Chat | None]
+    ):
         """Execute the get chat history MAX API method.
 
         :param chat_id: Identifier of the chat.
@@ -123,15 +184,17 @@ class GetChatHistoryMethod(BaseMaxApiMethod[Union[list[Message], list[str]]]):
         :type get_messages: bool
         :param interactive: The interactive value.
         :type interactive: bool
-        :returns: The resulting collection.
-        :rtype: list[Message] | list[str]
+        :returns: History items, paired with the requested chat when ``get_chat`` is true.
+        :rtype: list[Message] | list[str | int] | tuple[list[Message] | list[str | int], Chat | None]
         :raises RuntimeError: If getChatHistory method not bound to MaxApi instance.
         """
         if not self._max_api:
             raise RuntimeError("GetChatHistory method not bound to MaxApi instance")
 
         return cast(
-            list[Message] | list[str | int],
+            list[Message]
+            | list[str | int]
+            | tuple[list[Message] | list[str | int], Chat | None],
             await self._max_api.mapper.call_method(
                 type(self),
                 chat_id=chat_id,
