@@ -15,6 +15,7 @@ from .event import (
     MaxObject,
     ResolvedUpdate,
 )
+from ..protocol import ErrorResponse
 from ..fsm.storage.memory import MemoryStorage, DisabledEventIsolation
 from ..fsm.middleware import FSMContextMiddleware
 from ..fsm.storage.base import BaseEventIsolation, BaseStorage
@@ -120,23 +121,32 @@ class Dispatcher(Router):
         self,
         update: Update,
         data: dict[Any, Any],
+        max_api: MaxApi,
         semaphore: asyncio.Semaphore,
         semaphore_calls: set[asyncio.Task[None]],
     ) -> None:
         async def semaphore_wrapper(
             update: Update,
             data: dict[Any, Any],
+            max_api: MaxApi,
             semaphore: asyncio.Semaphore,
         ) -> None:
             async with semaphore:
-                await self._process_update(update, data)
+                await self._process_update(update, data, max_api)
 
-        task = asyncio.create_task(semaphore_wrapper(update, data, semaphore))
+        task = asyncio.create_task(semaphore_wrapper(update, data, max_api, semaphore))
         semaphore_calls.add(task)
 
         task.add_done_callback(semaphore_calls.discard)
 
-    async def _process_update(self, update: Update, data: dict[Any, Any]) -> None:
+    async def _process_update(
+        self,
+        update: Update,
+        data: dict[Any, Any],
+        max_api: MaxApi,
+    ) -> None:
+        if not await max_api.wait_until_ready():
+            return
         update_observer = self.update
 
         response = await update_observer.wrap_outer_middleware(
@@ -164,10 +174,22 @@ class Dispatcher(Router):
         update_translator, updates = max_api.listen_updates(context=context)
         try:
             async for update in updates:
+                if max_api.shutdown_requested:
+                    break
+                if isinstance(update, ErrorResponse):
+                    self.__logger.error("Failed to receive update: %s", update.error)
+                    continue
 
                 self.__logger.debug("Received update: %s", update)
-
-                resolved_update = update_translator(update)
+                try:
+                    resolved_update = update_translator(update)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    self.__logger.exception(
+                        "Failed to process update: %s", update, exc_info=e
+                    )
+                    continue
 
                 data: dict[type | TypeVar, Any] = {
                     type(max_api): max_api,
@@ -182,11 +204,12 @@ class Dispatcher(Router):
                     self._process_update_with_semaphore(
                         update,
                         data,
+                        max_api,
                         semaphore,
                         semaphore_calls,
                     )
                 else:
-                    await self._process_update(update, data)
+                    await self._process_update(update, data, max_api)
         finally:
             for task in semaphore_calls:
                 with suppress(asyncio.CancelledError):

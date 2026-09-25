@@ -8,6 +8,14 @@ class Response(ABC):
     pass
 
 
+class ErrorResponse(Response):
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(error={self.error!r})"
+
+
 T_response = TypeVar("T_response", bound=Response)
 
 

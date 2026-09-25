@@ -144,7 +144,6 @@ class LifecycleManager:
         )
 
     async def stop(self) -> None:
-        await self._close()
         task = self._manage_lifecycle_task
         self._manage_lifecycle_task = None
         try:
@@ -153,6 +152,8 @@ class LifecycleManager:
                 await task
         except asyncio.CancelledError:
             pass
+        finally:
+            await self._close()
 
     async def _close(
         self,
@@ -213,6 +214,8 @@ class LifecycleManager:
                     user_agent=user_agent,
                 )
             except RestartMapperError as e:
+                if self.mapper.max_api.shutdown_requested:
+                    raise asyncio.CancelledError from e
                 self._logger.exception("Exception while try to connect=%s", e)
                 raise MapperRestartCycleError("Send user agent failed") from e
         else:
@@ -230,6 +233,8 @@ class LifecycleManager:
                 self._logger.exception("Exception while try to connect=%s", e)
                 raise MapperNeedReloginLifecycleError("Auth failed") from e
             except RestartMapperError as e:
+                if self.mapper.max_api.shutdown_requested:
+                    raise asyncio.CancelledError from e
                 self._logger.exception("Exception while try to connect=%s", e)
                 raise MapperRestartCycleError("Auth failed") from e
             self.mapper._authorized.set()
@@ -324,9 +329,9 @@ class LifecycleManager:
 
     async def _observe_task(
         self,
-        observer_coroutine: Coroutine[Any, Any, None],
-        first_observe_coroutine: Coroutine[Any, Any, Any],
-        *other_coroutines: Coroutine[Any, Any, Any],
+        observer_factory: Callable[[], Coroutine[Any, Any, None]],
+        first_observe_factory: Callable[[], Coroutine[Any, Any, Any]],
+        *other_factories: Callable[[], Coroutine[Any, Any, Any]],
     ) -> None:
         """Observe task.
 
@@ -339,19 +344,19 @@ class LifecycleManager:
         :raises MapperLifecycleError: If observe task failed.
         """
         try:
-            all_tasks = [first_observe_coroutine, *other_coroutines]
+            all_factories = [first_observe_factory, *other_factories]
             async with asyncio.TaskGroup() as tg:
-                observe_task = tg.create_task(observer_coroutine)
+                observe_task = tg.create_task(observer_factory())
                 main_tasks = []
-                for task in all_tasks:
-                    main_tasks.append(tg.create_task(task))
+                for factory in all_factories:
+                    main_tasks.append(tg.create_task(factory()))
                 await asyncio.gather(*main_tasks)
                 observe_task.cancel()
 
         except* Exception as eg:
             original_error = eg.exceptions[0] if eg.exceptions else eg
             self._logger.exception(
-                f"Exception occurred while observing tasks: {[first_observe_coroutine, *other_coroutines]}",
+                "Exception occurred while observing lifecycle tasks",
                 exc_info=True,
             )
             raise MapperRestartCycleError("observe task failed") from original_error
@@ -374,22 +379,21 @@ class LifecycleManager:
         """
         need_login = self._need_login
 
-        conn_coroutine: Coroutine[Any, Any, None]
+        connection_factory: Callable[[], Coroutine[Any, Any, Any]]
         if need_login:
-            try:
-                conn_coroutine = self._establish_connection(
+            def connection_factory() -> Coroutine[Any, Any, None]:
+                return self._establish_connection(
                     auth_params=auth_params,
                     manage_lifecycle_backoff=manage_lifecycle_backoff,
                     close_firstly=True,
                     exception=exception,
                     **kwargs,
                 )
-                self._need_login = True
-            except RestartMapperError as e:
-                raise MapperLifecycleError() from e
+
+            self._need_login = True
         else:
-            try:
-                conn_coroutine = wait_for(
+            def connection_factory() -> Coroutine[Any, Any, None]:
+                return wait_for(
                     self._establish_connection(
                         auth_params=auth_params,
                         manage_lifecycle_backoff=manage_lifecycle_backoff,
@@ -399,21 +403,12 @@ class LifecycleManager:
                     ),
                     timeout=self.connect_timeout,
                 )
-            except TimeoutError as e:
-                self._logger.warning(
-                    "Timeout to establish connection expired.",
-                )
-                raise RestartMapperError(
-                    "Timeout to establish connection expired."
-                ) from e
-            except RestartMapperError as e:
-                raise MapperLifecycleError() from e
 
         self.mapper._authorized.clear()
         try:
             await self._observe_task(
-                observer_coroutine=self._observe_auth_error(),
-                first_observe_coroutine=conn_coroutine,
+                observer_factory=self._observe_auth_error,
+                first_observe_factory=connection_factory,
             )
         except MapperRestartCycleError as e:
             raise
@@ -469,7 +464,6 @@ class LifecycleManager:
                     await self._close(exception)
                     raise
                 except asyncio.CancelledError:
-                    await self.mapper.max_api.stop()
                     raise
             except BackoffError:
                 self._logger.warning(

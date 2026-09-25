@@ -9,7 +9,7 @@ T = TypeVar("T")
 def inspect_and_form(
     func: Callable[..., Any],
     data: dict[type[T], T],
-    strict: bool = False,
+    strict: bool = True,
 ) -> dict[str, Any]:
     """Inspect and form.
 

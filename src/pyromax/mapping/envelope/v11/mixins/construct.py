@@ -226,13 +226,19 @@ class ConstructorMixin(
         self._logger.info("Mapper initialized")
 
     async def stop(self) -> None:
-        await self.close()
         if self._lifecycle_manager is not None:
             await self._lifecycle_manager.stop()
+        else:
+            await self.close()
+        self._protocol_connected.clear()
         self._lifecycle_manager_inited.clear()
         self._telemetry = None
         self.protocol.set_generation_getter(None)
         self.protocol.set_exceptions_callback(None)
+
+    async def wait_until_ready(self) -> None:
+        """Wait until the current connection is authorized."""
+        await self._authorized.wait()
 
     def bind_api_instance(self, obj: T) -> T:
         """Bind api instance.

@@ -1,7 +1,7 @@
 from .base import BaseMaxProtocol
 from .methods import BaseMaxProtocolMethod
 from .StreamProtocol import StreamMaxProtocol
-from .request_response import Request, Response
+from .request_response import ErrorResponse, Request, Response
 
 __all__ = [
     "BaseMaxProtocol",
@@ -9,4 +9,5 @@ __all__ = [
     "BaseMaxProtocolMethod",
     "Request",
     "Response",
+    "ErrorResponse",
 ]

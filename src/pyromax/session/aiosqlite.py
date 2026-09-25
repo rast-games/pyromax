@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
+from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl
@@ -314,8 +316,16 @@ class AioSqLiteSessionStorage(BaseSessionStorage):
     async def close(self) -> None:
         if self.conn is not None:
             self._logger.debug("Closing session database")
-            await self.conn.close()
+            conn = self.conn
             self.conn = None
+            try:
+                await conn.close()
+            except asyncio.CancelledError:
+                stop_future = conn.stop()
+                if stop_future is not None:
+                    with suppress(asyncio.CancelledError):
+                        await stop_future
+                raise
 
     def _session_value_to_session(self, session_value: str) -> SessionInfo:
         return SessionInfo.from_string(session_value)

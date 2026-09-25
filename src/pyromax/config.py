@@ -545,7 +545,10 @@ class ExtraConfig(BaseConfig):
     work_dir: str = "."
     session_name: str = "session.db"
     session_id: str | None = None
+
+    # directives
     restore_user_agent_from_session: bool = True
+    auto_connect_after_init: bool = True
 
     sync: SyncOverrides = Field(default_factory=SyncOverrides)
 

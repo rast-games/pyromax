@@ -9,6 +9,7 @@ from .payloads.responses import ErrorMessageResponse
 from .translate.ToDTO import update_translate
 from ...registry import register_mapper
 from .LifecycleManager import LifecycleManager
+from .responses import FailedUpdateResponse
 
 
 from .mixins import FullMixin
@@ -33,6 +34,8 @@ class Mapper(FullMixin):
         async with self._update_listener_lock:
 
             while True:
+                if self.max_api.shutdown_requested:
+                    return
                 try:
                     await self._mapper_connected.wait()
                     if self._lifecycle_manager is None:
@@ -40,6 +43,8 @@ class Mapper(FullMixin):
                     gen = await self._lifecycle_manager.get_generation()
                     updates = await self.protocol.get_updates()
                 except GetUpdatesProtocolError as e:
+                    if self.max_api.shutdown_requested:
+                        return
                     if self._lifecycle_manager is None:
                         self._logger.warning(
                             "lifecycle manager not available, wait init"
@@ -68,7 +73,12 @@ class Mapper(FullMixin):
                             localized_message: {error.localized_message},
                             message: {error.error_message}
                             """
-                        raise MapperApiError(error_msg)
+                        exc = MapperApiError(error_msg)
+
+                        # self._logger.error("MapperApiError: %s", exc)
+
+                        yield FailedUpdateResponse(exc)
+                        continue
                     # yield cast(Update, update_translate(update, context=context))
                     yield update
 

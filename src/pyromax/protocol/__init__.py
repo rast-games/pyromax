@@ -10,5 +10,6 @@ __all__ = [
     "BaseMaxProtocolMethod",
     "Request",
     "Response",
+    "ErrorResponse",
     "PROTOCOLS",
 ]

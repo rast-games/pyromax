@@ -79,6 +79,11 @@ class BaseMapper(AsyncInitializerMixin, Generic[T_protocol, T_file]):
         pass
 
     @abstractmethod
+    async def wait_until_ready(self) -> None:
+        """Wait until the mapper is connected and authorized."""
+        pass
+
+    @abstractmethod
     async def start_auth_flow(self, *args: Any, **kwargs: Any) -> Any: ...
 
     @abstractmethod

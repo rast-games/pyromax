@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from ..transport import BaseTransport
     from ..encoding import BaseEncoding
     from ..mapping import BaseMapper
+    from ..session import BaseSessionStorage
     from ..methods import BaseMaxApiMethod
     from ..models import (
         Chat,
@@ -62,6 +63,8 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
 
     :raises RuntimeError: If a transport, protocol, or mapper name is not supported.
     """
+
+    _SHUTDOWN_STEP_TIMEOUT = 5.0
 
     async def _async_init(
         self,
@@ -113,6 +116,17 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         :type token_suffix: str | None
         :raises RuntimeError: If transport or protocol or mapper cannot be None.
         """
+
+        self._shutdown_event = asyncio.Event()
+        self._shutdown_worker_task: asyncio.Task[None] | None = None
+        self._stop_task: asyncio.Task[None] | None = None
+        self._initialization_task: asyncio.Task[Any] | None = asyncio.current_task()
+        self._logger: logging.Logger | None = logging.getLogger("MaxApi")
+        self.transport = cast("BaseTransport[Any]", None)
+        self.protocol = cast("BaseMaxProtocol[Any, Any]", None)
+        self.mapper = cast("BaseMapper[Any, Any]", None)
+        self._session_updates_task: asyncio.Task[None] | None = None
+        self.session_storage = cast("BaseSessionStorage", None)
 
         from ..models import (
             DeviceType,
@@ -182,145 +196,174 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
             user_agent_config=self.extra_config.mapper.user_agent_config.to_string(),
         )
         self.token_suffix = token_suffix
-
-        self._session_updates_queue = asyncio.Queue()
-        self.session_storage = (
-            self.extra_config.session_storage
-            or AioSqLiteSessionStorage(
-                work_dir=self.extra_config.work_dir,
-                db_name=self.extra_config.session_name,
-            )
-        )
-        self._session_updates_task = asyncio.create_task(self._update_session())
-
-        session_info = await self.session_storage.load_session(self.session_key)
-
-        has_session_info = session_info is not None
-
-        if has_session_info:
-            if self.session_id is None and session_info.session_id is not None:
-                self.session_id = session_info.session_id
-            elif self.session_id is None and session_info.session_id is None:
-                self.session_id = session_info.session_id = str(uuid.uuid4())
-
-            if self.token is None:
-                self.token = session_info.token
-            if self.phone is None:
-                self.phone = session_info.phone
-            custom_user_agent_config = extra_config.mapper.is_custom_user_agent_config
-            if (
-                session_info.user_agent_config is not None
-                and not custom_user_agent_config
-                and self.extra_config.restore_user_agent_from_session
-            ):
-                user_agent_config = (
-                    BaseEnvelopeMappingUserAgentConfigV11.from_session_info(
-                        session_info
-                    )
+        try:
+            self._session_updates_queue = asyncio.Queue()
+            self.session_storage = (
+                self.extra_config.session_storage
+                or AioSqLiteSessionStorage(
+                    work_dir=self.extra_config.work_dir,
+                    db_name=self.extra_config.session_name,
                 )
-                self.extra_config.mapper.user_agent_config = user_agent_config
-                self.session.user_agent_config = session_info.user_agent_config
-            if session_info.sync:
-                current_sync = self.session.sync
-                saved_sync = session_info.sync
+            )
+            self._session_updates_task = asyncio.create_task(self._update_session())
+            self._shutdown_worker_task = asyncio.create_task(self._shutdown_worker())
 
-                from ..models.Session import SyncState
+            session_info = await self.session_storage.load_session(self.session_key)
 
-                default_sync = SyncState()
+            has_session_info = session_info is not None
 
-                if current_sync.presence_sync == default_sync.presence_sync:
-                    current_sync.presence_sync = saved_sync.presence_sync
-                if current_sync.chats_sync == default_sync.chats_sync:
-                    current_sync.chats_sync = saved_sync.chats_sync
-                if current_sync.drafts_sync == default_sync.drafts_sync:
-                    current_sync.drafts_sync = saved_sync.drafts_sync
-                if current_sync.contacts_sync == default_sync.contacts_sync:
-                    current_sync.contacts_sync = saved_sync.contacts_sync
-                if str(current_sync.config_hash) == str(default_sync.config_hash):
-                    current_sync.config_hash = saved_sync.config_hash
-        else:
-            if self.session_id is None:
-                self.session_id = str(uuid.uuid4())
+            if has_session_info:
+                if self.session_id is None and session_info.session_id is not None:
+                    self.session_id = session_info.session_id
+                elif self.session_id is None and session_info.session_id is None:
+                    self.session_id = session_info.session_id = str(uuid.uuid4())
 
-        transport = cast(
-            TransportRegistry,
-            from_config_to_registry(type(self.extra_config.transport)),
-        )
-        encoding = cast(
-            EncodingRegistry, from_config_to_registry(type(self.extra_config.encoding))
-        )
-        protocol = cast(
-            ProtocolRegistry, from_config_to_registry(type(self.extra_config.protocol))
-        )
-        mapper = cast(
-            MapperRegistry, from_config_to_registry(type(self.extra_config.mapper))
-        )
+                if self.token is None:
+                    self.token = session_info.token
+                if self.phone is None:
+                    self.phone = session_info.phone
+                custom_user_agent_config = (
+                    extra_config.mapper.is_custom_user_agent_config
+                )
+                if (
+                    session_info.user_agent_config is not None
+                    and not custom_user_agent_config
+                    and self.extra_config.restore_user_agent_from_session
+                ):
+                    user_agent_config = (
+                        BaseEnvelopeMappingUserAgentConfigV11.from_session_info(
+                            session_info
+                        )
+                    )
+                    self.extra_config.mapper.user_agent_config = user_agent_config
+                    self.session.user_agent_config = session_info.user_agent_config
+                if session_info.sync:
+                    current_sync = self.session.sync
+                    saved_sync = session_info.sync
 
-        if workflow_data is None:
-            workflow_data = {}
+                    from ..models.Session import SyncState
 
-        logger = logging.getLogger("MaxApi")
+                    default_sync = SyncState()
 
-        if transport not in TRANSPORTS:
-            raise RuntimeError(f"transport {transport} is not supported")
+                    if current_sync.presence_sync == default_sync.presence_sync:
+                        current_sync.presence_sync = saved_sync.presence_sync
+                    if current_sync.chats_sync == default_sync.chats_sync:
+                        current_sync.chats_sync = saved_sync.chats_sync
+                    if current_sync.drafts_sync == default_sync.drafts_sync:
+                        current_sync.drafts_sync = saved_sync.drafts_sync
+                    if current_sync.contacts_sync == default_sync.contacts_sync:
+                        current_sync.contacts_sync = saved_sync.contacts_sync
+                    if str(current_sync.config_hash) == str(default_sync.config_hash):
+                        current_sync.config_hash = saved_sync.config_hash
+            else:
+                if self.session_id is None:
+                    self.session_id = str(uuid.uuid4())
 
-        if protocol not in PROTOCOLS:
-            raise RuntimeError(f"protocol {protocol} is not supported")
+            transport = cast(
+                TransportRegistry,
+                from_config_to_registry(type(self.extra_config.transport)),
+            )
+            encoding = cast(
+                EncodingRegistry,
+                from_config_to_registry(type(self.extra_config.encoding)),
+            )
+            protocol = cast(
+                ProtocolRegistry,
+                from_config_to_registry(type(self.extra_config.protocol)),
+            )
+            mapper = cast(
+                MapperRegistry, from_config_to_registry(type(self.extra_config.mapper))
+            )
 
-        if mapper not in MAPPERS:
-            raise RuntimeError(f"mapper {mapper} is not supported")
+            if workflow_data is None:
+                workflow_data = {}
 
-        logger.info("Start initialization...")
+            logger = logging.getLogger("MaxApi")
 
-        max_encoding: BaseEncoding[Any, Any, Any, Any] = from_registry(
-            ENCODINGS, encoding
-        )(self.extra_config)
+            if transport not in TRANSPORTS:
+                raise RuntimeError(f"transport {transport} is not supported")
 
-        logger.info("Initializing transport...")
+            if protocol not in PROTOCOLS:
+                raise RuntimeError(f"protocol {protocol} is not supported")
 
-        max_transport = await from_registry(TRANSPORTS, transport)(
-            max_encoding, self.extra_config
-        )
-        logger.info("Transport initialized.")
+            if mapper not in MAPPERS:
+                raise RuntimeError(f"mapper {mapper} is not supported")
 
-        logger.info("Initializing protocol...")
-        protocol_res: Any = await from_registry(PROTOCOLS, protocol)(
-            transport=max_transport,
-            encoding=max_encoding,
-            extra_config=self.extra_config,
-        )
-        max_protocol: BaseMaxProtocol[Any, Any] = protocol_res
-        logger.info("Protocol initialized.")
+            logger.info("Start initialization...")
 
-        logger.info("Initializing mapper...")
-        map_class = from_registry(MAPPERS, mapper)
-        max_mapper = await map_class(
-            self,
-            protocol=max_protocol,
-            extra_config=self.extra_config,
-        )
-        logger.info("Mapper initialized.")
+            max_encoding: BaseEncoding[Any, Any, Any, Any] = from_registry(
+                ENCODINGS, encoding
+            )(self.extra_config)
 
-        hide_func_call(
-            type(self).__init__,
-            self,
-            protocol=max_protocol,
-            password=extra_config.mapper.password,
-            transport=max_transport,
-            mapper=max_mapper,
-            token=extra_config.mapper.token,
-            logger=logger,
-            workflow_data=workflow_data,
-            device_type=device_type,
-            auth_middleware_manager=auth_middleware_manager,
-            extra_config=self.extra_config,
-        )
-        await self.connect(**kwargs)
+            logger.info("Initializing transport...")
+
+            max_transport = await from_registry(TRANSPORTS, transport)(
+                max_encoding, self.extra_config
+            )
+            self.transport = max_transport
+            logger.info("Transport initialized.")
+
+            logger.info("Initializing protocol...")
+
+            protocol_res: Any = await from_registry(PROTOCOLS, protocol)(
+                transport=max_transport,
+                encoding=max_encoding,
+                extra_config=self.extra_config,
+            )
+            max_protocol: BaseMaxProtocol[Any, Any] = protocol_res
+            self.protocol = max_protocol
+            logger.info("Protocol initialized.")
+
+            logger.info("Initializing mapper...")
+            map_class = from_registry(MAPPERS, mapper)
+            max_mapper = await map_class(
+                self,
+                protocol=max_protocol,
+                extra_config=self.extra_config,
+            )
+            self.mapper = max_mapper
+            logger.info("Mapper initialized.")
+
+            hide_func_call(
+                type(self).__init__,
+                self,
+                protocol=max_protocol,
+                password=extra_config.mapper.password,
+                transport=max_transport,
+                mapper=max_mapper,
+                token=extra_config.mapper.token,
+                logger=logger,
+                workflow_data=workflow_data,
+                device_type=device_type,
+                auth_middleware_manager=auth_middleware_manager,
+                extra_config=self.extra_config,
+            )
+            if self.extra_config.auto_connect_after_init:
+                await self.connect(**kwargs)
+        except asyncio.CancelledError:
+            try:
+                await self.stop()
+            except Exception:
+                if self._logger is not None:
+                    self._logger.exception(
+                        "Cleanup failed while cancelling client initialization"
+                    )
+            raise
+        finally:
+            self._initialization_task = None
 
     async def connect(
         self,
         **kwargs: Any,
     ) -> None:
+        if self.shutdown_requested:
+            stop_task = self._stop_task
+            if stop_task is not None and not stop_task.done():
+                await asyncio.shield(stop_task)
+            self._shutdown_event.clear()
+            self._stop_task = None
+            self._shutdown_worker_task = asyncio.create_task(self._shutdown_worker())
+
         if self._session_updates_task is None:
             self._session_updates_task = asyncio.create_task(self._update_session())
 
@@ -393,18 +436,125 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
                 await self.mapper.end_auth_flow(None)
 
         await self.mapper.start()
+        self._connected = True
 
-    async def stop(self):
-        if self._session_updates_task:
-            await self._session_updates_queue.join()
-            self._session_updates_task.cancel()
-            updates_task = self._session_updates_task
+    def request_shutdown(self) -> None:
+        """Request graceful shutdown without blocking the caller."""
+        self._shutdown_event.set()
+        initialization_task = self._initialization_task
+        if (
+            initialization_task is not None
+            and not initialization_task.done()
+            and not initialization_task.cancelling()
+        ):
+            initialization_task.cancel()
+
+    @property
+    def shutdown_requested(self) -> bool:
+        """Return whether graceful shutdown has been requested."""
+        return self._shutdown_event.is_set()
+
+    async def wait_for_shutdown(self) -> None:
+        """Wait until graceful shutdown is requested."""
+        await self._shutdown_event.wait()
+
+    async def _shutdown_worker(self) -> None:
+        try:
+            await self._shutdown_event.wait()
+            await self.stop()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger = getattr(self, "_logger", None)
+            if logger is not None:
+                logger.exception("Graceful shutdown failed")
+
+    async def _stop(self) -> None:
+        try:
+            self._connected = False
+            mapper = getattr(self, "mapper", None)
+            if mapper is not None:
+                try:
+                    await asyncio.wait_for(
+                        mapper.stop(), timeout=self._SHUTDOWN_STEP_TIMEOUT
+                    )
+                except asyncio.TimeoutError:
+                    if self._logger is not None:
+                        self._logger.warning("Mapper shutdown timed out")
+            else:
+                protocol = getattr(self, "protocol", None)
+                transport = getattr(self, "transport", None)
+                if protocol is not None:
+                    try:
+                        await asyncio.wait_for(
+                            protocol.close(), timeout=self._SHUTDOWN_STEP_TIMEOUT
+                        )
+                    except asyncio.TimeoutError:
+                        if self._logger is not None:
+                            self._logger.warning("Protocol shutdown timed out")
+                elif transport is not None:
+                    try:
+                        await asyncio.wait_for(
+                            transport.close(), timeout=self._SHUTDOWN_STEP_TIMEOUT
+                        )
+                    except asyncio.TimeoutError:
+                        if self._logger is not None:
+                            self._logger.warning("Transport shutdown timed out")
+
+            session_updates_task = getattr(self, "_session_updates_task", None)
+            if session_updates_task is not None:
+                try:
+                    await asyncio.wait_for(
+                        self._session_updates_queue.join(),
+                        timeout=self._SHUTDOWN_STEP_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    if self._logger is not None:
+                        self._logger.warning("Session updates drain timed out")
+        finally:
+            updates_task = getattr(self, "_session_updates_task", None)
             self._session_updates_task = None
-            with suppress(asyncio.CancelledError):
-                await updates_task
+            if updates_task is not None:
+                updates_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await updates_task
 
-        await self.mapper.stop()
-        await self.session_storage.close()
+            session_storage = getattr(self, "session_storage", None)
+            if session_storage is not None:
+                try:
+                    await asyncio.wait_for(
+                        session_storage.close(),
+                        timeout=self._SHUTDOWN_STEP_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    if self._logger is not None:
+                        self._logger.warning("Session storage shutdown timed out")
+
+    async def stop(self) -> None:
+        """Stop the client once and wait for graceful shutdown to finish."""
+        self.request_shutdown()
+        if self._stop_task is None:
+            self._stop_task = asyncio.create_task(self._stop())
+        await asyncio.shield(self._stop_task)
+
+    async def wait_until_ready(self) -> bool:
+        """Wait until the client is ready or shutdown is requested."""
+        if self.shutdown_requested:
+            return False
+
+        ready_task = asyncio.create_task(self.mapper.wait_until_ready())
+        shutdown_task = asyncio.create_task(self.wait_for_shutdown())
+        try:
+            await asyncio.wait(
+                (ready_task, shutdown_task),
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            return ready_task.done() and not self.shutdown_requested
+        finally:
+            for task in (ready_task, shutdown_task):
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(ready_task, shutdown_task, return_exceptions=True)
 
     def __init__(
         self,
@@ -485,6 +635,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         self.users: dict[int, Contact] = {}
 
         self._logger: logging.Logger | None = logger
+        self._connected: bool = False
         self._session_updates_queue: asyncio.Queue[tuple["SessionKey", SessionInfo]]
         self._session_updates_task: asyncio.Task[None] | None
         self.workflow_data = workflow_data
@@ -606,12 +757,15 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         :type kwargs: Any
         :returns: The value returned by the wrapped callable or backend.
         :rtype: Any
-        :raises RuntimeError: If try a call method before initialization, because logger has not been initialized.
+        :raises RuntimeError: If try a call method without connect state, because logger has not been initialized.
         """
         if self._logger is None:
             raise RuntimeError(
-                "Try a call method before initialization, because logger has not been initialized"
+                "Try a call method before initialize, because logger has not been initialized"
             )
+
+        if not self._connected:
+            raise RuntimeError("Try a call method without connect state")
         self._logger.debug("Calling MaxApi method: %s", class_of_method.__name__)
         method = class_of_method().as_(self)
         try:
