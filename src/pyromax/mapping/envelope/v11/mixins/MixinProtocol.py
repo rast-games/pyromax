@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from .....models import BaseMaxObject
     from .....models.Chat import Chat
     from .....models.Contact import Contact
+    from .....interaction import AuthInteractor
 
 
 T = TypeVar("T", bound="BaseMaxObject")
@@ -52,6 +53,9 @@ class MixinProtocol(Protocol):
     _mapper_connected: asyncio.Event
     _protocol_connected: asyncio.Event
     _telemetry: TelemetryManager | None
+
+    @property
+    def auth_interactor(self) -> AuthInteractor: ...
 
     async def close(self, pending_requests_exc: Exception | None = None) -> None: ...
 

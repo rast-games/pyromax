@@ -5,8 +5,6 @@ import uuid
 from collections.abc import Callable, Coroutine
 from typing import Any, TYPE_CHECKING, cast
 
-import qrcode
-
 from .....config import ExtraConfig
 from .....protocol.envelope import Envelope, EnvelopeProtocol
 from .....models import (
@@ -21,6 +19,8 @@ from .....models import (
     DeviceType,
 )
 from .....config import EnvelopeMapperConfigV11
+from .....interaction import PasswordRequest
+from .....exceptions import AuthInputRequired
 from ..payloads.models import BaseUserAgentMappingModel, ProfileOptionsMappingModel
 from ..methods.immutable import (
     SendUserAgentMethod,
@@ -726,15 +726,12 @@ class AuthMixin(MixinProtocol):
 
     async def login(
         self,
-        url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
         login_backoff: Backoff | None = None,
         registration_config: RegistrationConfig | None = None,
         use_mobile_fingerprint: bool = True,
     ) -> SuccessLoginResponse | None:
         """Login.
 
-        :param url_callback: Callable to invoke.
-        :type url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None
         :param login_backoff: Backoff instance to process.
         :type login_backoff: Backoff | None
         :param registration_config: RegistrationConfig instance to process.
@@ -756,7 +753,6 @@ class AuthMixin(MixinProtocol):
             user = await self._login(
                 user_agent=self.user_agent,
                 login_backoff=login_backoff,
-                url_callback=url_callback,
                 registration_config=registration_config,
                 use_mobile_fingerprint=use_mobile_fingerprint,
             )
@@ -799,8 +795,6 @@ class AuthMixin(MixinProtocol):
         self,
         user_agent: BaseUserAgentMappingModel,
         login_backoff: Backoff | None = None,
-        code_getter: Callable[[str], Coroutine[Any, Any, int]] | None = None,
-        url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
         registration_config: RegistrationConfig | None = None,
         use_mobile_fingerprint: bool = True,
     ) -> SuccessLoginResponse:
@@ -810,10 +804,6 @@ class AuthMixin(MixinProtocol):
         :type user_agent: BaseUserAgentMappingModel
         :param login_backoff: Backoff instance to process.
         :type login_backoff: Backoff | None
-        :param code_getter: Callable to invoke.
-        :type code_getter: Callable[[str], Coroutine[Any, Any, int]] | None
-        :param url_callback: Callable to invoke.
-        :type url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None
         :param registration_config: RegistrationConfig instance to process.
         :type registration_config: RegistrationConfig | None
         :param use_mobile_fingerprint: Whether to use mobile fingerprint.
@@ -826,24 +816,6 @@ class AuthMixin(MixinProtocol):
         """
         if login_backoff is None:
             login_backoff = Backoff(config=DEFAULT_BACKOFF_CONFIG)
-        if not url_callback:
-
-            async def url_callback(url: str) -> None:
-                """Creating a QR code scanned by max. It is displayed immediately in the console
-
-                Args:
-                    url - authorization url
-
-                :param url: Resource URL.
-                :type url: str
-                """
-
-                qr = qrcode.QRCode()
-                qr.add_data(url)
-
-                qr.make(fit=True)
-                qr.print_ascii(invert=True)
-
         try:
             await self._send_user_agent(
                 user_agent=user_agent,
@@ -852,8 +824,6 @@ class AuthMixin(MixinProtocol):
             choice: ChoiceLoginVariantResponse = await self._call_build_in_method(
                 method_name="LOGIN",
                 # metadata=metadata,
-                url_callback=url_callback,
-                code_getter=code_getter,
                 login_backoff=login_backoff,
                 user_agent=user_agent,
                 sms_auth=self.sms_auth,
@@ -863,13 +833,17 @@ class AuthMixin(MixinProtocol):
             user: SuccessLoginResponse
 
             if isinstance(choice.payload, TwoFactorLoginResponse):
-                if self.password is None:
-                    raise MapperApiError(
-                        "password is required to login in account with 2FA."
+                password = self.password
+                if password is None:
+                    password = await self.auth_interactor.request_password(
+                        PasswordRequest(
+                            track_id=choice.payload.password_challenge.track_id,
+                            phone=self.phone,
+                        )
                     )
                 user = await self.resolve_two_factor(
                     track_id=choice.payload.password_challenge.track_id,
-                    password=self.password,
+                    password=password,
                 )
             else:
                 user = choice.payload
@@ -882,6 +856,8 @@ class AuthMixin(MixinProtocol):
         except TimeoutError as e:
             self._logger.error("Login timed out")
             raise RestartMapperError("Failed to login - timeout")
+        except AuthInputRequired:
+            raise
         except Exception as e:
             self._logger.error("Failed to login: %s - %s", e.__class__.__name__, e)
             await login_backoff.asleep()

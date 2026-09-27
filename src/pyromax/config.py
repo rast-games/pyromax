@@ -30,6 +30,7 @@ from .models import (
 from .models.enum.Registrys import BaseRegistry
 from .models.Session import SessionInfo, SyncOverrides
 from .session import BaseSessionStorage
+from .interaction import AuthInteractor
 
 from .utils import get_random_device_id, get_random_device_id_numeric
 
@@ -378,7 +379,6 @@ class EnvelopeMapperConfigV11(BaseMapperConfig):
     sms_auth: bool = False
     interactive: bool = True
     keepalive_ping_interval: int = 30
-    url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None
     connect_timeout: int | None = None
     user_agent_config: BaseEnvelopeMappingUserAgentConfigV11 = (
         WebEnvelopeMappingUserAgentConfigV11()
@@ -542,6 +542,7 @@ class ExtraConfig(BaseConfig):
     mapper: BaseMapperConfig = Field(default_factory=DefaultMapperConfig)
 
     session_storage: BaseSessionStorage | None = None
+    auth_interactor: AuthInteractor | None = None
     work_dir: str = "."
     session_name: str = "session.db"
     session_id: str | None = None

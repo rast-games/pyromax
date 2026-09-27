@@ -5,6 +5,10 @@ class BaseMapperError(BaseMaxApiException):
     """Base class for mapper errors."""
 
 
+class AuthInputRequired(BaseMapperError):
+    """Raised when authentication needs input that cannot be obtained."""
+
+
 class RestartMapperError(BaseMapperError):
     """Raised when the mapper needs to be restarted."""
 

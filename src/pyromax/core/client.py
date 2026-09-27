@@ -21,6 +21,7 @@ from ..utils import hide_func_call
 from ..session import AioSqLiteSessionStorage
 
 if TYPE_CHECKING:
+    from ..interaction import AuthCallbacks, AuthInteractor
     from ..dispatcher.event import MaxObject
     from ..protocol import Response, BaseMaxProtocol
     from ..transport import BaseTransport
@@ -70,6 +71,8 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         self,
         device_type: DeviceType | None = None,  # default "WEB"
         password: str | None = None,
+        auth_callbacks: AuthCallbacks | None = None,
+        auth_interactor: AuthInteractor | None = None,
         token: str | None = None,
         session_id: str | None = None,
         phone: str | None = None,
@@ -90,6 +93,8 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         :param device_type: Device type reported to the API.
         :type device_type: str
         :param password: Optional account password.
+        :param auth_callbacks: Callbacks for QR, SMS code, and 2FA password.
+        :param auth_interactor: Custom authentication interaction implementation.
         :type password: str | None
         :param token: Optional auth token.
         :type token: str | None
@@ -165,7 +170,8 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
                     password=password,
                     device_type=device_type,
                     phone=phone,
-                )
+                ),
+                auth_interactor=auth_interactor,
             )
 
         if token is not None:
@@ -174,6 +180,16 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
             extra_config.mapper.password = password
         if phone is not None:
             extra_config.mapper.phone = phone
+        if auth_interactor is not None:
+            extra_config.auth_interactor = auth_interactor
+        if auth_callbacks is not None and extra_config.auth_interactor is not None:
+            raise ValueError(
+                "auth_callbacks and a custom auth_interactor cannot be used together"
+            )
+        if extra_config.auth_interactor is None:
+            from ..interaction import TerminalAuthInteractor
+
+            extra_config.auth_interactor = TerminalAuthInteractor(auth_callbacks)
         if session_id is not None:
             extra_config.session_id = session_id
         if work_dir is not None:
@@ -561,6 +577,8 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         device_type: DeviceType | None = None,  # default "WEB",
         token_suffix: str = "MaxApi",
         password: str | None = None,
+        auth_callbacks: AuthCallbacks | None = None,
+        auth_interactor: AuthInteractor | None = None,
         session_id: str | None = None,
         transport: BaseTransport[Any] | None = None,
         encoding: BaseEncoding[Any, Any, Any, Any] | None = None,
@@ -581,6 +599,8 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         :type device_type: str
         :param password: Optional account password.
         :type password: str | None
+        :param auth_callbacks: Callbacks for QR, SMS code, and 2FA password.
+        :param auth_interactor: Custom authentication interaction implementation.
         :param token: Optional auth token.
         :type token: str | None
         :param transport: Transport backend name.

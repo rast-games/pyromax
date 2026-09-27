@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Any
-from collections.abc import Callable, Coroutine
 import asyncio
 
 from ......utils import Backoff
@@ -21,9 +20,7 @@ class SocketLoginBuildInMappingMethod(LoginBuildInMappingMethod):
         mapper: Mapper,
         *args: Any,
         login_backoff: Backoff | None = None,
-        code_getter: Callable[..., Coroutine[Any, Any, int]] | None = None,
         sms_auth: bool = True,
-        url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
         use_mobile_fingerprint: bool = True,
         registration_config: RegistrationConfig | None = None,
         **kwargs: Any,
@@ -36,12 +33,8 @@ class SocketLoginBuildInMappingMethod(LoginBuildInMappingMethod):
         :type args: Any
         :param login_backoff: Backoff instance to process.
         :type login_backoff: Backoff | None
-        :param code_getter: Callable to invoke.
-        :type code_getter: Callable[..., Coroutine[Any, Any, int]] | None
         :param sms_auth: The sms auth value.
         :type sms_auth: bool
-        :param url_callback: Callable to invoke.
-        :type url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None
         :param use_mobile_fingerprint: Whether to use mobile fingerprint.
         :type use_mobile_fingerprint: bool
         :param registration_config: RegistrationConfig instance to process.
@@ -55,7 +48,6 @@ class SocketLoginBuildInMappingMethod(LoginBuildInMappingMethod):
         if sms_auth:
             return await self._resolve_sms_auth(
                 mapper=mapper,
-                code_getter=code_getter,
                 use_mobile_fingerprint=use_mobile_fingerprint,
                 registration_config=registration_config,
             )
@@ -66,6 +58,5 @@ class SocketLoginBuildInMappingMethod(LoginBuildInMappingMethod):
             await self._resolve_qr(
                 mapper=mapper,
                 metadata=metadata,
-                url_callback=url_callback,
             )
             return await mapper.confirm_qr(track_id=metadata.track_id)

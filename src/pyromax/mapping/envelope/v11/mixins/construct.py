@@ -15,6 +15,7 @@ from ..constants import DEVICE_TYPE_TO_USERAGENT_MODEL as DEVICE_TYPE_TO_USER_AG
 from ..LifecycleManager import LifecycleManager
 from ..telemetry import TelemetryManager
 from .....utils import FingerprintGenerator, write_token, read_token, hide_func_call
+from .....interaction import AuthInteractor
 
 if TYPE_CHECKING:
     from .....core import MaxApi
@@ -67,6 +68,10 @@ class ConstructorMixin(
         # self.token: str | None = self.mapper_config.token
 
         self.password: str | None = self.mapper_config.password
+        if not isinstance(extra_config.auth_interactor, AuthInteractor):
+            raise TypeError(
+                "EnvelopeV11 mapper requires an AuthInteractor-compatible auth_interactor"
+            )
         self.phone: str | None = self.mapper_config.phone
         self.sms_auth = self.mapper_config.sms_auth
         self.request_timeout: float = self.mapper_config.request_timeout
@@ -107,6 +112,14 @@ class ConstructorMixin(
         )
 
         # self.user_agent: BaseUserAgentMappingModel | None = None
+
+    @property
+    def auth_interactor(self) -> AuthInteractor:
+        """Return the auth interactor from the shared client configuration."""
+        interactor = self.extra_config.auth_interactor
+        if not isinstance(interactor, AuthInteractor):
+            raise TypeError("auth_interactor must implement AuthInteractor")
+        return interactor
 
     @property
     def DEVICE_TYPE_TO_USERAGENT_MODEL(
@@ -216,12 +229,11 @@ class ConstructorMixin(
         self._lifecycle_manager_inited.set()
 
         self._lifecycle_manager.start(
-            url_callback=self.mapper_config.url_callback,
             registration_config=self.mapper_config.registration_config,
             use_mobile_fingerprint=self.mapper_config.use_mobile_fingerprint,
         )
 
-        await self._protocol_connected.wait()
+        await self._lifecycle_manager.wait_until_connected()
 
         self._logger.info("Mapper initialized")
 

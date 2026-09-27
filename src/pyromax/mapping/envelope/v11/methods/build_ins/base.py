@@ -4,11 +4,6 @@ import asyncio
 import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
-from collections.abc import Callable, Coroutine
-
-
-import qrcode
-
 # from ..immutable import (
 #     TrackLoginMethod,
 #     GetMetadataForLoginMethod,
@@ -118,7 +113,6 @@ class LoginBuildInMappingMethod(BaseBuildInMappingMethod):
         self,
         mapper: Mapper,
         metadata: MetadataResponse,
-        url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
     ) -> None:
         """Resolve qr.
 
@@ -126,29 +120,9 @@ class LoginBuildInMappingMethod(BaseBuildInMappingMethod):
         :type mapper: Mapper
         :param metadata: MetadataResponse instance to process.
         :type metadata: MetadataResponse
-        :param url_callback: Callable to invoke.
-        :type url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None
         """
-        if not url_callback:
-
-            async def url_callback(url: str) -> None:
-                """Creating a QR code scanned by max. It is displayed immediately in the console
-
-                Args:
-                    url - authorization url
-
-                :param url: Resource URL.
-                :type url: str
-                """
-
-                qr = qrcode.QRCode()
-                qr.add_data(url)
-
-                qr.make(fit=True)
-                qr.print_ascii(invert=True)
-
         url = metadata.qr_link
-        await url_callback(url)
+        await mapper.auth_interactor.show_qr(url)
 
         await self._track_login(
             mapper=mapper,
@@ -186,7 +160,6 @@ class LoginBuildInMappingMethod(BaseBuildInMappingMethod):
     async def _resolve_sms_auth(
         self,
         mapper: Mapper,
-        code_getter: Callable[[str], Coroutine[Any, Any, int]] | None = None,
         use_mobile_fingerprint: bool = True,
         registration_config: RegistrationConfig | None = None,
     ) -> ChoiceLoginVariantResponse:
@@ -194,8 +167,6 @@ class LoginBuildInMappingMethod(BaseBuildInMappingMethod):
 
         :param mapper: Mapper backend or mapper instance.
         :type mapper: Mapper
-        :param code_getter: Callable to invoke.
-        :type code_getter: Callable[[str], Coroutine[Any, Any, int]] | None
         :param use_mobile_fingerprint: Whether to use mobile fingerprint.
         :type use_mobile_fingerprint: bool
         :param registration_config: RegistrationConfig instance to process.
@@ -230,12 +201,9 @@ class LoginBuildInMappingMethod(BaseBuildInMappingMethod):
                 wrong_attempts = 4
                 while True:
                     try:
-                        if code_getter is not None:
-                            verify_code = await code_getter(mapper.phone)
-                        else:
-                            verify_code = await asyncio.to_thread(
-                                input, "Write a sms code: "
-                            )
+                        verify_code = await mapper.auth_interactor.request_sms_code(
+                            mapper.phone
+                        )
                         choice = await mapper.send_code(
                             token=temp_token,
                             verify_code=str(verify_code),

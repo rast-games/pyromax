@@ -18,6 +18,7 @@ from ....exceptions import (
     MapperRestartCycleError,
     MapperNeedReloginLifecycleError,
     NeedReloginMapperError,
+    AuthInputRequired,
 )
 
 if TYPE_CHECKING:
@@ -155,6 +156,25 @@ class LifecycleManager:
         finally:
             await self._close()
 
+    async def wait_until_connected(self) -> None:
+        """Wait for the initial connection and propagate lifecycle failures."""
+        lifecycle_task = self._manage_lifecycle_task
+        if lifecycle_task is None:
+            raise RuntimeError("Lifecycle manager is not started")
+
+        connected_task = asyncio.create_task(self.mapper._protocol_connected.wait())
+        try:
+            done, _ = await asyncio.wait(
+                (connected_task, lifecycle_task),
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if lifecycle_task in done:
+                await lifecycle_task
+        finally:
+            if not connected_task.done():
+                connected_task.cancel()
+                await asyncio.gather(connected_task, return_exceptions=True)
+
     async def _close(
         self,
         pending_requests_exc: Exception | None = None,
@@ -169,7 +189,6 @@ class LifecycleManager:
         self,
         manage_lifecycle_backoff: Backoff,
         auth_params: dict[str, Any] | None = None,
-        url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None = None,
         only_send_user_agent: bool = False,
         **kwargs: Any,
     ) -> None:
@@ -179,8 +198,6 @@ class LifecycleManager:
         :type manage_lifecycle_backoff: Backoff
         :param auth_params: dict[str, Any] instance to process.
         :type auth_params: dict[str, Any] | None
-        :param url_callback: Callable to invoke.
-        :type url_callback: Callable[[str], Coroutine[Any, Any, Any]] | None
         :param kwargs: Keyword arguments forwarded to the wrapped callable.
         :type kwargs: Any
         :raises MapperRestartCycleError: if connect failed and need restart.
@@ -196,7 +213,6 @@ class LifecycleManager:
             not self.mapper.logged or not self.mapper.token
         ) and not only_send_user_agent:
             resp = await self.mapper.login(
-                url_callback=url_callback,
                 login_backoff=manage_lifecycle_backoff,
                 **kwargs,
             )
@@ -353,6 +369,13 @@ class LifecycleManager:
                 await asyncio.gather(*main_tasks)
                 observe_task.cancel()
 
+        except* AuthInputRequired as eg:
+            error = next(
+                exc
+                for exc in eg.exceptions
+                if isinstance(exc, AuthInputRequired)
+            )
+            raise error
         except* Exception as eg:
             original_error = eg.exceptions[0] if eg.exceptions else eg
             self._logger.exception(
