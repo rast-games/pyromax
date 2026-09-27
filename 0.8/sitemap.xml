@@ -1,241 +1,241 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/authentication/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/authentication/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/authentication/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/authentication/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/authentication/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/authentication/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/quickstart/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/quickstart/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/quickstart/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/quickstart/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/versioning/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/versioning/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/versioning/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/versioning/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/versioning/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/versioning/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/api/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/api/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/api/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/api/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/api/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/api/auth/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/api/auth/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/api/auth/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/api/auth/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/api/auth/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/api/auth/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/api/dispatcher/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/api/dispatcher/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/api/dispatcher/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/api/dispatcher/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/api/dispatcher/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/api/dispatcher/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/api/filters/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/api/filters/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/api/filters/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/api/filters/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/api/filters/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/api/filters/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/api/fsm/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/api/fsm/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/api/fsm/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/api/fsm/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/api/fsm/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/api/fsm/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/api/maxapi/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/api/maxapi/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/api/maxapi/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/api/maxapi/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/api/maxapi/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/api/maxapi/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/api/models/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/api/models/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/api/models/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/api/models/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/api/models/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/api/models/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/guide/architecture/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/guide/architecture/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/guide/architecture/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/guide/architecture/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/guide/architecture/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/guide/architecture/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/guide/filters/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/guide/filters/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/guide/filters/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/guide/filters/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/guide/filters/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/guide/filters/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/guide/fsm/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/guide/fsm/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/guide/fsm/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/guide/fsm/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/guide/fsm/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/guide/fsm/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/guide/middlewares/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/guide/middlewares/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/guide/middlewares/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/guide/middlewares/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/guide/middlewares/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/guide/middlewares/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/guide/models/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/guide/models/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/guide/models/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/guide/models/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/guide/models/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/guide/models/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/guide/routing/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/guide/routing/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8/guide/routing/"/>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8ru/guide/routing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8/guide/routing/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8ru/guide/routing/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/authentication/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/authentication/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/authentication/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8authentication/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/authentication/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8authentication/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/quickstart/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/quickstart/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/quickstart/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8quickstart/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/versioning/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/versioning/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/versioning/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8versioning/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/versioning/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8versioning/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/api/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/api/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/api/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8api/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8api/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/api/auth/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/api/auth/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/api/auth/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8api/auth/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/api/auth/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8api/auth/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/api/dispatcher/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/api/dispatcher/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/api/dispatcher/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8api/dispatcher/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/api/dispatcher/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8api/dispatcher/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/api/filters/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/api/filters/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/api/filters/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8api/filters/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/api/filters/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8api/filters/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/api/fsm/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/api/fsm/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/api/fsm/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8api/fsm/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/api/fsm/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8api/fsm/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/api/maxapi/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/api/maxapi/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/api/maxapi/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8api/maxapi/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/api/maxapi/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8api/maxapi/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/api/models/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/api/models/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/api/models/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8api/models/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/api/models/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8api/models/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/guide/architecture/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/guide/architecture/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/guide/architecture/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8guide/architecture/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/guide/architecture/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8guide/architecture/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/guide/filters/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/guide/filters/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/guide/filters/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8guide/filters/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/guide/filters/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8guide/filters/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/guide/fsm/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/guide/fsm/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/guide/fsm/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8guide/fsm/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/guide/fsm/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8guide/fsm/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/guide/middlewares/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/guide/middlewares/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/guide/middlewares/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8guide/middlewares/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/guide/middlewares/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8guide/middlewares/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/guide/models/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/guide/models/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/guide/models/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8guide/models/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/guide/models/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8guide/models/"/>
     </url>
     <url>
-        <loc>https://rast-games.github.io/pyromax/0.8/ru/guide/routing/</loc>
-        <lastmod>2026-08-11</lastmod>
+        <loc>https://docs.pyromax.org/0.8/ru/guide/routing/</loc>
+        <lastmod>2026-09-27</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ru" href="https://rast-games.github.io/pyromax/0.8/ru/guide/routing/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://rast-games.github.io/pyromax/0.8guide/routing/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.8/ru/guide/routing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.8guide/routing/"/>
     </url>
 </urlset>

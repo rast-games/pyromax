@@ -12,7 +12,7 @@
         <meta name="author" content="Rast">
       
       
-        <link rel="canonical" href="https://rast-games.github.io/pyromax/0.8/ru/api/dispatcher/">
+        <link rel="canonical" href="https://docs.pyromax.org/0.8/ru/api/dispatcher/">
       
       
         <link rel="prev" href="../maxapi/">
@@ -899,6 +899,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pyromax.dispatcher.Dispatcher.Dispatcher._concurrent_task_dispatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _concurrent_task_dispatch
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyromax.dispatcher.Dispatcher.Dispatcher._concurrent_task_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _concurrent_task_count
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pyromax.dispatcher.Dispatcher.Dispatcher.update" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -925,6 +947,28 @@
     <span class="md-ellipsis">
       
         __logger
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyromax.dispatcher.Dispatcher.Dispatcher._process_update_with_semaphore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _process_update_with_semaphore
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyromax.dispatcher.Dispatcher.Dispatcher._process_update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _process_update
       
     </span>
   </a>
@@ -1327,6 +1371,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pyromax.dispatcher.Dispatcher.Dispatcher._concurrent_task_dispatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _concurrent_task_dispatch
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyromax.dispatcher.Dispatcher.Dispatcher._concurrent_task_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _concurrent_task_count
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pyromax.dispatcher.Dispatcher.Dispatcher.update" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1353,6 +1419,28 @@
     <span class="md-ellipsis">
       
         __logger
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyromax.dispatcher.Dispatcher.Dispatcher._process_update_with_semaphore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _process_update_with_semaphore
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyromax.dispatcher.Dispatcher.Dispatcher._process_update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _process_update
       
     </span>
   </a>
@@ -1756,11 +1844,7 @@ that receives updates from MaxApi and dispatches them to handlers.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>src/pyromax/dispatcher/Dispatcher.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 41</span>
-<span class="normal"> 42</span>
-<span class="normal"> 43</span>
-<span class="normal"> 44</span>
-<span class="normal"> 45</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 45</span>
 <span class="normal"> 46</span>
 <span class="normal"> 47</span>
 <span class="normal"> 48</span>
@@ -1824,7 +1908,16 @@ that receives updates from MaxApi and dispatches them to handlers.</p>
 <span class="normal">106</span>
 <span class="normal">107</span>
 <span class="normal">108</span>
-<span class="normal">109</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">storage</span><span class="p">:</span> <span class="n">BaseStorage</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1832,6 +1925,8 @@ that receives updates from MaxApi and dispatches them to handlers.</p>
     <span class="n">events_isolation</span><span class="p">:</span> <span class="n">BaseEventIsolation</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">disable_fsm</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">concurrent_task_dispatch</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">concurrent_task_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
     <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Initialize the dispatcher.</span>
@@ -1850,6 +1945,9 @@ that receives updates from MaxApi and dispatches them to handlers.</p>
 <span class="sd">    :type kwargs: Any</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="bp">self</span><span class="o">.</span><span class="n">_concurrent_task_dispatch</span> <span class="o">=</span> <span class="n">concurrent_task_dispatch</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_concurrent_task_count</span> <span class="o">=</span> <span class="n">concurrent_task_count</span>
 
     <span class="bp">self</span><span class="o">.</span><span class="n">update</span> <span class="o">=</span> <span class="n">UpdateMaxEventObserver</span><span class="p">(</span>
         <span class="n">router</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">event_name</span><span class="o">=</span><span class="s2">&quot;UPDATE&quot;</span><span class="p">,</span> <span class="n">type_of_update</span><span class="o">=</span><span class="n">MaxObject</span>
@@ -1905,6 +2003,50 @@ that receives updates from MaxApi and dispatches them to handlers.</p>
 
 
 
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h2 id="pyromax.dispatcher.Dispatcher.Dispatcher._concurrent_task_dispatch" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">_concurrent_task_dispatch</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#pyromax.dispatcher.Dispatcher.Dispatcher._concurrent_task_dispatch" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">_concurrent_task_dispatch</span> <span class="o">=</span> <span class="n">concurrent_task_dispatch</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h2 id="pyromax.dispatcher.Dispatcher.Dispatcher._concurrent_task_count" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">_concurrent_task_count</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#pyromax.dispatcher.Dispatcher.Dispatcher._concurrent_task_count" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">_concurrent_task_count</span> <span class="o">=</span> <span class="n">concurrent_task_count</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-attribute">
 
@@ -1987,6 +2129,142 @@ that receives updates from MaxApi and dispatches them to handlers.</p>
 <div class="doc doc-object doc-function">
 
 
+<h2 id="pyromax.dispatcher.Dispatcher.Dispatcher._process_update_with_semaphore" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">_process_update_with_semaphore</span>
+
+
+<a href="#pyromax.dispatcher.Dispatcher.Dispatcher._process_update_with_semaphore" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">_process_update_with_semaphore</span><span class="p">(</span>
+    <span class="n">update</span><span class="p">:</span> <span class="n">Update</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">max_api</span><span class="p">:</span> <span class="n">MaxApi</span><span class="p">,</span>
+    <span class="n">semaphore</span><span class="p">:</span> <span class="n">Semaphore</span><span class="p">,</span>
+    <span class="n">semaphore_calls</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="n">Task</span><span class="p">[</span><span class="kc">None</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/pyromax/dispatcher/Dispatcher.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_process_update_with_semaphore</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">update</span><span class="p">:</span> <span class="n">Update</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">max_api</span><span class="p">:</span> <span class="n">MaxApi</span><span class="p">,</span>
+    <span class="n">semaphore</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Semaphore</span><span class="p">,</span>
+    <span class="n">semaphore_calls</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Task</span><span class="p">[</span><span class="kc">None</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">semaphore_wrapper</span><span class="p">(</span>
+        <span class="n">update</span><span class="p">:</span> <span class="n">Update</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">max_api</span><span class="p">:</span> <span class="n">MaxApi</span><span class="p">,</span>
+        <span class="n">semaphore</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Semaphore</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">async</span> <span class="k">with</span> <span class="n">semaphore</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_update</span><span class="p">(</span><span class="n">update</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">max_api</span><span class="p">)</span>
+
+    <span class="n">task</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">semaphore_wrapper</span><span class="p">(</span><span class="n">update</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">max_api</span><span class="p">,</span> <span class="n">semaphore</span><span class="p">))</span>
+    <span class="n">semaphore_calls</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+
+    <span class="n">task</span><span class="o">.</span><span class="n">add_done_callback</span><span class="p">(</span><span class="n">semaphore_calls</span><span class="o">.</span><span class="n">discard</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="pyromax.dispatcher.Dispatcher.Dispatcher._process_update" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">_process_update</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#pyromax.dispatcher.Dispatcher.Dispatcher._process_update" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">_process_update</span><span class="p">(</span>
+    <span class="n">update</span><span class="p">:</span> <span class="n">Update</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">max_api</span><span class="p">:</span> <span class="n">MaxApi</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/pyromax/dispatcher/Dispatcher.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_process_update</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">update</span><span class="p">:</span> <span class="n">Update</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">max_api</span><span class="p">:</span> <span class="n">MaxApi</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">max_api</span><span class="o">.</span><span class="n">wait_until_ready</span><span class="p">():</span>
+        <span class="k">return</span>
+    <span class="n">update_observer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">update</span>
+
+    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">update_observer</span><span class="o">.</span><span class="n">wrap_outer_middleware</span><span class="p">(</span>
+        <span class="n">update_observer</span><span class="o">.</span><span class="n">update</span><span class="p">,</span> <span class="n">update</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span>
+    <span class="p">)</span>
+
+    <span class="n">handled</span> <span class="o">=</span> <span class="n">response</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">UNHANDLED</span> <span class="ow">and</span> <span class="n">response</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">UNKNOWN_UPDATE</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">__logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s1">&#39;update %s was</span><span class="si">{</span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">handled</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s2">&quot;n`t&quot;</span><span class="si">}</span><span class="s1"> handled: %s&#39;</span><span class="p">,</span>
+        <span class="n">update</span><span class="p">,</span>
+        <span class="n">handled</span><span class="p">,</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h2 id="pyromax.dispatcher.Dispatcher.Dispatcher.start_polling" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">start_polling</span>
 
@@ -2037,63 +2315,92 @@ that receives updates from MaxApi and dispatches them to handlers.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/pyromax/dispatcher/Dispatcher.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">111</span>
-<span class="normal">112</span>
-<span class="normal">113</span>
-<span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span>
-<span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
-<span class="normal">137</span>
-<span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span>
-<span class="normal">141</span>
-<span class="normal">142</span>
-<span class="normal">143</span>
-<span class="normal">144</span>
-<span class="normal">145</span>
-<span class="normal">146</span>
-<span class="normal">147</span>
-<span class="normal">148</span>
-<span class="normal">149</span>
-<span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">start_polling</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_api</span><span class="p">:</span> <span class="n">MaxApi</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span>
+<span class="normal">208</span>
+<span class="normal">209</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span>
+<span class="normal">213</span>
+<span class="normal">214</span>
+<span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">start_polling</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_api</span><span class="p">:</span> <span class="n">MaxApi</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Start reading updates and dispatch them to handlers.</span>
 
 <span class="sd">    :param max_api: Initialized MaxApi instance.</span>
 <span class="sd">    :type max_api: MaxApi</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">semaphore</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Semaphore</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_concurrent_task_count</span><span class="p">)</span>
+    <span class="n">semaphore_calls</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Task</span><span class="p">[</span><span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
 
     <span class="n">context</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;max_api&quot;</span><span class="p">:</span> <span class="n">max_api</span><span class="p">}</span>
 
     <span class="n">update_translator</span><span class="p">,</span> <span class="n">updates</span> <span class="o">=</span> <span class="n">max_api</span><span class="o">.</span><span class="n">listen_updates</span><span class="p">(</span><span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">async</span> <span class="k">for</span> <span class="n">update</span> <span class="ow">in</span> <span class="n">updates</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">max_api</span><span class="o">.</span><span class="n">shutdown_requested</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">update</span><span class="p">,</span> <span class="n">ErrorResponse</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to receive update: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">error</span><span class="p">)</span>
+                <span class="k">continue</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">__logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Received update: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">update</span><span class="p">)</span>
-
-            <span class="n">resolved_update</span> <span class="o">=</span> <span class="n">update_translator</span><span class="p">(</span><span class="n">update</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">resolved_update</span> <span class="o">=</span> <span class="n">update_translator</span><span class="p">(</span><span class="n">update</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+                <span class="k">raise</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
+                    <span class="s2">&quot;Failed to process update: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">update</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
 
             <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">type</span> <span class="o">|</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="nb">type</span><span class="p">(</span><span class="n">max_api</span><span class="p">):</span> <span class="n">max_api</span><span class="p">,</span>
@@ -2103,23 +2410,24 @@ that receives updates from MaxApi and dispatches them to handlers.</p>
 
             <span class="n">data</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">max_api</span><span class="o">.</span><span class="n">workflow_data</span><span class="p">)</span>
 
-            <span class="n">update_observer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">update</span>
-
             <span class="n">data</span><span class="p">[</span><span class="n">DataDict</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span>
-
-            <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">update_observer</span><span class="o">.</span><span class="n">wrap_outer_middleware</span><span class="p">(</span>
-                <span class="n">update_observer</span><span class="o">.</span><span class="n">update</span><span class="p">,</span> <span class="n">update</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span>
-            <span class="p">)</span>
-
-            <span class="n">handled</span> <span class="o">=</span> <span class="n">response</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">UNHANDLED</span> <span class="ow">and</span> <span class="n">response</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">UNKNOWN_UPDATE</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">__logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;update %s was</span><span class="si">{</span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">handled</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s2">&quot;n`t&quot;</span><span class="si">}</span><span class="s1"> handled: %s&#39;</span><span class="p">,</span>
-                <span class="n">update</span><span class="p">,</span>
-                <span class="n">handled</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_concurrent_task_dispatch</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_process_update_with_semaphore</span><span class="p">(</span>
+                    <span class="n">update</span><span class="p">,</span>
+                    <span class="n">data</span><span class="p">,</span>
+                    <span class="n">max_api</span><span class="p">,</span>
+                    <span class="n">semaphore</span><span class="p">,</span>
+                    <span class="n">semaphore_calls</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_update</span><span class="p">(</span><span class="n">update</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">max_api</span><span class="p">)</span>
     <span class="k">finally</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">semaphore_calls</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">suppress</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">):</span>
+                <span class="n">task</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+                <span class="k">await</span> <span class="n">task</span>
         <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fsm</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">await</span> <span class="n">max_api</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
