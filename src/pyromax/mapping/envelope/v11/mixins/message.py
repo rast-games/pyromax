@@ -544,7 +544,9 @@ class MessageMixin(MixinProtocol):
         mapped_messages = GetChatHistoryResponse(payload=response.payload)
         chat = None
         if mapped_messages.payload.chat is not None:
-            chat = cast(Chat, translate_models(mapped_messages.payload.chat))
+            chat = self.bind_api_instance(
+                cast(Chat, translate_models(mapped_messages.payload.chat))
+            )
 
         if get_messages:
             if not isinstance(mapped_messages.payload, GetChatHistoryMessagesResponse):

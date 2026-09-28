@@ -85,7 +85,11 @@ class SyncOverrides(BaseMaxObject):
                 self.presence_sync if self.presence_sync is not None else saved.presence_sync
             ),
             config_hash=(self.config_hash if self.config_hash is not None else saved.config_hash),
-            chats_count=self.chats_count or saved.chats_count,
+            chats_count=(
+                self.chats_count
+                if self.chats_count is not None
+                else saved.chats_count
+            ),
         )
 
 

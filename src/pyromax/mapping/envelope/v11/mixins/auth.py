@@ -683,7 +683,6 @@ class AuthMixin(MixinProtocol):
         connect_timeout = mapper_conf.connect_timeout
         device_type = mapper_conf.device_type
         user_agent_params = mapper_conf.user_agent_config.model_dump()
-        device_id = mapper_conf.user_agent_config.device_id
 
         if not mapper_conf.user_agent_config.is_custom_device_id:
             del user_agent_params["device_id"]
@@ -691,6 +690,9 @@ class AuthMixin(MixinProtocol):
         user_agent_model = self.DEVICE_TYPE_TO_USERAGENT_MODEL[device_type]
         user_agent = user_agent_model.get_random_user_agent(**user_agent_params)
         self.user_agent = user_agent
+        mapper_conf.user_agent_config.device_id = user_agent.device_id
+        max_api.session.device_id = user_agent.device_id
+        max_api.session.user_agent_config = mapper_conf.user_agent_config.to_string()
 
         from ..LifecycleManager import LifecycleManager
         from ..Mapper import Mapper

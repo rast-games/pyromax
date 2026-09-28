@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from contextlib import suppress
 from typing import cast, AsyncGenerator, Any, TYPE_CHECKING, TypeVar
 
 from .Router import Router
@@ -211,9 +210,9 @@ class Dispatcher(Router):
                 else:
                     await self._process_update(update, data, max_api)
         finally:
-            for task in semaphore_calls:
-                with suppress(asyncio.CancelledError):
-                    task.cancel()
-                    await task
+            tasks = tuple(semaphore_calls)
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
             await self.fsm.close()
             await max_api.stop()

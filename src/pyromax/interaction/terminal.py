@@ -18,7 +18,7 @@ class TerminalAuthInteractor(AuthInteractor):
 
     @property
     def can_prompt(self) -> bool:
-        return sys.stdin is not None
+        return sys.stdin is not None and sys.stdin.isatty()
 
     async def show_qr(self, url: str) -> None:
         if self.callbacks.qr_url is not None:
@@ -37,7 +37,12 @@ class TerminalAuthInteractor(AuthInteractor):
             raise AuthInputRequired(
                 "SMS code is required: provide an AuthInteractor or run in a terminal."
             )
-        return await asyncio.to_thread(input, "Write a SMS code: ")
+        try:
+            return await asyncio.to_thread(input, "Write a SMS code: ")
+        except EOFError as error:
+            raise AuthInputRequired(
+                "SMS code is required: provide an AuthInteractor or run in a terminal."
+            ) from error
 
     async def request_password(self, request: PasswordRequest) -> str:
         if self.callbacks.password is not None:
@@ -47,5 +52,10 @@ class TerminalAuthInteractor(AuthInteractor):
                 "Account has 2FA enabled: pass password=..., provide an "
                 "AuthInteractor, or run in a terminal."
             )
-        return await asyncio.to_thread(getpass.getpass, "2FA password: ")
-
+        try:
+            return await asyncio.to_thread(getpass.getpass, "2FA password: ")
+        except EOFError as error:
+            raise AuthInputRequired(
+                "Account has 2FA enabled: pass password=..., provide an "
+                "AuthInteractor, or run in a terminal."
+            ) from error

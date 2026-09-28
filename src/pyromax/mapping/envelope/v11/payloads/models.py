@@ -115,7 +115,7 @@ class BaseUserAgentMappingModel(BaseUserAgent, CamelCaseModel, ABC):
 
 class WebUserAgentMappingModel(BaseUserAgentMappingModel):
     device_type: str = "WEB"
-    device_id: str = Field(default=get_random_device_id(), exclude=True)
+    device_id: str = Field(default_factory=get_random_device_id, exclude=True)
     header_user_agent: str = DEFAULT_WEB_HEADER_USER_AGENT
     app_version: str = WEB_APP_VERSION
     screen: str = WEB_SCREEN
