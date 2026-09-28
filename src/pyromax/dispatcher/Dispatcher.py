@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import cast, AsyncGenerator, Any, TYPE_CHECKING, TypeVar
+from typing import Any, TYPE_CHECKING, TypeVar
 
 from .Router import Router
 from .event import (
@@ -21,8 +21,7 @@ from ..fsm.storage.base import BaseEventIsolation, BaseStorage
 from ..fsm.strategy import FSMStrategy
 
 
-from ..models import BaseMaxObject, DataDict, MapperUpdateTranslator
-from ..protocol import Response
+from ..models import DataDict
 from .middlewares.error import ErrorsMiddleware
 from .middlewares.user_context import UserContextMiddleware
 
@@ -77,18 +76,17 @@ class Dispatcher(Router):
             router=self, event_name="UPDATE", type_of_update=MaxObject
         )
 
-        async def notify_wrapper(
-            resolved_update: ResolvedUpdate, data: DataDict
-        ) -> Any:
+        async def notify_wrapper(update: Update, data: DataDict) -> Any:
             """Notify wrapper.
 
-            :param resolved_update: ResolvedUpdate instance to process.
-            :type resolved_update: ResolvedUpdate
+            :param update: Raw protocol update.
+            :type update: Update
             :param data: Contextual data passed through the processing pipeline.
             :type data: DataDict
             :returns: The value returned by the wrapped callable or backend.
             :rtype: Any
             """
+            resolved_update = data[ResolvedUpdate]
             data.update(
                 {
                     type(resolved_update): resolved_update,

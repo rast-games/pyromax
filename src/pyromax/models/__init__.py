@@ -19,6 +19,12 @@ from .Folder import Folder, FolderUpdate, FolderList
 from .Session import Session, SessionInfo, SyncState, SyncOverrides, SessionKey
 from .ContactInfo import ContactInfo
 from .Poll import Poll, PollState, PollVote, PollAnswer, PollResult
+from .Events import (
+    MessageDeleteEvent,
+    MessageReadEvent,
+    PresenceEvent,
+    TypingEvent,
+)
 
 
 from .enum import ChannelPermissions
@@ -79,4 +85,8 @@ __all__ = [
     "ProtocolRegistry",
     "MapperRegistry",
     "DeviceType",
+    "MessageDeleteEvent",
+    "MessageReadEvent",
+    "PresenceEvent",
+    "TypingEvent",
 ]

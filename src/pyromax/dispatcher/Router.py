@@ -1,5 +1,5 @@
 from collections.abc import Generator
-from typing import Optional, Any, Literal
+from typing import Optional, Any
 
 from .ObserverPattern import Subject
 from .event import (
@@ -9,16 +9,23 @@ from .event import (
     RemovedMessageEventObserver,
     EmojiReactionAddObserver,
     EmojiReactionRemoveObserver,
-    Update,
     UNHANDLED,
     UNKNOWN_UPDATE,
     StandardMaxEventObserver,
     UpdateMaxEventObserver,
-    ResolvedUpdate,
     MaxObject,
 )
-from ..models import EmojiReaction, Message, ErrorEvent, BaseMaxObject, DataDict
-from ..protocol.bases import Response
+from ..models import (
+    Chat,
+    EmojiReaction,
+    ErrorEvent,
+    Message,
+    MessageDeleteEvent,
+    MessageReadEvent,
+    PresenceEvent,
+    TypingEvent,
+)
+from ..protocol import Envelope
 
 
 class Router(Subject):
@@ -48,9 +55,7 @@ class Router(Subject):
         self._parent_router: None | Router = None
 
         self.message = MessageEventObserver(self, "USER", type_of_update=Message)
-        self.message_removed = RemovedMessageEventObserver(
-            self, "REMOVED", type_of_update=Message
-        )
+
         self.edited_message = MessageEventObserver(
             self, "EDITED", type_of_update=Message
         )
@@ -70,18 +75,41 @@ class Router(Subject):
             self, "MESSAGE_DELETED_REACTION", type_of_update=EmojiReaction
         )
         self.error = StandardMaxEventObserver(self, "ERROR", type_of_update=ErrorEvent)
-        # self.raw_update = UpdateMaxEventObserver(self, 'RAW_UPDATE', type_of_update=Response)
+        self.message_read = StandardMaxEventObserver(
+            self, "MESSAGE_READ", type_of_update=MessageReadEvent
+        )
+        self.typing = StandardMaxEventObserver(
+            self, "TYPING", type_of_update=TypingEvent
+        )
+        self.presence = StandardMaxEventObserver(
+            self, "PRESENCE", type_of_update=PresenceEvent
+        )
+        self.message_delete = StandardMaxEventObserver(
+            self, "MESSAGE_DELETE", type_of_update=MessageDeleteEvent
+        )
+        self.message_deleted = self.message_delete
+        self.chat_update = StandardMaxEventObserver(
+            self, "CHAT_UPDATE", type_of_update=Chat
+        )
+        self.chat_updated = self.chat_update
+        # self.raw_update = UpdateMaxEventObserver(
+        #     self, "RAW_UPDATE", type_of_update=Envelope
+        # )
         self.events: dict[str, StandardMaxEventObserver[Any]] = {
             "EDITED": self.edited_message,
             "REPLY": self.reply_to_message,
             "FORWARD": self.forward_message,
-            "REMOVED": self.message_removed,
             "USER": self.message,
             "MESSAGE_ADDED_REACTION": self.message_added_reaction,
             "MESSAGE_DELETED_REACTION": self.message_deleted_reaction,
             "MESSAGE_REACTION": self.message_reaction,
             "ERROR": self.error,
-            # 'RAW_UPDATE': self.raw_update,
+            "MESSAGE_READ": self.message_read,
+            "TYPING": self.typing,
+            "PRESENCE": self.presence,
+            "MESSAGE_DELETE": self.message_delete,
+            "CHAT_UPDATE": self.chat_update,
+            # "RAW_UPDATE": self.raw_update,
         }
 
     @property
