@@ -76,7 +76,7 @@ class Dispatcher(Router):
             router=self, event_name="UPDATE", type_of_update=MaxObject
         )
 
-        async def notify_wrapper(update: Update, data: DataDict) -> Any:
+        async def notify_wrapper(update: ResolvedUpdate, data: DataDict) -> Any:
             """Notify wrapper.
 
             :param update: Raw protocol update.
