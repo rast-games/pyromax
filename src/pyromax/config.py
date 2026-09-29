@@ -270,12 +270,14 @@ class BaseEnvelopeMappingUserAgentConfigV11(BaseConfig):
         if user_agent_config_type is None:
             raise ValueError("Invalid user_agent_config_type")
 
-        return user_agent_config_type(**attrs)
+        return user_agent_config_type.model_validate(attrs)
 
     @classmethod
     def from_session_info(
         cls: type[Self], session_info: SessionInfo, *args: Any, **kwargs: Any
     ) -> Self:
+        if session_info.user_agent_config is None:
+            raise ValueError("Session does not contain a user-agent configuration")
         restored_config = cls.from_string(session_info.user_agent_config)
 
         restored_data = restored_config.model_dump()
@@ -335,10 +337,9 @@ class AndroidEnvelopeMappingUserAgentConfigV11(BaseEnvelopeMappingUserAgentConfi
         **kwargs: Any,
     ) -> Self:
         return super().from_session_info(
-            session_info=session_info,
-            device_id=session_info.device_id,
-            mt_instance_id=session_info.mt_instance_id,
+            session_info,
             *args,
+            mt_instance_id=session_info.mt_instance_id,
             **kwargs,
         )
 
@@ -359,7 +360,7 @@ class BaseMapperConfig(BaseConfig, ABC):
     )
 
     @property
-    def is_custom_user_agent_config(self):
+    def is_custom_user_agent_config(self) -> bool:
         return "user_agent_config" in self.model_fields_set
 
 

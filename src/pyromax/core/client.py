@@ -66,6 +66,10 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
     """
 
     _SHUTDOWN_STEP_TIMEOUT = 5.0
+    device_type: DeviceType
+    session: SessionInfo
+    auth_middleware_manager: AuthMiddlewareManager | None
+    _logger: logging.Logger
 
     async def _async_init(
         self,
@@ -126,7 +130,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         self._shutdown_worker_task: asyncio.Task[None] | None = None
         self._stop_task: asyncio.Task[None] | None = None
         self._initialization_task: asyncio.Task[Any] | None = asyncio.current_task()
-        self._logger: logging.Logger | None = logging.getLogger("MaxApi")
+        self._logger = logging.getLogger("MaxApi")
         self.transport = cast("BaseTransport[Any]", None)
         self.protocol = cast("BaseMaxProtocol[Any, Any]", None)
         self.mapper = cast("BaseMapper[Any, Any]", None)
@@ -213,7 +217,9 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         )
         self.token_suffix = token_suffix
         try:
-            self._session_updates_queue = asyncio.Queue()
+            self._session_updates_queue: asyncio.Queue[tuple[SessionKey, SessionInfo]] = (
+                asyncio.Queue()
+            )
             self.session_storage = (
                 self.extra_config.session_storage
                 or AioSqLiteSessionStorage(
@@ -226,9 +232,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
 
             session_info = await self.session_storage.load_session(self.session_key)
 
-            has_session_info = session_info is not None
-
-            if has_session_info:
+            if session_info is not None:
                 if self.session_id is None and session_info.session_id is not None:
                     self.session_id = session_info.session_id
                 elif self.session_id is None and session_info.session_id is None:
@@ -627,10 +631,6 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         :raises RuntimeError: If transport or protocol or mapper cannot be None.
         """
         self.name: str
-        self.device_type: DeviceType
-        # self.session_id: str | None
-        self.session: SessionInfo
-
         if workflow_data is None:
             workflow_data = {}
 
@@ -640,6 +640,8 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         if transport is None or protocol is None or mapper is None:
             raise RuntimeError("transport or protocol or mapper cannot be None")
 
+        if extra_config is None:
+            raise RuntimeError("extra_config cannot be None")
         self.extra_config = extra_config
 
         self.transport = transport
@@ -654,10 +656,8 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         self.contacts: list[Contact | None] = []
         self.users: dict[int, Contact] = {}
 
-        self._logger: logging.Logger | None = logger
-        self._connected: bool = False
-        self._session_updates_queue: asyncio.Queue[tuple["SessionKey", SessionInfo]]
-        self._session_updates_task: asyncio.Task[None] | None
+        self._logger = logger
+        self._connected = False
         self.workflow_data = workflow_data
         self.auth_middleware_manager = auth_middleware_manager
 
@@ -712,7 +712,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         )
 
     @phone.setter
-    def phone(self, phone: str) -> None:
+    def phone(self, phone: str | None) -> None:
         self.session.phone = phone
         self.extra_config.mapper.phone = phone
 
@@ -737,7 +737,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         )
 
     @token.setter
-    def token(self, token: str) -> None:
+    def token(self, token: str | None) -> None:
         self.session.token = token
         self.extra_config.mapper.token = token
 

@@ -200,7 +200,7 @@ class AioSqLiteSessionStorage(BaseSessionStorage):
         ) as cursor:
             rows = await cursor.fetchall()
             filtered_rows = self._validate_session_info_by_session_key(
-                session_key, rows
+                session_key, list(rows)
             )
 
             if filtered_rows:

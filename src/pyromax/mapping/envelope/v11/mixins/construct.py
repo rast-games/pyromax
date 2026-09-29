@@ -64,7 +64,7 @@ class ConstructorMixin(
         self.protocol: EnvelopeProtocol
         self.protocol_version: int
 
-        self.max_api: MaxApi | None = None
+        self.max_api = cast("MaxApi", None)
         # self.token: str | None = self.mapper_config.token
 
         self.password: str | None = self.mapper_config.password

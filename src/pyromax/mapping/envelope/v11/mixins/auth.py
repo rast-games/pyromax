@@ -78,6 +78,7 @@ from .MixinProtocol import MixinProtocol
 class AuthMixin(MixinProtocol):
     _lifecycle_manager: LifecycleManager | None
     user_agent: BaseUserAgentMappingModel | None
+    token: str | None
 
     async def _send_user_agent(
         self,
@@ -183,11 +184,6 @@ class AuthMixin(MixinProtocol):
         await self.max_api.session_storage.update_session(
             self.max_api.session_key, updated
         )
-
-        if self.max_api is None:
-            raise RuntimeError(
-                "You try a send auth token, but not bound MaxApi instance to mapper"
-            )
 
         if auth_model.profile:
 

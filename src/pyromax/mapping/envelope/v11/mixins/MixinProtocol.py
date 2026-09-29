@@ -32,7 +32,7 @@ class MixinProtocol(Protocol):
     phone: str | None
     fingerprint_generator: FingerprintGenerator
     # TOKEN_NAME: str
-    max_api: MaxApi | None
+    max_api: MaxApi
     logged: bool
     user_agent: BaseUserAgentMappingModel | None
     _resolve_two_factor: Callable[..., Coroutine[Any, Any, Any]]
