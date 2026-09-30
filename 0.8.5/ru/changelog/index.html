@@ -1355,7 +1355,8 @@
 <h3 id="dispatcher">Dispatcher и события<a class="headerlink" href="#dispatcher" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Добавлена ограниченная параллельная обработка через <code>concurrent_task_dispatch</code> и <code>concurrent_task_count</code>.</li>
-<li>Добавлен <code>soft_propagate</code>, а данные фильтров сохраняются при propagation.</li>
+<li>Добавлен параметр handler <code>soft_propagate</code> (по умолчанию <code>False</code>) для управления строгостью dependency injection. При включении параметр получает <code>None</code> вместо <code>AnnotationError</code> и при отсутствии аннотации, и когда для его аннотации нет значения в DI/workflow-контексте. Параметр не передаёт update следующему handler.</li>
+<li>Данные зависимостей, возвращённые фильтрами, сохраняются при проверке handlers.</li>
 <li>Добавлены модели и observers <code>MessageReadEvent</code>, <code>TypingEvent</code>, <code>PresenceEvent</code>, <code>MessageDeleteEvent</code>.</li>
 </ul>
 <h3 id="_4">Модели и методы<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h3>

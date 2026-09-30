@@ -1289,7 +1289,19 @@
 <li><code>error</code>.</li>
 <li>доменные события <code>message_read</code>, <code>typing</code>, <code>presence</code>, <code>message_delete</code> и <code>chat_update</code>.</li>
 </ul>
-<p>Обработчики проверяются в порядке регистрации. Обычно первое совпадение поглощает событие. <code>soft_propagate=True</code> разрешает вызвать следующий подходящий обработчик после успешного завершения текущего, а <code>skip()</code> явно продолжает распространение.</p>
+<p>Обработчики проверяются в порядке регистрации. Обычно первое совпадение поглощает событие, а <code>skip()</code> явно продолжает распространение до следующего подходящего обработчика.</p>
+<p><code>soft_propagate</code> управляет строгостью dependency injection, а не распространением события между обработчиками. При стандартном <code>soft_propagate=False</code> Pyromax выбрасывает <code>AnnotationError</code> в обоих случаях:</p>
+<ul>
+<li>у параметра handler отсутствует аннотация;</li>
+<li>параметр аннотирован, но соответствующего аннотации значения нет в DI/workflow-контексте.</li>
+</ul>
+<p>При <code>soft_propagate=True</code> допускаются оба случая, а соответствующему параметру передаётся <code>None</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@dispatcher</span><span class="o">.</span><span class="n">message</span><span class="p">(</span><span class="n">soft_propagate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">optional_dependency</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">,</span> <span class="n">service</span><span class="p">:</span> <span class="s2">&quot;OptionalService&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># Если OptionalService отсутствует в DI-контексте, service будет равен None.</span>
+    <span class="o">...</span>
+</code></pre></div>
+<p>Используйте этот параметр, только если handler намеренно допускает отсутствующие зависимости. Несмотря на историческое название, он не передаёт update следующему handler.</p>
 <p><code>Dispatcher(concurrent_task_dispatch=True, concurrent_task_count=100)</code> обрабатывает независимые события параллельно с ограничением числа задач. Последовательная обработка остаётся режимом по умолчанию, когда важен порядок.</p>
 <h2 id="_4">Регистрация обработчика<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pyromax.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Message</span>

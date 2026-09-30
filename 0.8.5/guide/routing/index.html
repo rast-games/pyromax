@@ -1287,7 +1287,19 @@
 <li><code>error</code>.</li>
 <li><code>message_read</code>, <code>typing</code>, <code>presence</code>, <code>message_delete</code>, and <code>chat_update</code> domain events.</li>
 </ul>
-<p>Handlers are checked in registration order. The first matching handler normally consumes the event. Register it with <code>soft_propagate=True</code> to allow another matching handler after a successful call; <code>skip()</code> explicitly continues propagation.</p>
+<p>Handlers are checked in registration order. The first matching handler normally consumes the event; <code>skip()</code> explicitly continues propagation to another matching handler.</p>
+<p><code>soft_propagate</code> controls dependency-injection strictness, not event propagation between handlers. With the default <code>soft_propagate=False</code>, Pyromax raises <code>AnnotationError</code> in either of these cases:</p>
+<ul>
+<li>a handler parameter has no annotation;</li>
+<li>a handler parameter is annotated, but no value matching that annotation exists in the DI/workflow context.</li>
+</ul>
+<p>With <code>soft_propagate=True</code>, both cases are allowed and Pyromax passes <code>None</code> for the affected parameter:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@dispatcher</span><span class="o">.</span><span class="n">message</span><span class="p">(</span><span class="n">soft_propagate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">optional_dependency</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="n">Message</span><span class="p">,</span> <span class="n">service</span><span class="p">:</span> <span class="s2">&quot;OptionalService&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># service is None when OptionalService is absent from the DI context.</span>
+    <span class="o">...</span>
+</code></pre></div>
+<p>Use this option only when the handler intentionally accepts missing dependencies. Despite its historical name, it does not cause the update to continue to the next handler.</p>
 <p><code>Dispatcher(concurrent_task_dispatch=True, concurrent_task_count=100)</code> processes independent updates concurrently with a bounded task count. Sequential dispatch remains the default when ordering matters.</p>
 <h2 id="register-a-handler">Register a handler<a class="headerlink" href="#register-a-handler" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pyromax.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Message</span>

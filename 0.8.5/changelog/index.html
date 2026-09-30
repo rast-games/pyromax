@@ -1353,7 +1353,8 @@
 <h3 id="dispatcher-and-events">Dispatcher and events<a class="headerlink" href="#dispatcher-and-events" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Added optional bounded concurrent dispatch with <code>concurrent_task_dispatch</code> and <code>concurrent_task_count</code>.</li>
-<li>Added handler <code>soft_propagate</code> behavior and preserved accumulated filter data during propagation.</li>
+<li>Added handler <code>soft_propagate</code> (default: <code>False</code>) to control dependency-injection strictness. When enabled, a parameter receives <code>None</code> instead of raising <code>AnnotationError</code> both when it has no annotation and when its annotation has no matching value in the DI/workflow context. It does not continue the update to another handler.</li>
+<li>Filter-produced dependency data is preserved while handlers are checked.</li>
 <li>Added typed <code>MessageReadEvent</code>, <code>TypingEvent</code>, <code>PresenceEvent</code>, and <code>MessageDeleteEvent</code> translation and observers.</li>
 </ul>
 <h3 id="models-and-methods">Models and methods<a class="headerlink" href="#models-and-methods" title="Permanent link">&para;</a></h3>
