@@ -1,6 +1,6 @@
-# Pyromax 0.8
+# Pyromax 0.8.5
 
-Pyromax is an asynchronous Python 3.11+ framework for building userbots for MAX Messenger. Version 0.8 combines a high-level client API with aiogram-inspired routing, filters, middleware, dependency injection, and a finite-state machine.
+Pyromax is an asynchronous Python 3.11+ framework for building userbots for MAX Messenger. Version 0.8.5 combines a high-level client API with aiogram-inspired routing, filters, middleware, dependency injection, and a finite-state machine.
 
 ## What is included
 
@@ -11,6 +11,8 @@ Pyromax is an asynchronous Python 3.11+ framework for building userbots for MAX 
 - FSM with memory, Redis, and MongoDB storage backends.
 - Bound `Message`, `Chat`, and `Contact` models with convenience methods.
 - Swappable transport, protocol, and mapper layers.
+- Web, desktop, and Android device profiles with matching transport and encoding presets.
+- Persistent SQLite sessions, interactive authentication adapters, domain events, and graceful shutdown.
 
 !!! warning "Unofficial client"
     Pyromax operates a user account rather than a Bot API account. Treat tokens as passwords, account for MAX rate limits, and test automation on a non-critical account.
@@ -43,6 +45,8 @@ if __name__ == "__main__":
 [Start with the installation and first handler](quickstart.md){ .md-button .md-button--primary }
 [Understand the architecture](guide/architecture.md){ .md-button }
 
+For migration details, see the [0.8.5 changelog](changelog.md).
+
 ## Documentation baseline
 
-These pages describe **Pyromax 0.8**. The version selector is backed by `mike`; future releases can retain 0.8 alongside newer documentation.
+These pages describe **Pyromax 0.8.5**. The version selector is backed by `mike`; the published 0.8 documentation remains available as a separate snapshot.

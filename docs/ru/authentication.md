@@ -1,16 +1,16 @@
 # Авторизация
 
-`MaxApi` создаёт транспорт, протокол и маппер, после чего передаёт авторизацию мапперу. Стек по умолчанию в 0.8: `websocket` + `EnvelopeProtocol` + `EnvelopeV11`, тип устройства — `WEB`.
+`MaxApi` создаёт транспорт, кодирование, протокол и маппер, после чего запускает авторизацию. В 0.8.5 профиль Web использует WebSocket, JSON, `EnvelopeProtocol` и `EnvelopeV11`.
 
 ## Авторизация по токену
 
 ```python
 from pyromax import MaxApi
+from pyromax.models import DeviceType
 
 api = await MaxApi(
     token="YOUR_TOKEN",
-    transport="websocket",
-    device_type="WEB",
+    device_type=DeviceType.Web,
 )
 ```
 
@@ -18,36 +18,39 @@ api = await MaxApi(
 
 ## Авторизация по QR-коду
 
-Для стандартного web-стека не передавайте `token`. Если указан `url_callback`, маппер вызовет его с URL QR-кода; иначе стандартная реализация может использовать консоль.
+Для профиля Web не передавайте `token`. `TerminalAuthInteractor` напечатает QR-код; для другого интерфейса используйте `AuthCallbacks.qr_url`.
 
 ```python
 async def show_qr_url(url: str) -> None:
     print("Откройте или отрисуйте URL и отсканируйте его в MAX:", url)
 
 
+from pyromax.interaction import AuthCallbacks
+from pyromax.models import DeviceType
+
 api = await MaxApi(
-    transport="websocket",
-    device_type="WEB",
-    url_callback=show_qr_url,
+    device_type=DeviceType.Web,
+    auth_callbacks=AuthCallbacks(qr_url=show_qr_url),
 )
 ```
 
 ## Авторизация по телефону и SMS
 
-Desktop-сценарий socket-envelope принимает параметры SMS через дополнительные аргументы маппера:
+Профили Desktop и Android по умолчанию используют SMS-авторизацию:
 
 ```python
-async def get_sms_code(phone: str) -> int:
+async def get_sms_code(phone: str) -> str:
     print("Код запрошен для", phone)
-    return int(input("Код из SMS: "))
+    return input("Код из SMS: ")
 
+
+from pyromax.interaction import AuthCallbacks
+from pyromax.models import DeviceType
 
 api = await MaxApi(
-    transport="socket_envelope",
-    device_type="DESKTOP",
-    sms_auth=True,
-    phone_number="78005553535",
-    code_getter=get_sms_code,
+    device_type=DeviceType.Desktop,
+    phone="78005553535",
+    auth_callbacks=AuthCallbacks(sms_code=get_sms_code),
 )
 ```
 
@@ -59,7 +62,7 @@ MAX ограничивает частоту отправки SMS. Не запр�
 
 `registration_config=RegistrationConfig(first_name=..., last_name=...)` задаёт данные профиля при регистрации.
 
-### Жизненный цикл AuthFlow
+### Жизненный цикл AuthFlow { #authflow-lifecycle }
 
 Если `token` равен `None` и передан `auth_middleware_manager`, после создания выбранных mapper, protocol и transport клиент `MaxApi` создаёт `AuthFlow` и пропускает его через зарегистрированные auth middleware. Flow содержит:
 
@@ -77,6 +80,7 @@ MAX ограничивает частоту отправки SMS. Не запр�
 ```python
 from pyromax import MaxApi
 from pyromax.auth import AuthMiddlewareManager
+from pyromax.models import DeviceType
 
 auth_manager = AuthMiddlewareManager()
 auth_manager.register(FirstAuthMiddleware()) # или auth_manager(FirstAuthMiddleware())
@@ -84,10 +88,7 @@ auth_manager.register(SecondAuthMiddleware()) # или auth_manager(SecondAuthMi
 
 api = await MaxApi(
     auth_middleware_manager=auth_manager,
-    transport="websocket",
-    protocol="EnvelopeProtocol",
-    mapper="EnvelopeV11",
-    device_type="WEB",
+    device_type=DeviceType.Web,
 )
 ```
 
@@ -147,7 +148,8 @@ class FirstAuthMiddleware(BaseAuthMiddleware):
 
 | Транспорт | Тип устройства | Протокол | Маппер |
 | --- | --- | --- | --- |
-| `websocket` | `WEB` | `EnvelopeProtocol` | `EnvelopeV11` |
-| `socket_envelope` | `DESKTOP` | `EnvelopeProtocol` | `EnvelopeV11` |
+| WebSocket + JSON | `DeviceType.Web` | `EnvelopeProtocol` | `EnvelopeV11` |
+| Socket + MessagePack | `DeviceType.Desktop` | `EnvelopeProtocol` | `EnvelopeV11` |
+| Socket + MessagePack | `DeviceType.Android` | `EnvelopeProtocol` | `EnvelopeV11` |
 
 [//]: # (Реестры расширяемы, но пользовательская комбинация должна реализовывать совместимые контракты транспорта, протокола и маппера. Неизвестное имя backend приводит к `RuntimeError` во время инициализации.)

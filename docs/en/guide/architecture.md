@@ -11,7 +11,7 @@ Mapped domain objects (Message, Chat, Contact, ...)
         ↑↓
 Mapper (EnvelopeV11)
         ↑↓
-Protocol (EnvelopeProtocol)
+Protocol (EnvelopeProtocol) → Encoding (JSON or MessagePack)
         ↑↓
 Transport (websocket or socket envelope)
         ↑↓
@@ -20,7 +20,7 @@ MAX Messenger
 
 ## Client stack
 
-`MaxApi` selects backend classes from the transport, protocol, and mapper registries. Construction is asynchronous because connections and authentication may perform I/O. The mapper exposes high-level operations and translates protocol payloads into Pydantic domain models.
+`MaxApi` selects backend classes from transport, encoding, protocol, and mapper registries. Construction is asynchronous because session restoration, connections, and authentication may perform I/O. The mapper exposes high-level operations and translates protocol payloads into Pydantic domain models.
 
 ## Update path
 
@@ -41,4 +41,4 @@ MAX Messenger
 
 ## Lifecycle and ownership
 
-The dispatcher owns the polling loop and closes its FSM middleware when polling stops. Models returned by the mapper are bound to the originating `MaxApi`; this is what enables methods such as `message.reply()` and `chat.history()`.
+The dispatcher owns the polling loop and closes its FSM middleware when polling stops. It requests client shutdown, waits for in-flight update tasks, drains session writes, and closes the client stack. Models returned by the mapper are bound to the originating `MaxApi`; this enables methods such as `message.reply()` and `chat.history()`.

@@ -1,16 +1,16 @@
 # Authentication
 
-`MaxApi` initializes the transport, protocol, and mapper before delegating authentication to the mapper. In 0.8, the default stack is `websocket` + `EnvelopeProtocol` + `EnvelopeV11` with device type `WEB`.
+`MaxApi` initializes transport, encoding, protocol, and mapper before authentication. In 0.8.5, the Web profile uses WebSocket, JSON, `EnvelopeProtocol`, and `EnvelopeV11`.
 
 ## Token authentication
 
 ```python
 from pyromax import MaxApi
+from pyromax.models import DeviceType
 
 api = await MaxApi(
     token="YOUR_TOKEN",
-    transport="websocket",
-    device_type="WEB",
+    device_type=DeviceType.Web,
 )
 ```
 
@@ -18,36 +18,39 @@ Use a token with the same kind of transport/device context that created it. If n
 
 ## QR authentication
 
-For the default web stack, omit `token`. If the mapper receives a `url_callback`, it calls it with the QR URL; otherwise the default authentication implementation may use the console.
+For the Web profile, omit `token`. `TerminalAuthInteractor` prints the QR code; use `AuthCallbacks.qr_url` to display it elsewhere.
 
 ```python
 async def show_qr_url(url: str) -> None:
     print("Open or render this URL and scan it in MAX:", url)
 
 
+from pyromax.interaction import AuthCallbacks
+from pyromax.models import DeviceType
+
 api = await MaxApi(
-    transport="websocket",
-    device_type="WEB",
-    url_callback=show_qr_url,
+    device_type=DeviceType.Web,
+    auth_callbacks=AuthCallbacks(qr_url=show_qr_url),
 )
 ```
 
 ## Phone/SMS authentication
 
-The desktop socket-envelope scenario accepts phone/SMS options through mapper keyword arguments:
+Desktop and Android profiles use SMS authentication by default:
 
 ```python
-async def get_sms_code(phone: str) -> int:
+async def get_sms_code(phone: str) -> str:
     print("Code requested for", phone)
-    return int(input("SMS code: "))
+    return input("SMS code: ")
 
+
+from pyromax.interaction import AuthCallbacks
+from pyromax.models import DeviceType
 
 api = await MaxApi(
-    transport="socket_envelope",
-    device_type="DESKTOP",
-    sms_auth=True,
-    phone_number="78005553535",
-    code_getter=get_sms_code,
+    device_type=DeviceType.Desktop,
+    phone="78005553535",
+    auth_callbacks=AuthCallbacks(sms_code=get_sms_code),
 )
 ```
 
@@ -60,7 +63,7 @@ SMS delivery is rate-limited by MAX. Do not repeatedly request codes; the server
 
 `registration_config=RegistrationConfig(first_name=..., last_name=...)` supplies profile data when registration is required.
 
-### AuthFlow lifecycle
+### AuthFlow lifecycle { #authflow-lifecycle }
 
 When `token` is `None` and `auth_middleware_manager` is provided, `MaxApi` creates an `AuthFlow` after constructing the selected mapper, protocol, and transport. It then passes that flow through every registered auth middleware. The flow contains:
 
@@ -78,6 +81,7 @@ Create one `AuthMiddlewareManager`, register middleware in execution order, and 
 ```python
 from pyromax import MaxApi
 from pyromax.auth import AuthMiddlewareManager
+from pyromax.models import DeviceType
 
 auth_manager = AuthMiddlewareManager()
 auth_manager.register(FirstAuthMiddleware()) # or auth_manager(FirstAuthMiddleware())
@@ -85,10 +89,7 @@ auth_manager.register(SecondAuthMiddleware()) # or auth_manager(SecondAuthMiddle
 
 api = await MaxApi(
     auth_middleware_manager=auth_manager,
-    transport="websocket",
-    protocol="EnvelopeProtocol",
-    mapper="EnvelopeV11",
-    device_type="WEB",
+    device_type=DeviceType.Web,
 )
 ```
 
@@ -148,7 +149,8 @@ The `data` dictionary also contains the active client, mapper, protocol, and tra
 
 | Transport | Device type | Protocol | Mapper |
 | --- | --- | --- | --- |
-| `websocket` | `WEB` | `EnvelopeProtocol` | `EnvelopeV11` |
-| `socket_envelope` | `DESKTOP` | `EnvelopeProtocol` | `EnvelopeV11` |
+| WebSocket + JSON | `DeviceType.Web` | `EnvelopeProtocol` | `EnvelopeV11` |
+| Socket + MessagePack | `DeviceType.Desktop` | `EnvelopeProtocol` | `EnvelopeV11` |
+| Socket + MessagePack | `DeviceType.Android` | `EnvelopeProtocol` | `EnvelopeV11` |
 
 [//]: # (The registries are extensible, but a custom combination must implement compatible transport, protocol, and mapper contracts. Unsupported registry names raise `RuntimeError` during initialization.)

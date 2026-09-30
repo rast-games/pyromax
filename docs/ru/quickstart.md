@@ -2,7 +2,7 @@
 
 ## Требования и установка
 
-Для Pyromax 0.8 нужен Python 3.11 или новее.
+Для Pyromax 0.8.5 нужен Python 3.11 или новее.
 
 ```bash
 python -m pip install pyromax
@@ -21,7 +21,7 @@ import asyncio
 
 from pyromax import Dispatcher, MaxApi
 from pyromax.filters import Command
-from pyromax.models import Message
+from pyromax.models import DeviceType, Message
 
 dispatcher = Dispatcher()
 
@@ -32,7 +32,7 @@ async def ping(message: Message) -> None:
 
 
 async def main() -> None:
-    api = await MaxApi()
+    api = await MaxApi(device_type=DeviceType.Web)
     await dispatcher.start_polling(max_api=api)
 
 
@@ -44,11 +44,9 @@ asyncio.run(main())
 ## Использование готового токена
 
 ```python
-api = await MaxApi(
-    token="YOUR_TOKEN",
-    transport="websocket",
-    device_type="WEB",
-)
+from pyromax.models import DeviceType
+
+api = await MaxApi(token="YOUR_TOKEN", device_type=DeviceType.Web)
 ```
 
 Не сохраняйте токен в Git. Загружайте его из переменной окружения или хранилища секретов. Токен связан со сценарием авторизации и backend, в котором был получен.
@@ -76,5 +74,6 @@ dispatcher.include_router(messages)
 ## Что дальше
 
 - Выберите [способ авторизации](authentication.md).
+- Настройте [профиль устройства и постоянные сессии](guide/configuration.md).
 - Разберитесь с [роутингом и DI](guide/routing.md).
 - Добавьте [фильтры](guide/filters.md), [middleware](guide/middlewares.md) или [FSM](guide/fsm.md).

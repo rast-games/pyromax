@@ -11,7 +11,7 @@ Dispatcher → Router → Observer → Filters → Middleware → Handler
         ↑↓
 Mapper (EnvelopeV11)
         ↑↓
-Protocol (EnvelopeProtocol)
+Protocol (EnvelopeProtocol) → Encoding (JSON или MessagePack)
         ↑↓
 Transport (websocket или socket envelope)
         ↑↓
@@ -20,7 +20,7 @@ MAX Messenger
 
 ## Клиентский стек
 
-`MaxApi` выбирает классы из реестров транспорта, протокола и маппера. Создание асинхронное, потому что соединение и авторизация выполняют I/O. Маппер предоставляет высокоуровневые операции и переводит protocol payload в доменные Pydantic-модели.
+`MaxApi` выбирает классы из реестров транспорта, кодирования, протокола и маппера. Создание асинхронное, потому что восстановление сессии, соединение и авторизация выполняют I/O. Маппер предоставляет высокоуровневые операции и переводит protocol payload в доменные Pydantic-модели.
 
 ## Путь события
 
@@ -41,4 +41,4 @@ MAX Messenger
 
 ## Жизненный цикл
 
-Dispatcher владеет polling-циклом и закрывает FSM middleware при остановке. Модели, созданные маппером, привязаны к исходному `MaxApi`; поэтому работают методы `message.reply()` и `chat.history()`.
+Dispatcher владеет polling-циклом и закрывает FSM middleware при остановке. Он запрашивает остановку клиента, дожидается активных задач и записи сессии, затем закрывает клиентский стек. Модели, созданные маппером, привязаны к исходному `MaxApi`; поэтому работают методы `message.reply()` и `chat.history()`.

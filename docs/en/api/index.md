@@ -1,6 +1,6 @@
 # API reference
 
-The reference pages are generated from the Python signatures and Sphinx-style docstrings shipped with Pyromax 0.8.
+The reference pages are generated from the Python signatures and Sphinx-style docstrings shipped with Pyromax 0.8.5.
 
 ## Stable application surface
 

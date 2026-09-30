@@ -214,6 +214,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
             token=self.extra_config.mapper.token,
             session_id=self.extra_config.session_id,
             user_agent_config=self.extra_config.mapper.user_agent_config.to_string(),
+            **self.extra_config.mapper.user_agent_config.session_info_params,
         )
         self.token_suffix = token_suffix
         try:

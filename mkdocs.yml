@@ -1,5 +1,5 @@
 docs_dir: docs
-site_name: Pyromax 0.8 Documentation
+site_name: Pyromax 0.8.5 Documentation
 site_description: Asynchronous framework for MAX Messenger userbots
 site_url: https://docs.pyromax.org/
 repo_url: https://github.com/rast-games/pyromax
@@ -8,6 +8,8 @@ site_author: Rast
 theme:
   name: material
   language: en
+  logo: favicon.png
+  favicon: favicon.png
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -37,8 +39,12 @@ nav:
   - Getting started:
       - Quick start: quickstart.md
       - Authentication: authentication.md
+      - Configuration and sessions: guide/configuration.md
+      - Changelog: changelog.md
   - Guide:
       - Architecture: guide/architecture.md
+      - Backend layers and extension: guide/backends.md
+      - Methods and mapper calls: guide/methods.md
       - Routing and handlers: guide/routing.md
       - Filters: guide/filters.md
       - Middlewares and DI: guide/middlewares.md
@@ -52,7 +58,10 @@ nav:
       - Filters: api/filters.md
       - FSM: api/fsm.md
       - Models: api/models.md
-  - Documentation versioning: versioning.md
+      - Infrastructure: api/infrastructure.md
+  # The page remains in the sources for maintainers, but is intentionally
+  # hidden from the public navigation.
+  # - Documentation versioning: versioning.md
 plugins:
   - i18n:
       docs_structure: folder
@@ -66,7 +75,7 @@ plugins:
         - locale: ru
           name: Русский
           build: true
-          site_name: Документация Pyromax 0.8
+          site_name: Документация Pyromax 0.8.5
           site_description: Асинхронный фреймворк для юзерботов MAX Messenger
           theme:
             palette:
@@ -89,9 +98,13 @@ plugins:
             Getting started: Начало работы
             Quick start: Быстрый старт
             Authentication: Авторизация
+            Configuration and sessions: Конфигурация и сессии
+            Changelog: История изменений
             Authentication internals: Внутренний API авторизации
             Guide: Руководство
             Architecture: Архитектура
+            Backend layers and extension: Слои backend и расширение
+            Methods and mapper calls: Методы и вызовы маппера
             Routing and handlers: Роутинг и обработчики
             Filters: Фильтры
             Middlewares and DI: Middleware и DI
@@ -101,7 +114,7 @@ plugins:
             Overview: Обзор
             Dispatcher and Router: Dispatcher и Router
             Models: Модели
-            Documentation versioning: Версионирование документации
+            Infrastructure: Инфраструктура
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -131,10 +144,13 @@ markdown_extensions:
   - toc:
       permalink: true
 
+extra_css:
+  - stylesheets/extra.css
+
 extra:
   version:
     provider: mike
     default: latest
     alias: true
 
-copyright: Documentation for Pyromax 0.8
+copyright: Documentation for Pyromax 0.8.5

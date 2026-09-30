@@ -21,8 +21,27 @@ Every router exposes observers for:
 - `message`, `edited_message`, `reply_to_message`, `forward_message`, and `message_removed`;
 - `message_reaction`, `message_added_reaction`, and `message_deleted_reaction`;
 - `error`.
+- `message_read`, `typing`, `presence`, `message_delete`, and `chat_update` domain events.
 
-Handlers are checked in registration order. The first matching handler consumes the event unless it explicitly calls `skip()`.
+Handlers are checked in registration order. The first matching handler normally consumes the event; `skip()` explicitly continues propagation to another matching handler.
+
+`soft_propagate` controls dependency-injection strictness, not event propagation between handlers. With the default `soft_propagate=False`, Pyromax raises `AnnotationError` in either of these cases:
+
+- a handler parameter has no annotation;
+- a handler parameter is annotated, but no value matching that annotation exists in the DI/workflow context.
+
+With `soft_propagate=True`, both cases are allowed and Pyromax passes `None` for the affected parameter:
+
+```python
+@dispatcher.message(soft_propagate=True)
+async def optional_dependency(message: Message, service: "OptionalService") -> None:
+    # service is None when OptionalService is absent from the DI context.
+    ...
+```
+
+Use this option only when the handler intentionally accepts missing dependencies. Despite its historical name, it does not cause the update to continue to the next handler.
+
+`Dispatcher(concurrent_task_dispatch=True, concurrent_task_count=100)` processes independent updates concurrently with a bounded task count. Sequential dispatch remains the default when ordering matters.
 
 ## Register a handler
 
