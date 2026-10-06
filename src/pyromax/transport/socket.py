@@ -2,15 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import random
-import struct
-from typing import Any, cast, Final, TYPE_CHECKING
 import ssl
-import json
+from importlib import resources
 from socket import gaierror
+from typing import TYPE_CHECKING, Any, Final
 
-import lz4.block  # type: ignore[import-untyped]
-import msgpack  # type: ignore[import-untyped]
 from python_socks.async_.asyncio import Proxy
 
 from .bases import StreamTransport
@@ -118,6 +114,9 @@ class SocketTransport(StreamTransport[SocketEncoding[Any, Any]]):
         self.__reader = None
         self.__writer = None
         self._ssl_context = ssl.create_default_context()
+        self._ssl_context.load_verify_locations(
+            str(resources.files("pyromax._data") / "rootca_ssl_rsa2022.crt")
+        )
 
     async def send(self, request: bytes) -> None:
         """Send.
@@ -157,7 +156,6 @@ class SocketTransport(StreamTransport[SocketEncoding[Any, Any]]):
 
 
 
-        loop = asyncio.get_running_loop()
         try:
             while len(self.__buffer) < nbytes:
                 chunk = await self.__reader.readexactly(nbytes - len(self.__buffer))
@@ -170,7 +168,7 @@ class SocketTransport(StreamTransport[SocketEncoding[Any, Any]]):
             result = self.__buffer[:nbytes]
             self.__buffer = self.__buffer[nbytes:]
             return bytes(result)
-        except asyncio.IncompleteReadError as e:
+        except asyncio.IncompleteReadError:
             await self.close()
             self.__buffer.clear()
             self.__logger.info("Server close connection with graceful shutdown(IncompleteReadError)")
@@ -194,7 +192,6 @@ class SocketTransport(StreamTransport[SocketEncoding[Any, Any]]):
         :rtype: Any
         :raises ConnectionTransportError: If connection broken/shutdown while receiving.
         """
-        loop = asyncio.get_running_loop()
         try:
             header_raw = await self._recv_raw(self._encoding.HEADER_SIZE)
         except ConnectionTransportError as e:
@@ -231,11 +228,12 @@ class SocketTransport(StreamTransport[SocketEncoding[Any, Any]]):
                     dest_port=self.port,
                 )
 
-                server_hostname = self.host if self._use_ssl else None
+                ssl_context = self._ssl_context if self._use_ssl else None
+                server_hostname = self.host if ssl_context is not None else None
 
                 self.__reader, self.__writer = await asyncio.open_connection(
                     sock=sock,
-                    ssl=self._use_ssl,
+                    ssl=ssl_context,
                     server_hostname=server_hostname
                 )
 
@@ -244,7 +242,7 @@ class SocketTransport(StreamTransport[SocketEncoding[Any, Any]]):
                 self.__reader, self.__writer = await asyncio.open_connection(
                     self.host,
                     self.port,
-                    ssl=self._use_ssl,
+                    ssl=self._ssl_context if self._use_ssl else None,
                 )
 
 
@@ -276,7 +274,7 @@ class SocketTransport(StreamTransport[SocketEncoding[Any, Any]]):
                 self.__writer.close()
                 await asyncio.wait_for(self.__writer.wait_closed(), timeout=CLOSE_TIMEOUT)
             except (OSError, TimeoutError) as e:
-                self.__logger.error(f"socket close without graceful shutdown(cleanly): %s", e)
+                self.__logger.error("socket close without graceful shutdown(cleanly): %s", e)
                 self.__writer.transport.abort()
             finally:
                 self.__writer = None

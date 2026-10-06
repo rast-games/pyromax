@@ -14,7 +14,7 @@ from ..payloads.models import BaseUserAgentMappingModel
 from ..constants import DEVICE_TYPE_TO_USERAGENT_MODEL as DEVICE_TYPE_TO_USER_AGENT_MAP
 from ..LifecycleManager import LifecycleManager
 from ..telemetry import TelemetryManager
-from .....utils import FingerprintGenerator, write_token, read_token, hide_func_call
+from .....utils import FingerprintGenerator, hide_func_call
 from .....interaction import AuthInteractor
 
 if TYPE_CHECKING:

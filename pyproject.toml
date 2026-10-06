@@ -48,6 +48,10 @@ dev = [
     "pymdown-extensions>=10.21.2",
     "mike>=2.2.0",
     "black>=26.5.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.2.0",
+    "pytest-cov>=7.0.0",
+    "pytest-timeout>=2.4.0",
 ]
 
 [project.optional-dependencies]
@@ -79,4 +83,29 @@ where = ["src"]
 include = ["pyromax*"]
 
 [tool.setuptools.package-data]
-pyromax = ["_data/*.json"]
+pyromax = ["_data/*.json", "_data/*.crt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+pythonpath = ["src", "."]
+asyncio_mode = "auto"
+addopts = "--strict-markers --timeout=15 -m 'not integration'"
+markers = [
+    "integration: tests that use external processes, databases, or multiple library layers",
+]
+
+[tool.coverage.run]
+source = ["pyromax"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 50
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@(abc\\.)?abstractmethod",
+    "raise NotImplementedError",
+]

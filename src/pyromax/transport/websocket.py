@@ -1,19 +1,19 @@
 from __future__ import annotations
 import asyncio
 import logging
-import json
-from typing import Any, cast, TYPE_CHECKING
-from xmlrpc.client import Binary
+from typing import Any, TYPE_CHECKING
 
-
-import websockets
 from websockets import Origin
 from websockets.asyncio.client import ClientConnection, connect
 
 from .bases import StreamTransport
 from .registry import register_transport
 from ..encoding import BaseEncoding
-from ..exceptions import BaseTransportError, ConnectTransportError, ConnectionTransportError, SendingTransportError
+from ..exceptions import (
+    ConnectTransportError,
+    ConnectionTransportError,
+    SendingTransportError,
+)
 from ..utils import hide_func_call
 
 if TYPE_CHECKING:
@@ -54,7 +54,7 @@ class WebSocketTransport(StreamTransport[BaseEncoding[Any, Any, Any, Any]]):
 
         self.extra_config = extra_config
         transport_config = self.extra_config.transport
-        from ..config import ExtraConfig, WebSocketTransportConfig
+        from ..config import WebSocketTransportConfig
         if not isinstance(transport_config, WebSocketTransportConfig):
             raise TypeError(
                 "transport config must be an instance of WebSocketTransportConfig for this transport"
@@ -108,6 +108,7 @@ class WebSocketTransport(StreamTransport[BaseEncoding[Any, Any, Any, Any]]):
                     self.url,
                     origin=self.origin,
                     proxy=self.proxy,
+                    user_agent_header=self.user_agent_header,
                     max_size=self.max_size,
                 )
             else:
@@ -139,15 +140,15 @@ class WebSocketTransport(StreamTransport[BaseEncoding[Any, Any, Any, Any]]):
         else:
             self.__logger.info("Websocket already closed")
 
-    async def send(self, data: Binary | str | bytes | dict[str, Any]) -> None:
+    async def send(self, data: str | bytes) -> None:
         """Send.
 
         :param data: Contextual data passed through the processing pipeline.
-        :type data: Binary | str | bytes | dict[str, Any]
+        :type data: str | bytes
         :raises TypeError: If data must be str or bytes.
         :raises SendingTransportError: If you try to send before initialization connection.
         """
-        if not isinstance(data, (Binary, str, bytes, dict)):
+        if not isinstance(data, (str, bytes)):
             raise TypeError("data must be str or bytes")
 
         if self.ws is None:
@@ -157,7 +158,7 @@ class WebSocketTransport(StreamTransport[BaseEncoding[Any, Any, Any, Any]]):
             raise SendingTransportError("You try to send before initialization connection")
 
         self.__logger.debug("Sending data: %s", data)
-        await self.ws.send(cast(bytes, data))
+        await self.ws.send(data)
 
     async def recv(self) -> Any:
         """Recv.
