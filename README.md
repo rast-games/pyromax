@@ -362,6 +362,7 @@ async def lyric(msg: Message):
 * ✅ Magic Filters
 * ✅ Middlewares
 * ✅ FSM
+* ✅ telemetry
 * ✅ Типизация
 * ✅ Formatting API
 * ✅ Redis Storage
@@ -370,11 +371,14 @@ async def lyric(msg: Message):
 * ✅ покрытие MAX API
 * ✅ Документация
 
-## В разработке
+[//]: # (## В разработке)
 
-* 🚧 telemetry
-* 🚧 Стабилизация работы, устойчивость, аптайм
-* 🚧 Рефакторинг плохого кода
+[//]: # ()
+[//]: # (* 🚧 )
+
+[//]: # (* 🚧 )
+
+[//]: # (* 🚧 )
 
 ---
 
