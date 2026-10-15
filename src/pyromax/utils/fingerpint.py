@@ -1,39 +1,36 @@
 import hashlib
-import json
 import struct
-from importlib import resources
+from collections.abc import Mapping
 from typing import Any
 
-from pydantic import BaseModel
-
-
-class ApkBuildFingerprint(BaseModel):
-    signature_scheme: str
-    certificate_count: int
-    certificate_meta_sha256: str
-    certificate_sha256: list[str]
-    dex_meta_sha256: str
-    so_meta_sha256: dict[str, str]
-    build_number: int
+from ..models.ApkBuildFingerprint import ApkBuildFingerprint
+from ..versions import VersionApi
 
 
 class FingerprintGenerator:
     def __init__(
         self,
+        versions: Mapping[str, ApkBuildFingerprint | Mapping[str, Any]] | None = None,
     ) -> None:
-        """Initialize the fingerprint generator.
-        """
-        self.path = resources.files("pyromax._data") / "apk_fingerprints.json"
-        self.data = self.load_fingerprints()
+        """Initialize the fingerprint generator."""
 
-    def load_fingerprints(self) -> Any:
-        """Load fingerprints.
+        source: dict[str, ApkBuildFingerprint | Mapping[str, Any]] = {}
+        source.update(self.load_fingerprints())
+        if versions is not None:
+            source.update(versions)
+        self.data = {
+            version: (
+                fingerprint
+                if isinstance(fingerprint, ApkBuildFingerprint)
+                else ApkBuildFingerprint.model_validate(fingerprint)
+            )
+            for version, fingerprint in source.items()
+        }
 
-        :returns: The value returned by the wrapped callable or backend.
-        :rtype: Any
-        """
-        with self.path.open("r", encoding="utf-8") as f:
-            return json.load(f)
+    def load_fingerprints(self) -> dict[str, ApkBuildFingerprint]:
+        """Load fingerprints through the version catalog."""
+
+        return dict(VersionApi().versions)
 
     def generate_fingerprint(
         self,
@@ -55,11 +52,9 @@ class FingerprintGenerator:
         :returns: The resulting bytes | None value.
         :rtype: bytes | None
         """
-        data = self.data.get(version)
-        if not data:
+        model = self.data.get(version)
+        if model is None:
             return None
-
-        model = ApkBuildFingerprint.model_validate(data)
 
         seed_bytes = struct.pack(">q", calls_seed)
         device_bytes = device_id.encode("utf-8")

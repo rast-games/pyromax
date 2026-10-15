@@ -88,7 +88,17 @@ class ConstructorMixin(
 
         # self.TOKEN_NAME: str
 
-        self.fingerprint_generator = FingerprintGenerator()
+        fingerprint_overrides = None
+        app_version = getattr(self.mapper_config.user_agent_config, "app_version", None)
+        if (
+            self.mapper_config.user_agent_config.supports_app_fingerprint
+            and app_version is not None
+            and extra_config.app_fingerprint is not None
+        ):
+            fingerprint_overrides = {
+                app_version: extra_config.app_fingerprint,
+            }
+        self.fingerprint_generator = FingerprintGenerator(fingerprint_overrides)
         self.logged: bool = False
         self.calls_seed: int | None = None
 

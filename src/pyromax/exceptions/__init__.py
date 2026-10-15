@@ -50,6 +50,7 @@ from .ProtocolErrors import (
 from .fsm import DataNotDictLikeError
 from .ParseError import ParseMaxApiError
 from .MethodError import BaseMaxApiMethodError
+from .VersionError import VersionAlreadyExistsError, VersionNotFoundError
 
 __all__ = [
     "BaseMaxApiException",
@@ -98,4 +99,6 @@ __all__ = [
     "MapperNeedReloginLifecycleError",
     "NeedReloginMapperError",
     "AuthInputRequired",
+    "VersionAlreadyExistsError",
+    "VersionNotFoundError",
 ]

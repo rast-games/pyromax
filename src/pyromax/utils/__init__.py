@@ -20,7 +20,6 @@ __all__ = [
     "BackoffConfig",
     "clean_and_map",
     "get_random_device_id_numeric",
-    "get_random_app_version_and_build_number",
     "get_caller_info",
     "EventFake",
     "FingerprintGenerator",

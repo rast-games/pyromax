@@ -151,6 +151,32 @@ if __name__ == "__main__":
 
 ---
 
+# 📱 Версии мобильного клиента
+
+`VersionApi` связывает версию Android-клиента с её build number и APK fingerprint. Встроенный каталог работает без сети, а адрес удалённого каталога при необходимости задаётся явно через `remote_url`.
+
+```python
+import os
+
+from pyromax import MaxApi, VersionApi
+from pyromax.config import ExtraConfig
+from pyromax.models import DeviceType
+
+max_api = await MaxApi(
+    device_type=DeviceType.Android,
+    extra_config=ExtraConfig(
+        app_version="26.28.0",
+        version_api=VersionApi(
+            remote_url=os.environ["PYROMAX_VERSION_CATALOG_URL"],
+        ),
+    ),
+)
+```
+
+`app_version` применяется к любому совместимому user-agent. `app_fingerprint` относится только к Android: если он не задан, fingerprint разрешается по итоговой версии через каталог. Приоритет значений: user-agent из сессии → `app_version` из `ExtraConfig` → Android fingerprint из каталога → явный `app_fingerprint`. Для совместимости доступно также имя `VersionCatalog`, а `catalog=` является алиасом `version_api=` внутри `ExtraConfig`. Неизвестная Android-версия вызывает `VersionNotFoundError` до подключения к MAX.
+
+---
+
 # 🧩 Router
 
 Разделяйте проект по файлам.

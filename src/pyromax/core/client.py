@@ -108,8 +108,6 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         :type protocol: str
         :param mapper: Mapper backend name.
         :type mapper: str
-        :param transport_options: Keyword arguments passed to the transport constructor.
-        :type transport_options: dict[str, Any] | None
         :param kwargs: Extra keyword arguments passed to mapper initialization.
         :type kwargs: Any
 
@@ -218,9 +216,9 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         )
         self.token_suffix = token_suffix
         try:
-            self._session_updates_queue: asyncio.Queue[tuple[SessionKey, SessionInfo]] = (
-                asyncio.Queue()
-            )
+            self._session_updates_queue: asyncio.Queue[
+                tuple[SessionKey, SessionInfo]
+            ] = asyncio.Queue()
             self.session_storage = (
                 self.extra_config.session_storage
                 or AioSqLiteSessionStorage(
@@ -228,8 +226,6 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
                     db_name=self.extra_config.session_name,
                 )
             )
-            self._session_updates_task = asyncio.create_task(self._update_session())
-            self._shutdown_worker_task = asyncio.create_task(self._shutdown_worker())
 
             session_info = await self.session_storage.load_session(self.session_key)
 
@@ -253,11 +249,11 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
                 ):
                     user_agent_config = (
                         BaseEnvelopeMappingUserAgentConfigV11.from_session_info(
-                            session_info
+                            session_info,
                         )
                     )
                     self.extra_config.mapper.user_agent_config = user_agent_config
-                    self.session.user_agent_config = session_info.user_agent_config
+                    self.session.user_agent_config = user_agent_config.to_string()
                 if session_info.sync:
                     current_sync = self.session.sync
                     saved_sync = session_info.sync
@@ -279,6 +275,19 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
             else:
                 if self.session_id is None:
                     self.session_id = str(uuid.uuid4())
+
+            try:
+                self.extra_config.resolve_app_version()
+                await self.extra_config.resolve_app_fingerprint()
+            except Exception:
+                await self.session_storage.close()
+                raise
+            self.session.user_agent_config = (
+                self.extra_config.mapper.user_agent_config.to_string()
+            )
+
+            self._session_updates_task = asyncio.create_task(self._update_session())
+            self._shutdown_worker_task = asyncio.create_task(self._shutdown_worker())
 
             transport = cast(
                 TransportRegistry,
@@ -589,7 +598,6 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         encoding: BaseEncoding[Any, Any, Any, Any] | None = None,
         protocol: BaseMaxProtocol[Any, Any] | None = None,
         mapper: BaseMapper[Any, Any] | None = None,
-        transport_options: dict[str, Any] | None = None,
         token: str | None = None,
         logger: logging.Logger | None = None,
         workflow_data: dict[Any, Any] | None = None,
@@ -614,8 +622,6 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         :type protocol: str
         :param mapper: Mapper backend name.
         :type mapper: str
-        :param transport_options: Keyword arguments passed to the transport constructor.
-        :type transport_options: dict[str, Any] | None
         :param kwargs: Extra keyword arguments passed to mapper initialization.
         :type kwargs: Any
 
@@ -646,7 +652,6 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         self.extra_config = extra_config
 
         self.transport = transport
-        self.transport_options = transport_options
         self.protocol = protocol
         self.mapper = mapper
         self.id: int | None = None

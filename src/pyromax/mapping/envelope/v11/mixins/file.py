@@ -1,6 +1,5 @@
 from __future__ import annotations
 import logging
-import random
 from http import HTTPStatus
 
 import aiohttp
@@ -23,7 +22,6 @@ from ..translate.ToDTO import (
 from ....bases import BaseMapper
 from .....protocol import BaseMaxProtocol, Envelope
 from .....exceptions import DownloadFileError
-from .....config import DEFAULT_WEB_HEADER_USER_AGENT, APP_VERSIONS, ANDROID_DEVICES
 
 from .MixinProtocol import MixinProtocol
 
@@ -136,7 +134,6 @@ class FileMixin(MixinProtocol):
         :type kwargs: Any
         :returns: The resulting tuple[bytes, dict[str, str]] | tuple[None, None] value.
         :rtype: tuple[bytes, dict[str, str]] | tuple[None, None]
-        :raises RuntimeError: If max_api must be set.
         :raises RuntimeError: If mapper not bound to max_api instance, because user_agent is None.
         :raises RuntimeError: If user_agent_header must be str.
         :raises DownloadFileError: If download failed for file.
@@ -149,29 +146,13 @@ class FileMixin(MixinProtocol):
         if url is None:
             self._logger.warning("cannot get a download url for file")
             return None, None
-        api = self.max_api
-        if api is None:
-            raise RuntimeError("max_api must be set")
-        opts = api.transport_options or {}
-
-        random_app_version, random_build_number = random.choice(APP_VERSIONS)
-
-        _, random_android_version, *_ = random.choice(ANDROID_DEVICES)
-
-        default_useragents = {
-            "ANDROID": f"OneMe {random_android_version}",
-            "DESKTOP": f"OneMe Desktop/{random_app_version}.{random_build_number}",
-            "WEB": DEFAULT_WEB_HEADER_USER_AGENT,
-        }
 
         if self.user_agent is None:
             raise RuntimeError(
                 "Mapper not bound to max_api instance, because user_agent is None"
             )
 
-        user_agent_header = opts.get("user_agent_header") or default_useragents.get(
-            self.user_agent.device_type
-        )
+        user_agent_header = self.user_agent.http_user_agent
 
         headers: dict[str, str]
         if headers_to_download is None:

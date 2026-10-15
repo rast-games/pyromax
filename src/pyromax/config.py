@@ -26,56 +26,16 @@ from .models import (
     ProtocolRegistry,
     MapperRegistry,
     DeviceType,
+    ApkBuildFingerprint,
 )
 from .models.enum.Registrys import BaseRegistry
 from .models.Session import SessionInfo, SyncOverrides
 from .session import BaseSessionStorage
 from .interaction import AuthInteractor
+from .versions import VersionApi
 
 from .utils import get_random_device_id, get_random_device_id_numeric
 
-APP_VERSIONS: tuple[tuple[str, int], ...] = (
-    ("26.25.0", 6790),
-    ("26.24.0", 6784),
-    ("26.23.2", 6779),
-    ("26.23.1", 6778),
-    ("26.23.0", 6777),
-    ("26.22.2", 6773),
-    ("26.22.1", 6772),
-    ("26.22.0", 6770),
-    ("26.21.1", 6763),
-    ("26.20.2", 6758),
-    ("26.20.1", 6740),
-    ("26.19.3", 6734),
-    ("26.19.2", 6732),
-    ("26.19.1", 6729),
-    # ("26.19.0", 6727),
-    # ("26.18.4", 6724),
-    # ("26.18.2", 6720),
-    # ("26.18.1", 6716),
-    # ("26.18.0", 6715),
-    # ("26.17.1", 6712),
-    # ("26.16.4", 6704),
-    # ("26.16.3", 6702),
-    # ("26.16.2", 6701),
-    # ("26.16.1", 6700),
-    # ("26.16.0", 6698),
-    # ("26.15.3", 6695),
-    # ("26.15.1", 6690),
-    # ("26.15.0", 6689),
-    # ("26.14.1", 6686),
-    # ("26.14.0", 6685),
-    # ("26.13.0", 6683),
-    # ("26.12.2", 6681),
-    # ("26.12.1", 6679),
-    # ("26.12.0", 6676),
-    # ("26.11.3", 6670),
-    # ("26.11.2", 6669),
-    # ("26.11.1", 6665),
-    # ("26.10.1", 6653),
-    # ("26.10.0", 6648),
-    # ("26.9.1", 6643),
-)
 ANDROID_DEVICES: tuple[tuple[str, str, str, str], ...] = (
     ("Samsung SM-A525F", "Android 13", "405dpi 405dpi 1080x2400", "arm64-v8a"),
     ("Samsung SM-A536B", "Android 14", "405dpi 405dpi 1080x2400", "arm64-v8a"),
@@ -132,14 +92,6 @@ WEB_SCREEN = "1080x1920 1.0x"
 DEFAULT_WEB_HEADER_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0"
 )
-
-# PREFERRED_VERSION = [
-#     version for version in APP_VERSIONS if version[1] >= MIN_PREFERRED_BUILD
-# ]
-# LEGACY_VERSIONS = [
-#     version for version in APP_VERSIONS if version[1] < MIN_PREFERRED_BUILD
-# ]
-
 
 # class ClientConfig(BaseModel):
 #     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -244,6 +196,14 @@ class BaseEnvelopeMappingUserAgentConfigV11(BaseConfig):
     def is_custom_device_id(self) -> bool:
         return "device_id" in self.model_fields_set
 
+    @property
+    def supports_versioning(self) -> bool:
+        return "app_version" in type(self).model_fields
+
+    @property
+    def supports_app_fingerprint(self) -> bool:
+        return False
+
     def to_string(self) -> str:
         parts = [f"type={type(self).__name__}"]
         for field_name, field_value in self.model_dump().items():
@@ -305,7 +265,7 @@ class WebEnvelopeMappingUserAgentConfigV11(BaseEnvelopeMappingUserAgentConfigV11
     client_session_id: int = Field(default_factory=lambda: round(time.time() * 1000))
 
 
-default_app_version, default_build_number = random.choice(APP_VERSIONS)
+default_app_version, default_build_number = VersionApi().recommended_pair()
 
 
 class DesktopEnvelopeMappingUserAgentConfigV11(BaseEnvelopeMappingUserAgentConfigV11):
@@ -328,6 +288,10 @@ class AndroidEnvelopeMappingUserAgentConfigV11(BaseEnvelopeMappingUserAgentConfi
     mt_instance_id: str = Field(
         default_factory=lambda: str(uuid4()),
     )
+
+    @property
+    def supports_app_fingerprint(self) -> bool:
+        return True
 
     @classmethod
     def from_session_info(
@@ -548,6 +512,11 @@ class ExtraConfig(BaseConfig):
     session_name: str = "session.db"
     session_id: str | None = None
 
+    app_version: str | None = None
+    app_fingerprint: ApkBuildFingerprint | None = None
+    version_api: VersionApi | None = None
+    catalog: VersionApi | None = None
+
     # directives
     restore_user_agent_from_session: bool = True
     auto_connect_after_init: bool = True
@@ -555,6 +524,62 @@ class ExtraConfig(BaseConfig):
     sync: SyncOverrides = Field(default_factory=SyncOverrides)
 
     _logger: ClassVar[Logger] = logging.getLogger("ExtraConfig")
+
+    @model_validator(mode="after")
+    def validate_version_api_aliases(self) -> Self:
+        if self.version_api is not None and self.catalog is not None:
+            raise ValueError("version_api and catalog cannot be used together")
+        return self
+
+    @property
+    def resolved_version_api(self) -> VersionApi | None:
+        return self.version_api or self.catalog
+
+    def resolve_app_version(self) -> None:
+        """Apply an explicit app version to a compatible user agent."""
+
+        if self.app_version is None:
+            return
+        user_agent_config = self.mapper.user_agent_config
+        if not user_agent_config.supports_versioning:
+            self._logger.warning(
+                "The selected user-agent configuration does not support app versions"
+            )
+            return
+
+        self.mapper.user_agent_config = user_agent_config.model_copy(
+            update={"app_version": self.app_version}
+        )
+
+    async def resolve_app_fingerprint(self) -> None:
+        """Resolve and apply an Android APK fingerprint when requested."""
+
+        user_agent_config = self.mapper.user_agent_config
+        if not user_agent_config.supports_app_fingerprint:
+            return
+
+        fingerprint_requested = any(
+            value is not None
+            for value in (
+                self.app_version,
+                self.app_fingerprint,
+                self.resolved_version_api,
+            )
+        )
+        if not fingerprint_requested:
+            return
+
+        app_version = cast(str, getattr(user_agent_config, "app_version"))
+        app_fingerprint = self.app_fingerprint
+        if app_fingerprint is None:
+            version_api = self.resolved_version_api or VersionApi()
+            await version_api.load()
+            app_fingerprint = version_api.resolve(app_version)
+
+        self.app_fingerprint = app_fingerprint
+        self.mapper.user_agent_config = user_agent_config.model_copy(
+            update={"build_number": app_fingerprint.build_number}
+        )
 
     @model_validator(mode="before")
     @classmethod

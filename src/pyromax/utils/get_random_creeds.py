@@ -55,23 +55,3 @@ def get_random_device_id_numeric() -> str:
 
     random_string += "00"
     return random_string
-
-
-def get_random_app_version_and_build_number() -> tuple[str, int]:
-    """Retrieve random app version and build number.
-
-    :returns: The resulting tuple[str, int] value.
-    :rtype: tuple[str, int]
-    """
-    from ..config import APP_VERSIONS
-
-    app_version, build_number = random.choice(APP_VERSIONS)
-
-    return app_version, build_number
-
-
-# def get_app_version_by_build_number(build_num: int) -> str:
-#     for app_version, build_number in APP_VERSIONS:
-#         if build_number == build_num:
-#             return app_version
-#     return APP_VERSIONS[0][0]

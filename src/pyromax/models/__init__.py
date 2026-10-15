@@ -14,6 +14,7 @@ from .Presence import Presence
 from .PrivacySettings import PrivacySettings
 from .Member import Member
 from .AuthFlow import AuthFlow
+from .ApkBuildFingerprint import ApkBuildFingerprint
 from .RegistrationConfig import RegistrationConfig
 from .Folder import Folder, FolderUpdate, FolderList
 from .Session import Session, SessionInfo, SyncState, SyncOverrides, SessionKey
@@ -62,6 +63,7 @@ __all__ = [
     "Member",
     "ChannelPermissions",
     "AuthFlow",
+    "ApkBuildFingerprint",
     "RegistrationConfig",
     "TwoFactorAction",
     "Folder",

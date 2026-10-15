@@ -32,9 +32,9 @@ from .shared import CamelCaseModel, PollFlagsMappingModel, PollAnswerMappingMode
 from .....utils import (
     get_random_device_id_numeric,
     get_random_device_id,
-    get_random_app_version_and_build_number,
 )
 from .....config import WEB_APP_VERSION, WEB_SCREEN, DEFAULT_WEB_HEADER_USER_AGENT
+from .....versions import VersionApi
 
 if TYPE_CHECKING:
     from .requests import (
@@ -91,6 +91,13 @@ class BaseUserAgentMappingModel(BaseUserAgent, CamelCaseModel, ABC):
         default_factory=lambda: random.randint(1, 30), exclude=True
     )
 
+    @property
+    @abstractmethod
+    def http_user_agent(self) -> str:
+        """Return the HTTP User-Agent associated with this payload."""
+
+        ...
+
     @abstractmethod
     def to_request(self) -> BaseUserAgentRequest:
         """To request.
@@ -122,6 +129,10 @@ class WebUserAgentMappingModel(BaseUserAgentMappingModel):
     client_session_id: int = Field(
         default_factory=lambda: round(time.time() * 1000), exclude=True
     )
+
+    @property
+    def http_user_agent(self) -> str:
+        return self.header_user_agent
 
     def to_request(self) -> WebUserAgentRequest:
         """To request.
@@ -165,10 +176,14 @@ class AppUserAgentMappingModel(BaseUserAgentMappingModel):
     build_number: int
     app_version: str
 
+    @property
+    def http_user_agent(self) -> str:
+        return f"OneMe Desktop/{self.app_version}.{self.build_number}"
+
     @model_validator(mode="before")
     @classmethod
-    def set_random_version_pair(cls, data: Any) -> Any:
-        """Validate and normalize set random version pair.
+    def set_recommended_version_pair(cls, data: Any) -> Any:
+        """Validate and populate the catalog-recommended version pair.
 
         :param data: Contextual data passed through the processing pipeline.
         :type data: Any
@@ -186,7 +201,7 @@ class AppUserAgentMappingModel(BaseUserAgentMappingModel):
                 raise ValueError("you need give pair from build_number and app_version")
 
             if "build_number" not in data and "app_version" not in data:
-                app_ver, build_num = get_random_app_version_and_build_number()
+                app_ver, build_num = VersionApi().recommended_pair()
                 data["build_number"] = build_num
                 data["app_version"] = app_ver
         return data
@@ -214,14 +229,11 @@ class AppUserAgentMappingModel(BaseUserAgentMappingModel):
         :returns: The resulting AppUserAgentMappingModel value.
         :rtype: AppUserAgentMappingModel
         """
-        from .....config import APP_VERSIONS, LOCALE_TIMEZONES
+        from .....config import LOCALE_TIMEZONES
 
-        app_version, build_number = random.choice(APP_VERSIONS)
         locale, timezone = random.choice(LOCALE_TIMEZONES)
 
         args: dict[str, Any] = {
-            "build_number": build_number,
-            "app_version": app_version,
             "locale": locale,
             "timezone": timezone,
         }
@@ -237,8 +249,6 @@ class MobileUserAgentMappingModel(AppUserAgentMappingModel):
     arch: str = "arm64-v8a"
     device_name: str = "Samsung SM-A525F"
     push_device_type: str = "GCM"
-    app_version: str = "26.14.1"
-    build_number: int = 6686
     device_id: str = Field(default_factory=lambda: str(uuid4()), exclude=True)
     mt_instance_id: str = Field(
         default_factory=lambda: str(uuid4()),
@@ -246,6 +256,10 @@ class MobileUserAgentMappingModel(AppUserAgentMappingModel):
         alias="mt_instanceid",
         serialization_alias="mt_instanceid",
     )
+
+    @property
+    def http_user_agent(self) -> str:
+        return f"OneMe {self.os_version}"
 
     def to_request(self) -> MobileUserAgentRequest:
         """To request.
@@ -271,10 +285,9 @@ class MobileUserAgentMappingModel(AppUserAgentMappingModel):
         :returns: The resulting MobileUserAgentMappingModel value.
         :rtype: MobileUserAgentMappingModel
         """
-        from .....config import ANDROID_DEVICES, APP_VERSIONS, LOCALE_TIMEZONES
+        from .....config import ANDROID_DEVICES, LOCALE_TIMEZONES
 
         device_name, os_version, screen, arch = random.choice(ANDROID_DEVICES)
-        app_version, build_number = random.choice(APP_VERSIONS)
         locale, timezone = random.choice(LOCALE_TIMEZONES)
 
         args: dict[str, Any] = {
@@ -282,8 +295,6 @@ class MobileUserAgentMappingModel(AppUserAgentMappingModel):
             "os_version": os_version,
             "screen": screen,
             "arch": arch,
-            "build_number": build_number,
-            "app_version": app_version,
             "locale": locale,
             "timezone": timezone,
         }
