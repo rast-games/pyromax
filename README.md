@@ -173,7 +173,7 @@ max_api = await MaxApi(
 )
 ```
 
-`app_version` применяется к любому совместимому user-agent. `app_fingerprint` относится только к Android: если он не задан, fingerprint разрешается по итоговой версии через каталог. Приоритет значений: user-agent из сессии → `app_version` из `ExtraConfig` → Android fingerprint из каталога → явный `app_fingerprint`. Для совместимости доступно также имя `VersionCatalog`, а `catalog=` является алиасом `version_api=` внутри `ExtraConfig`. Неизвестная Android-версия вызывает `VersionNotFoundError` до подключения к MAX.
+`app_version` применяется к любому совместимому user-agent. `app_fingerprint` относится только к Android: если он не задан, клиент ищет fingerprint итоговой версии в каталоге и применяет его только при наличии. Неизвестная Android-версия не мешает подключению — fingerprint просто не отправляется. Приоритет значений: user-agent из сессии → `app_version` из `ExtraConfig` → Android fingerprint из каталога → явный `app_fingerprint`. Для совместимости доступно также имя `VersionCatalog`, а `catalog=` является алиасом `version_api=` внутри `ExtraConfig`. Строгую проверку наличия версии можно выполнить явно через `VersionApi.resolve()`.
 
 ---
 

@@ -520,6 +520,7 @@ class ExtraConfig(BaseConfig):
     # directives
     restore_user_agent_from_session: bool = True
     auto_connect_after_init: bool = True
+    strict_fingerprint_pair: bool = False
 
     sync: SyncOverrides = Field(default_factory=SyncOverrides)
 
@@ -574,7 +575,12 @@ class ExtraConfig(BaseConfig):
         if app_fingerprint is None:
             version_api = self.resolved_version_api or VersionApi()
             await version_api.load()
-            app_fingerprint = version_api.resolve(app_version)
+            if self.strict_fingerprint_pair:
+                app_fingerprint = version_api.resolve(app_version)
+            else:
+                app_fingerprint = version_api.versions.get(app_version)
+                if app_fingerprint is None:
+                    return
 
         self.app_fingerprint = app_fingerprint
         self.mapper.user_agent_config = user_agent_config.model_copy(

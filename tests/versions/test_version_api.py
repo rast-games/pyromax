@@ -249,15 +249,20 @@ class VersionApiTest(unittest.IsolatedAsyncioTestCase):
         with self.assertLogs("ExtraConfig", level="WARNING"):
             config.resolve_app_version()
 
-    async def test_unknown_version_fails_during_resolution(self) -> None:
+    async def test_unknown_version_continues_without_fingerprint(self) -> None:
         config = ExtraConfig(
             mapper=EnvelopeMapperConfigV11(device_type=DeviceType.Android),
             app_version="missing",
         )
 
         config.resolve_app_version()
-        with self.assertRaises(VersionNotFoundError):
-            await config.resolve_app_fingerprint()
+        await config.resolve_app_fingerprint()
+
+        self.assertIsNone(config.app_fingerprint)
+        self.assertEqual(
+            getattr(config.mapper.user_agent_config, "app_version"),
+            "missing",
+        )
 
     def test_extra_config_owns_optional_version_settings(self) -> None:
         empty = ExtraConfig()
