@@ -21,6 +21,7 @@ from .Session import Session, SessionInfo, SyncState, SyncOverrides, SessionKey
 from .ContactInfo import ContactInfo
 from .Poll import Poll, PollState, PollVote, PollAnswer, PollResult
 from .Events import (
+    DisconnectEvent,
     MessageDeleteEvent,
     MessageReadEvent,
     PresenceEvent,
@@ -87,6 +88,7 @@ __all__ = [
     "ProtocolRegistry",
     "MapperRegistry",
     "DeviceType",
+    "DisconnectEvent",
     "MessageDeleteEvent",
     "MessageReadEvent",
     "PresenceEvent",

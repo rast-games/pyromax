@@ -32,6 +32,9 @@ config = ExtraConfig(
     session_id="primary-account",
     restore_user_agent_from_session=True,
     auto_connect_after_init=True,
+    reconnect=True,
+    reconnect_delay=1.0,
+    relogin=True,
     sync=SyncOverrides(),
 )
 
@@ -149,6 +152,14 @@ finally:
 ### `restore_user_agent_from_session`
 
 The default is `True`. When a matching session exists and no custom user-agent config was supplied, Pyromax restores the saved device fingerprint. Set it to `False` to keep the newly generated configuration. Changing fingerprints can affect how MAX recognizes a session.
+
+### `reconnect` and `reconnect_delay`
+
+`reconnect=True` enables automatic reconnection after a connection loss. `reconnect_delay=1.0` sets the pause before the next attempt; both values are exposed on `DisconnectEvent`.
+
+### `relogin`
+
+`relogin=True` deletes a rejected saved login token and starts the configured authentication flow again. With `relogin=False`, the saved session is left intact, the authorization error is emitted as a `DisconnectEvent`, and the reconnect cycle continues in user-agent-only mode without authorization.
 
 ## Sessions and synchronization
 

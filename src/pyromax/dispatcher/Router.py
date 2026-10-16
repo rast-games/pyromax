@@ -17,6 +17,7 @@ from .event import (
 )
 from ..models import (
     Chat,
+    DisconnectEvent,
     EmojiReaction,
     ErrorEvent,
     Message,
@@ -75,6 +76,11 @@ class Router(Subject):
             self, "MESSAGE_DELETED_REACTION", type_of_update=EmojiReaction
         )
         self.error = StandardMaxEventObserver(self, "ERROR", type_of_update=ErrorEvent)
+        self.disconnect = StandardMaxEventObserver(
+            self,
+            "DISCONNECT",
+            type_of_update=DisconnectEvent,
+        )
         self.message_read = StandardMaxEventObserver(
             self, "MESSAGE_READ", type_of_update=MessageReadEvent
         )
@@ -104,6 +110,7 @@ class Router(Subject):
             "MESSAGE_DELETED_REACTION": self.message_deleted_reaction,
             "MESSAGE_REACTION": self.message_reaction,
             "ERROR": self.error,
+            "DISCONNECT": self.disconnect,
             "MESSAGE_READ": self.message_read,
             "TYPING": self.typing,
             "PRESENCE": self.presence,

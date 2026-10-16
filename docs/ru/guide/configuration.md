@@ -32,6 +32,9 @@ config = ExtraConfig(
     session_id="primary-account",
     restore_user_agent_from_session=True,
     auto_connect_after_init=True,
+    reconnect=True,
+    reconnect_delay=1.0,
+    relogin=True,
     sync=SyncOverrides(),
 )
 
@@ -149,6 +152,14 @@ finally:
 ### `restore_user_agent_from_session`
 
 По умолчанию `True`. При найденной сессии и отсутствии явно заданного user-agent config восстанавливается сохранённый fingerprint. При `False` остаётся новая конфигурация. Смена fingerprint влияет на то, как MAX распознаёт сессию.
+
+### `reconnect` и `reconnect_delay`
+
+`reconnect=True` включает автоматическое переподключение после обрыва. `reconnect_delay=1.0` задаёт паузу перед новой попыткой; оба значения доступны в `DisconnectEvent`.
+
+### `relogin`
+
+`relogin=True` удаляет сохранённый login token, отклонённый сервером, и заново запускает настроенный процесс авторизации. При `relogin=False` сохранённая сессия остаётся нетронутой, ошибка авторизации отправляется как `DisconnectEvent`, а цикл reconnect продолжается в user-agent-only режиме без авторизации.
 
 ## Сессии и синхронизация
 

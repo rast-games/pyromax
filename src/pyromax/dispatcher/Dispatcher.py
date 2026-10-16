@@ -21,7 +21,7 @@ from ..fsm.storage.base import BaseEventIsolation, BaseStorage
 from ..fsm.strategy import FSMStrategy
 
 
-from ..models import DataDict
+from ..models import DataDict, DisconnectEvent
 from .middlewares.error import ErrorsMiddleware
 from .middlewares.user_context import UserContextMiddleware
 
@@ -99,7 +99,8 @@ class Dispatcher(Router):
 
         self.update.register(notify_wrapper)
 
-        self.update.outer_middleware(ErrorsMiddleware(self))
+        self._errors_middleware = ErrorsMiddleware(self)
+        self.update.outer_middleware(self._errors_middleware)
 
         self.update.outer_middleware(UserContextMiddleware())
 
@@ -113,6 +114,32 @@ class Dispatcher(Router):
             self.update.outer_middleware(self.fsm)
 
         self.__logger = logging.getLogger("MaxDispatcher")
+
+    async def _process_disconnect(
+        self,
+        event: DisconnectEvent,
+        max_api: MaxApi,
+    ) -> Any:
+        """Dispatch a connection-loss event through the regular router pipeline."""
+        event.as_(max_api)
+        data: dict[str | type[Any], Any] = {
+            type(max_api): max_api,
+            DisconnectEvent: event,
+        }
+        data.update(max_api.workflow_data)
+        data[DataDict] = data
+
+        async def notify_disconnect(
+            update: MaxObject,
+            context: dict[str | type[Any], Any],
+        ) -> Any:
+            return await self.notify(
+                update=update,
+                data=context,
+                event_types=["DISCONNECT"],
+            )
+
+        return await self._errors_middleware(notify_disconnect, event, data)
 
     def _process_update_with_semaphore(
         self,
@@ -168,8 +195,12 @@ class Dispatcher(Router):
 
         context = {"max_api": max_api}
 
-        update_translator, updates = max_api.listen_updates(context=context)
+        async def disconnect_listener(event: DisconnectEvent) -> None:
+            await self._process_disconnect(event, max_api)
+
+        max_api._add_disconnect_listener(disconnect_listener)
         try:
+            update_translator, updates = max_api.listen_updates(context=context)
             async for update in updates:
                 if max_api.shutdown_requested:
                     break
@@ -208,6 +239,7 @@ class Dispatcher(Router):
                 else:
                     await self._process_update(update, data, max_api)
         finally:
+            max_api._remove_disconnect_listener(disconnect_listener)
             tasks = tuple(semaphore_calls)
             for task in tasks:
                 task.cancel()

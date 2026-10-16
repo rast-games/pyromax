@@ -118,6 +118,7 @@ class AuthMixin(MixinProtocol):
         :param drafts_sync: The drafts sync value.
         :type drafts_sync: int
         :raises RuntimeError: If you try a send auth token, but not bound MaxApi instance to mapper.
+        :raises NeedReloginMapperError: If MAX rejects the stored login token.
         """
         self._logger.debug("sending auth token")
 
@@ -141,30 +142,26 @@ class AuthMixin(MixinProtocol):
         except MapperApiError as e:
             error = e.error
             match error:
-                case "login.token":
+                case "login.token" | "login.cred":
                     self._logger.error("Login error. Please log in again.")
                     self.logged = False
-                    if self.max_api.session_storage is not None:
-                        self._logger.debug("deleting current session")
-                        await self.max_api.session_storage.delete_session(
-                            self.max_api.session_key
-                        )
-                    self.token = None
-                    # self.user_agent = None
-                    self.max_api.token = None
-                    raise NeedReloginMapperError(e.message)
-                case "login.cred":
-                    self._logger.error("Login error. Please log in again.")
-                    self.logged = False
-                    if self.max_api.session_storage is not None:
-                        self._logger.debug("deleting current session")
-                        await self.max_api.session_storage.delete_session(
-                            self.max_api.session_key
-                        )
-                    self.token = None
-                    # self.user_agent = None
-                    self.max_api.token = None
-                    raise NeedReloginMapperError(e.message)
+                    if self.extra_config.relogin:
+                        if self.max_api.session_storage is not None:
+                            self._logger.debug("deleting current session")
+                            await self.max_api.session_storage.delete_session(
+                                self.max_api.session_key
+                            )
+                        self.token = None
+                        self.max_api.token = None
+
+                    detail = e.message or e.localized_message or error
+                    message = (
+                        "MAX rejected the login token; "
+                        "re-authentication is required"
+                    )
+                    if detail:
+                        message = f"{message}: {detail}"
+                    raise NeedReloginMapperError(message) from e
 
             raise e
 
@@ -929,7 +926,7 @@ class AuthMixin(MixinProtocol):
         :param send_user_agent: The send user agent value.
         :type send_user_agent: bool
         :raises RestartMapperError: If auth failed.
-        :raises NeedReloginMapperError: if session experied
+        :raises NeedReloginMapperError: If MAX rejects the stored login token.
         """
         try:
             if send_user_agent:
@@ -943,10 +940,10 @@ class AuthMixin(MixinProtocol):
             self._authorized.set()
             if self._telemetry is not None:
                 await self._telemetry.start()
-        except NeedReloginMapperError as e:
+        except NeedReloginMapperError:
             self._logger.warning("Need relogin")
             self._authorized.clear()
-            raise NeedReloginMapperError("Auth failed") from e
+            raise
 
         except BaseMapperError as e:
             self._logger.warning("Cancelled auth")

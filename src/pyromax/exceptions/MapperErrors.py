@@ -14,7 +14,7 @@ class RestartMapperError(BaseMapperError):
 
 
 class NeedReloginMapperError(RestartMapperError):
-    pass
+    """The stored login token was rejected and authentication is required."""
 
 
 class GetQRError(BaseMapperError):

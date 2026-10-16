@@ -7,6 +7,7 @@ import logging
 from enum import Enum
 
 from ....utils import Backoff
+from ....models import DisconnectEvent
 from .constants import DEFAULT_BACKOFF_CONFIG
 from ....exceptions import (
     RestartMapperError,
@@ -16,7 +17,6 @@ from ....exceptions import (
     MapperLifecycleError,
     MapperConnectError,
     MapperRestartCycleError,
-    MapperNeedReloginLifecycleError,
     NeedReloginMapperError,
     AuthInputRequired,
 )
@@ -84,6 +84,7 @@ class LifecycleManager:
         self._generation: int = 0
         self._generation_lock: asyncio.Lock = asyncio.Lock()
         self._state: _LifecycleStates = _LifecycleStates.DISCONNECTED
+        self._only_send_user_agent = False
 
     def notify_about_exception(
         self, exception: Exception, generation: int, source: str
@@ -185,6 +186,30 @@ class LifecycleManager:
         except Exception:
             self._logger.exception("close failed")
 
+    async def _handle_disconnect(self, exception: Exception) -> bool:
+        """Close the failed connection, notify handlers, and wait to reconnect."""
+        try:
+            self._state = _LifecycleStates.DISCONNECTING
+            await self._close(exception)
+        finally:
+            self._state = _LifecycleStates.DISCONNECTED
+
+        reconnect = self.mapper.extra_config.reconnect
+        delay = self.mapper.extra_config.reconnect_delay
+        await self.mapper.max_api._emit_disconnect(
+            DisconnectEvent(
+                exception=exception,
+                reconnect=reconnect,
+                delay=delay,
+            )
+        )
+
+        if not reconnect:
+            return False
+
+        await asyncio.sleep(delay)
+        return True
+
     async def _connect(
         self,
         manage_lifecycle_backoff: Backoff,
@@ -204,6 +229,11 @@ class LifecycleManager:
         """
         if auth_params is None:
             auth_params = {}
+        only_send_user_agent = (
+            only_send_user_agent or self._only_send_user_agent
+        )
+        if only_send_user_agent:
+            self._only_send_user_agent = True
         try:
             await self.mapper.connect()
         except MapperConnectError as e:
@@ -245,9 +275,23 @@ class LifecycleManager:
                     **auth_params,
                 )
             except NeedReloginMapperError as e:
+                if self.mapper.max_api.shutdown_requested:
+                    raise asyncio.CancelledError from e
+                self.mapper.logged = False
+                self.mapper._authorized.clear()
+                if not self.mapper.extra_config.relogin:
+                    self._need_login = False
+                    self._only_send_user_agent = True
+                    self._logger.warning(
+                        "Login token was rejected; reconnecting without "
+                        "authorization: %s",
+                        e,
+                    )
+                    raise
+
                 self._need_login = True
-                self._logger.exception("Exception while try to connect=%s", e)
-                raise MapperNeedReloginLifecycleError("Auth failed") from e
+                self._logger.warning("Login token was rejected: %s", e)
+                raise
             except RestartMapperError as e:
                 if self.mapper.max_api.shutdown_requested:
                     raise asyncio.CancelledError from e
@@ -295,6 +339,8 @@ class LifecycleManager:
                     auth_params=auth_params,
                     **kwargs,
                 )
+            except NeedReloginMapperError:
+                raise
             except RestartMapperError as e:
                 self._logger.exception("Connect failed with exception=%s", e)
                 raise MapperLifecycleError("NeedRestartMapper") from e
@@ -311,8 +357,9 @@ class LifecycleManager:
             finally:
                 self._state = _LifecycleStates.DISCONNECTED
 
-            self._logger.exception("Connection failed", exc_info=True)
-            raise e
+            if not isinstance(e, NeedReloginMapperError):
+                self._logger.exception("Connection failed", exc_info=True)
+            raise
         except asyncio.CancelledError:
             try:
                 self._state = _LifecycleStates.DISCONNECTING
@@ -369,13 +416,18 @@ class LifecycleManager:
                 await asyncio.gather(*main_tasks)
                 observe_task.cancel()
 
-        except* AuthInputRequired as eg:
-            error = next(
+        except* NeedReloginMapperError as eg:
+            relogin_error = next(
                 exc
                 for exc in eg.exceptions
-                if isinstance(exc, AuthInputRequired)
+                if isinstance(exc, NeedReloginMapperError)
             )
-            raise error
+            raise relogin_error
+        except* AuthInputRequired as eg:
+            auth_input_error = next(
+                exc for exc in eg.exceptions if isinstance(exc, AuthInputRequired)
+            )
+            raise auth_input_error
         except* Exception as eg:
             original_error = eg.exceptions[0] if eg.exceptions else eg
             self._logger.exception(
@@ -404,6 +456,7 @@ class LifecycleManager:
 
         connection_factory: Callable[[], Coroutine[Any, Any, Any]]
         if need_login:
+
             def connection_factory() -> Coroutine[Any, Any, None]:
                 return self._establish_connection(
                     auth_params=auth_params,
@@ -415,6 +468,7 @@ class LifecycleManager:
 
             self._need_login = True
         else:
+
             def connection_factory() -> Coroutine[Any, Any, None]:
                 return wait_for(
                     self._establish_connection(
@@ -433,6 +487,8 @@ class LifecycleManager:
                 observer_factory=self._observe_auth_error,
                 first_observe_factory=connection_factory,
             )
+        except NeedReloginMapperError:
+            raise
         except MapperRestartCycleError as e:
             raise
         except Exception as e:
@@ -472,15 +528,21 @@ class LifecycleManager:
                     )
                     manage_lifecycle_backoff.reset()
                     break
-                except asyncio.TimeoutError:
+                except asyncio.TimeoutError as e:
                     self._logger.warning(
                         "timeout while waiting for connection after error"
                     )
-                    await manage_lifecycle_backoff.asleep()
+                    if not await self._handle_disconnect(e):
+                        raise
+                    continue
+                except NeedReloginMapperError as e:
+                    if not self.mapper.extra_config.relogin:
+                        if not await self._handle_disconnect(e):
+                            raise
                     continue
                 except MapperRestartCycleError as e:
-                    await self._close(exception)
-                    await manage_lifecycle_backoff.asleep()
+                    if not await self._handle_disconnect(e):
+                        raise
                     continue
                 except Exception as e:
                     self._logger.exception("establish connection failed")
@@ -526,6 +588,9 @@ class LifecycleManager:
             if current_error_state.generation != await self.get_generation():
                 continue
 
+            if not await self._handle_disconnect(current_error_state.exception):
+                self.mapper.max_api.request_shutdown()
+                return
             await self._authorize_cycle(
                 auth_params=auth_params,
                 manage_lifecycle_backoff=manage_lifecycle_backoff,

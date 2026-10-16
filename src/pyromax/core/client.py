@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from ..methods import BaseMaxApiMethod
     from ..models import (
         Chat,
+        DisconnectEvent,
         Profile,
         Name,
         Contact,
@@ -129,6 +130,9 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         self._stop_task: asyncio.Task[None] | None = None
         self._initialization_task: asyncio.Task[Any] | None = asyncio.current_task()
         self._logger = logging.getLogger("MaxApi")
+        self._disconnect_listeners: list[
+            Callable[[DisconnectEvent], Awaitable[Any]]
+        ] = []
         self.transport = cast("BaseTransport[Any]", None)
         self.protocol = cast("BaseMaxProtocol[Any, Any]", None)
         self.mapper = cast("BaseMapper[Any, Any]", None)
@@ -478,6 +482,36 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
             and not initialization_task.cancelling()
         ):
             initialization_task.cancel()
+
+    def _add_disconnect_listener(
+        self,
+        listener: Callable[[DisconnectEvent], Awaitable[Any]],
+    ) -> None:
+        """Subscribe an internal listener to connection-loss notifications."""
+        if listener not in self._disconnect_listeners:
+            self._disconnect_listeners.append(listener)
+
+    def _remove_disconnect_listener(
+        self,
+        listener: Callable[[DisconnectEvent], Awaitable[Any]],
+    ) -> None:
+        """Unsubscribe an internal connection-loss listener."""
+        if listener in self._disconnect_listeners:
+            self._disconnect_listeners.remove(listener)
+
+    async def _emit_disconnect(
+        self,
+        event: DisconnectEvent,
+    ) -> None:
+        """Notify runtime listeners without allowing one to break reconnect."""
+        for listener in tuple(self._disconnect_listeners):
+            try:
+                await listener(event)
+            except Exception as error:
+                self._logger.exception(
+                    "Error in disconnect listener: %s",
+                    error,
+                )
 
     @property
     def shutdown_requested(self) -> bool:

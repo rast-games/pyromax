@@ -1,7 +1,19 @@
+from pydantic import ConfigDict
+
 from .base import BaseMaxObject
 from .Chat import Chat
 from .Message import Message
 from .Presence import Presence
+
+
+class DisconnectEvent(BaseMaxObject):
+    """The client connection was lost."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    exception: Exception
+    reconnect: bool
+    delay: float
 
 
 class MessageReadEvent(BaseMaxObject):

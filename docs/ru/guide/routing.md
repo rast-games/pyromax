@@ -43,6 +43,24 @@ async def optional_dependency(message: Message, service: "OptionalService") -> N
 
 `Dispatcher(concurrent_task_dispatch=True, concurrent_task_count=100)` обрабатывает независимые события параллельно с ограничением числа задач. Последовательная обработка остаётся режимом по умолчанию, когда важен порядок.
 
+## Потеря соединения
+
+Потеря соединения оформлена как обычное событие диспетчера. Обработчик можно зарегистрировать на `Dispatcher` или любом вложенном `Router`:
+
+```python
+from pyromax.models import DisconnectEvent
+
+
+@dispatcher.disconnect()
+async def disconnected(event: DisconnectEvent) -> None:
+    print(
+        f"Connection lost: {event.exception}; "
+        f"reconnect={event.reconnect}; delay={event.delay}"
+    )
+```
+
+Событие отправляется после закрытия сбойного соединения и перед попыткой переподключения. Для него работают те же фильтры, вложенные роутеры, middleware и dependency injection, что и для остальных событий. Исключения обработчиков проходят через `dispatcher.error` и не отменяют reconnect. Поля `reconnect` и `delay` берутся из `ExtraConfig.reconnect` и `ExtraConfig.reconnect_delay`.
+
 ## Регистрация обработчика
 
 ```python

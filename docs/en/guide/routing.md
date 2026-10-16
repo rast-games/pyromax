@@ -43,6 +43,24 @@ Use this option only when the handler intentionally accepts missing dependencies
 
 `Dispatcher(concurrent_task_dispatch=True, concurrent_task_count=100)` processes independent updates concurrently with a bounded task count. Sequential dispatch remains the default when ordering matters.
 
+## Connection loss
+
+Connection loss is a regular dispatcher event. Register its handler on the `Dispatcher` or any nested `Router`:
+
+```python
+from pyromax.models import DisconnectEvent
+
+
+@dispatcher.disconnect()
+async def disconnected(event: DisconnectEvent) -> None:
+    print(
+        f"Connection lost: {event.exception}; "
+        f"reconnect={event.reconnect}; delay={event.delay}"
+    )
+```
+
+The event runs after the failed connection is closed and before a reconnect attempt. It uses the same filters, nested-router traversal, middleware, and dependency injection as other router events. Handler exceptions are routed through `dispatcher.error`; they never cancel the reconnect attempt. The `reconnect` and `delay` fields come from `ExtraConfig.reconnect` and `ExtraConfig.reconnect_delay`.
+
 ## Register a handler
 
 ```python

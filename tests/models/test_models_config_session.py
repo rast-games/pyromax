@@ -1,6 +1,7 @@
 import unittest
 
 from pyromax.config import ExtraConfig, SocketTransportConfig, WebSocketTransportConfig
+from pyromax.models import DisconnectEvent
 from pyromax.models.Message import Message
 from pyromax.models.Session import SessionInfo, SyncOverrides, SyncState
 from pyromax.models.enum import DeviceType
@@ -51,3 +52,26 @@ class ModelAndEnvelopeTest(unittest.IsolatedAsyncioTestCase):
         android = ExtraConfig(mapper={"device_type": DeviceType.Android})
         self.assertIsInstance(web.transport, WebSocketTransportConfig)
         self.assertIsInstance(android.transport, SocketTransportConfig)
+
+    def test_extra_config_reconnect_defaults_and_overrides(self) -> None:
+        defaults = ExtraConfig()
+        disabled = ExtraConfig(
+            reconnect=False,
+            reconnect_delay=2.5,
+            relogin=False,
+        )
+
+        self.assertTrue(defaults.reconnect)
+        self.assertEqual(defaults.reconnect_delay, 1.0)
+        self.assertTrue(defaults.relogin)
+        self.assertFalse(disabled.reconnect)
+        self.assertEqual(disabled.reconnect_delay, 2.5)
+        self.assertFalse(disabled.relogin)
+
+    def test_disconnect_event_preserves_exception_and_reconnect_policy(self) -> None:
+        error = ConnectionError("lost")
+        event = DisconnectEvent(exception=error, reconnect=True, delay=1.5)
+
+        self.assertIs(event.exception, error)
+        self.assertTrue(event.reconnect)
+        self.assertEqual(event.delay, 1.5)

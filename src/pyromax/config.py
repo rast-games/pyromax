@@ -521,6 +521,9 @@ class ExtraConfig(BaseConfig):
     restore_user_agent_from_session: bool = True
     auto_connect_after_init: bool = True
     strict_fingerprint_pair: bool = False
+    reconnect: bool = True
+    reconnect_delay: float = 1.0
+    relogin: bool = True
 
     sync: SyncOverrides = Field(default_factory=SyncOverrides)
 
