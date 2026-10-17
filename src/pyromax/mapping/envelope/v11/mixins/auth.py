@@ -1,22 +1,16 @@
 from __future__ import annotations
-import logging
 import asyncio
 import uuid
 from collections.abc import Callable, Coroutine
 from typing import Any, TYPE_CHECKING, cast
 
 from .....config import ExtraConfig
-from .....protocol.envelope import Envelope, EnvelopeProtocol
 from .....models import (
     Profile,
     Chat,
     Contact,
-    Message,
     TwoFactorAction,
     RegistrationConfig,
-    SyncState,
-    SessionInfo,
-    DeviceType,
 )
 from .....config import EnvelopeMapperConfigV11
 from .....interaction import PasswordRequest
@@ -65,8 +59,9 @@ from .....exceptions import (
     MapperTransportError,
     MapperApiError,
     NeedReloginMapperError,
+    UnsupportedClientVersionMapperError,
 )
-from ..constants import DEFAULT_BACKOFF_CONFIG
+from ..constants import DEFAULT_BACKOFF_CONFIG, ErrorCode
 from ..LifecycleManager import LifecycleManager
 
 if TYPE_CHECKING:
@@ -142,7 +137,7 @@ class AuthMixin(MixinProtocol):
         except MapperApiError as e:
             error = e.error
             match error:
-                case "login.token" | "login.cred":
+                case ErrorCode.LOGIN_TOKEN | ErrorCode.LOGIN_CREDENTIALS:
                     self._logger.error("Login error. Please log in again.")
                     self.logged = False
                     if self.extra_config.relogin:
@@ -386,7 +381,7 @@ class AuthMixin(MixinProtocol):
         :param email_code_getter: Callable to invoke.
         :type email_code_getter: Callable[[str], Coroutine[Any, Any, str]]
         """
-        response = await self.send(
+        await self.send(
             method=GetEmailCodeMethod(
                 track_id=track_id,
                 email=email,
@@ -395,7 +390,7 @@ class AuthMixin(MixinProtocol):
 
         code = await email_code_getter(email)
 
-        response = await self.send(
+        await self.send(
             method=VerifyEmailMethod(
                 track_id=track_id,
                 verify_code=code,
@@ -414,7 +409,7 @@ class AuthMixin(MixinProtocol):
         :param hint: The hint value.
         :type hint: str
         """
-        response = await self.send(
+        await self.send(
             method=SetHintMethod(
                 track_id=track_id,
                 hint=hint,
@@ -433,7 +428,7 @@ class AuthMixin(MixinProtocol):
         :param password: Account password.
         :type password: str
         """
-        response = await self.send(
+        await self.send(
             method=SetPasswordMethod(
                 track_id=track_id,
                 password=password,
@@ -510,7 +505,7 @@ class AuthMixin(MixinProtocol):
             if TwoFactorAction.EMAIL not in expected_capabilities:
                 expected_capabilities.append(TwoFactorAction.EMAIL)
 
-        response = await self.send(
+        await self.send(
             method=SetTwoFactorMethod(
                 track_id=track_id,
                 password=password,
@@ -571,7 +566,7 @@ class AuthMixin(MixinProtocol):
 
         await self._check_2fa_password(track_id, password)
 
-        response = await self.send(
+        await self.send(
             method=RemoveTwoFactorMethod(
                 track_id=track_id,
                 expected_capabilities=[
@@ -589,7 +584,7 @@ class AuthMixin(MixinProtocol):
         :param qr_link: The qr link value.
         :type qr_link: str
         """
-        response = await self.send(
+        await self.send(
             method=ApproveQrLoginMethod(
                 qr_link=qr_link,
             )
@@ -647,7 +642,7 @@ class AuthMixin(MixinProtocol):
 
         await self._set_password(track_id, password_new)
 
-        response = await self.send(
+        await self.send(
             method=SetTwoFactorMethod(
                 track_id=track_id,
                 password=password_new,
@@ -848,10 +843,12 @@ class AuthMixin(MixinProtocol):
             self._logger.error("Login cancelled")
             await login_backoff.asleep()
             raise RestartMapperError("Failed to login")
-        except TimeoutError as e:
+        except TimeoutError:
             self._logger.error("Login timed out")
             raise RestartMapperError("Failed to login - timeout")
         except AuthInputRequired:
+            raise
+        except UnsupportedClientVersionMapperError:
             raise
         except Exception as e:
             self._logger.error("Failed to login: %s - %s", e.__class__.__name__, e)
@@ -940,8 +937,8 @@ class AuthMixin(MixinProtocol):
             self._authorized.set()
             if self._telemetry is not None:
                 await self._telemetry.start()
-        except NeedReloginMapperError:
-            self._logger.warning("Need relogin")
+        except (NeedReloginMapperError, UnsupportedClientVersionMapperError):
+            self._logger.warning("Authentication requires lifecycle handling")
             self._authorized.clear()
             raise
 

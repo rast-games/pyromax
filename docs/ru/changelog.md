@@ -27,6 +27,7 @@
 
 ### Dispatcher и события
 
+- `MaxApi(dispatcher=...)` может заранее извлечь lifecycle-listeners для событий во время авторизации. Это не привязывает dispatcher к клиенту: один dispatcher можно передать нескольким `MaxApi`.
 - Добавлена ограниченная параллельная обработка через `concurrent_task_dispatch` и `concurrent_task_count`.
 - Добавлен параметр handler `soft_propagate` (по умолчанию `False`) для управления строгостью dependency injection. При включении параметр получает `None` вместо `AnnotationError` и при отсутствии аннотации, и когда для его аннотации нет значения в DI/workflow-контексте. Параметр не передаёт update следующему handler.
 - Данные зависимостей, возвращённые фильтрами, сохраняются при проверке handlers.

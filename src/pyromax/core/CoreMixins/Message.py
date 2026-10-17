@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from datetime import datetime, timedelta
 from typing import cast, Any, overload, Literal
 
 from ...methods import (
@@ -40,6 +41,7 @@ class MessageMixin(CoreMixinsProtocol):
         attaches: list[BaseFileAttachment] | None = None,
         link: MessageLink | None = None,
         notify: bool = True,
+        send_at: datetime | timedelta | int | None = None,
     ) -> Message | None:
         """Send a message to a chat.
 
@@ -59,6 +61,9 @@ class MessageMixin(CoreMixinsProtocol):
 
         :param notify: Whether MAX should notify affected users.
         :type notify: bool
+        :param send_at: Scheduled send time as an absolute datetime, a relative
+            timedelta, or Unix time in seconds. None and 0 send immediately.
+        :type send_at: datetime | timedelta | int | None
         :raises AttributeError: If logger not initialized in MaxApi instance.
         """
 
@@ -72,6 +77,7 @@ class MessageMixin(CoreMixinsProtocol):
                     attaches=attaches,
                     link=link,
                     notify=notify,
+                    send_at=send_at,
                 ),
             )
         except SendMessageError as e:

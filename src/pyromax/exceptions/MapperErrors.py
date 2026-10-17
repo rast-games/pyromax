@@ -30,6 +30,14 @@ class MapperApiError(BaseMapperError):
     error: str | None = None
 
 
+class UnsupportedClientVersionMapperError(MapperApiError):
+    """MAX rejected the application version reported by the client."""
+
+    def __init__(self, message: str, app_version: str | None = None) -> None:
+        super().__init__(message)
+        self.app_version = app_version
+
+
 class AlreadyFailedError(BaseMapperError):
     """Raised when a send is attempted after mapper failure."""
 

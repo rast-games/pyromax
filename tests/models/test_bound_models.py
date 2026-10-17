@@ -1,4 +1,5 @@
 import unittest
+from datetime import timedelta
 
 from pyromax.models.Chat import Chat
 from pyromax.models.Message import Message
@@ -48,13 +49,19 @@ class BoundMessageTest(unittest.IsolatedAsyncioTestCase):
         api = FakeApi(marker)
         message = make_message("server-id").as_(api)  # type: ignore[arg-type]
 
-        self.assertIs(await message.reply("answer"), marker)
+        send_at = timedelta(minutes=5)
+        self.assertIs(
+            await message.reply("answer", notify=False, send_at=send_at),
+            marker,
+        )
         method_name, kwargs = api.calls[0]
         self.assertEqual(method_name, "__call__")
         self.assertEqual(kwargs["class_of_method"].__name__, "SendMessageMethod")
         self.assertEqual(kwargs["chat_id"], 10)
         self.assertEqual(kwargs["link"].type, "REPLY")
         self.assertEqual(kwargs["link"].message_id, "server-id")
+        self.assertFalse(kwargs["notify"])
+        self.assertIs(kwargs["send_at"], send_at)
 
 
 class BoundChatTest(unittest.IsolatedAsyncioTestCase):
@@ -63,9 +70,24 @@ class BoundChatTest(unittest.IsolatedAsyncioTestCase):
         api = FakeApi(marker)
         chat = Chat(id=5, type="CHAT", status="ACTIVE", owner=1).as_(api)  # type: ignore[arg-type]
 
-        self.assertIs(await chat.answer(None, notify=False), marker)
-        self.assertEqual(api.calls, [
-            ("send_message", {
-                "chat_id": 5, "text": "", "link": None, "attaches": None, "notify": False
-            })
-        ])
+        send_at = timedelta(seconds=30)
+        self.assertIs(
+            await chat.answer(None, notify=False, send_at=send_at),
+            marker,
+        )
+        self.assertEqual(
+            api.calls,
+            [
+                (
+                    "send_message",
+                    {
+                        "chat_id": 5,
+                        "text": "",
+                        "link": None,
+                        "attaches": None,
+                        "notify": False,
+                        "send_at": send_at,
+                    },
+                )
+            ],
+        )

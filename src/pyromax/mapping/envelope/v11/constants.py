@@ -1,4 +1,5 @@
-from ..constants import *
+from ...bases.MappingConstants import MappingConstants
+from ..constants import Cmd as Cmd, Opcode as Opcode
 from .payloads.models import (
     WebUserAgentMappingModel,
     AppUserAgentMappingModel,
@@ -19,3 +20,19 @@ DEFAULT_BACKOFF_CONFIG = BackoffConfig(
 )
 
 VERSION = 11
+
+
+class ErrorCode(MappingConstants):
+    """Error codes emitted by the Envelope V11 API."""
+
+    UNSUPPORTED_CLIENT_VERSION = "client.unsupported-version"
+    LOGIN_TOKEN = "login.token"
+    LOGIN_CREDENTIALS = "login.cred"
+    VERIFY_CODE_WRONG = "verify.code.wrong"
+    LIMIT_VIOLATED = "error.limit.violate"
+    CODE_ATTEMPT_LIMIT = "error.code.attempt.limit"
+    AUTH_REQUEST_FORBIDDEN = "auth.request.forbidden"
+    ATTACHMENT_NOT_READY = "attachment.not.ready"
+    PROTOCOL_PAYLOAD = "proto.payload"
+    NOT_FOUND = "not.found"
+    UNKNOWN_REACTION = "error.message.like.unknown.reaction"

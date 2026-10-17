@@ -1,6 +1,7 @@
 from __future__ import annotations
 from abc import abstractmethod
 from collections.abc import AsyncGenerator, Sequence, Mapping, Callable
+from datetime import datetime, timedelta
 from typing import Any, Generic, TypeVar, TYPE_CHECKING
 
 from pydantic import BaseModel
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
     # from ...models import BaseFileAttachment, BaseMaxObject, Message, Contact
     from ...models.Message import Message
     from ...models.Contact import Contact
-    from ...models import BaseMaxObject, BaseFileAttachment
+    from ...models import ApkBuildFingerprint, BaseMaxObject, BaseFileAttachment
     from ...protocol import Request
     from ...dispatcher.event import Update
     from ...core import MaxApi
@@ -83,6 +84,20 @@ class BaseMapper(AsyncInitializerMixin, Generic[T_protocol, T_file]):
         """Wait until the mapper is connected and authorized."""
         pass
 
+    def apply_app_version(
+        self,
+        app_version: str,
+        fingerprint: ApkBuildFingerprint,
+    ) -> None:
+        """Apply an application version to the live mapper user-agent."""
+
+        raise NotImplementedError("Mapper does not support runtime app versions")
+
+    async def reconnect_for_app_version_change(self, app_version: str) -> None:
+        """Reconnect an established mapper after its app version changes."""
+
+        raise NotImplementedError("Mapper does not support runtime app versions")
+
     @abstractmethod
     async def start_auth_flow(self, *args: Any, **kwargs: Any) -> Any: ...
 
@@ -144,6 +159,7 @@ class BaseMapper(AsyncInitializerMixin, Generic[T_protocol, T_file]):
         chat_id: int,
         text: str | None = None,
         attaches: Sequence[Any] | None = None,
+        send_at: datetime | timedelta | int | None = None,
         **kwargs: Any,
     ) -> Message | None:
         """Send message.
@@ -154,6 +170,9 @@ class BaseMapper(AsyncInitializerMixin, Generic[T_protocol, T_file]):
         :type text: str | None
         :param attaches: Attachments associated with the message.
         :type attaches: Sequence[Any] | None
+        :param send_at: Scheduled send time as an absolute datetime, a relative
+            timedelta, or Unix time in seconds. None and 0 send immediately.
+        :type send_at: datetime | timedelta | int | None
         :param kwargs: Keyword arguments forwarded to the wrapped callable.
         :type kwargs: Any
         :returns: The resulting Message | None value.

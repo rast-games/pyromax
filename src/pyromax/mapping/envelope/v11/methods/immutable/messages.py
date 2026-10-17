@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import cast, Literal
 
 from .base import BaseMethod, Envelope, Cmd, Opcode, VERSION
@@ -16,7 +17,19 @@ from ...payloads.requests import (
     VotePollRequest,
 )
 from ...translate.FromDTO import reverse_translate_message
-from ...payloads.models import MessageMappingModel, MessageLinkMappingModel
+from ...payloads.models import (
+    DelayedAttributesMappingModel,
+    MessageMappingModel,
+    MessageLinkMappingModel,
+)
+
+
+def _convert_send_at(send_at: datetime | timedelta | int) -> int:
+    if isinstance(send_at, datetime):
+        return int(send_at.timestamp() * 1000)
+    if isinstance(send_at, timedelta):
+        return int((datetime.now() + send_at).timestamp() * 1000)
+    return send_at * 1000
 
 
 class SendMessageMethod(BaseMethod):
@@ -33,6 +46,7 @@ class SendMessageMethod(BaseMethod):
         request.ver = VERSION
 
         notify = self.args.get("notify")
+        send_at = self.args.get("send_at")
 
         main_link = self.args.get("link")
         request.payload = SendMessageRequest(
@@ -54,6 +68,14 @@ class SendMessageMethod(BaseMethod):
                         message=reverse_translate_message(main_link.message),
                     )
                     if main_link
+                    else None
+                ),
+                delayed_attributes=(
+                    DelayedAttributesMappingModel(
+                        time_to_fire=_convert_send_at(send_at),
+                        notify_sender=notify if notify is not None else True,
+                    )
+                    if send_at
                     else None
                 ),
             ),

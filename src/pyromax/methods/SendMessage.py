@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Optional
 
 from .Base import BaseMaxApiMethod
@@ -16,6 +17,7 @@ class SendMessageMethod(BaseMaxApiMethod[Optional[Message]]):
         text: str | None = None,
         attaches: list[BaseFileAttachment] | None = None,
         notify: bool = True,
+        send_at: datetime | timedelta | int | None = None,
         **kwargs: Any,
     ) -> Message | None:
         """Execute the send message MAX API method.
@@ -28,6 +30,9 @@ class SendMessageMethod(BaseMaxApiMethod[Optional[Message]]):
         :type attaches: list[BaseFileAttachment] | None
         :param notify: Whether MAX should notify affected users.
         :type notify: bool
+        :param send_at: Scheduled send time as an absolute datetime, a relative
+            timedelta, or Unix time in seconds. None and 0 send immediately.
+        :type send_at: datetime | timedelta | int | None
         :param kwargs: Keyword arguments forwarded to the wrapped callable.
         :type kwargs: Any
         :returns: The resulting Message | None value.
@@ -44,6 +49,7 @@ class SendMessageMethod(BaseMaxApiMethod[Optional[Message]]):
             text=text,
             attaches=attaches,
             notify=notify,
+            send_at=send_at,
             **kwargs,
         )
 

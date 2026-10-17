@@ -802,6 +802,12 @@ class MessageLinkMappingModel(CamelCaseModel):
     chat_id: int | None = None
 
 
+class DelayedAttributesMappingModel(CamelCaseModel):
+    time_to_fire: int
+    notify_sender: bool
+    notify_opponents: bool | None = None
+
+
 StatusType = Literal["EDITED", "REPLY", "USER", "REMOVED"]
 
 
@@ -840,6 +846,7 @@ class MessageMappingModel(CamelCaseModel):
     status: Annotated[StatusType, BeforeValidator(validate_status)] = "USER"
     elements: list[dict[str, Any]] | None = None
     link: MessageLinkMappingModel | None = None
+    delayed_attributes: DelayedAttributesMappingModel | None = None
 
     @field_validator("attaches", mode="before")
     @classmethod

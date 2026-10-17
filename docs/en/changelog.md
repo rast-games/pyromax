@@ -27,6 +27,7 @@
 
 ### Dispatcher and events
 
+- `MaxApi(dispatcher=...)` can preload lifecycle listeners for events emitted during authentication. This does not bind the dispatcher to that client: the same dispatcher can be passed to multiple `MaxApi` instances.
 - Added optional bounded concurrent dispatch with `concurrent_task_dispatch` and `concurrent_task_count`.
 - Added handler `soft_propagate` (default: `False`) to control dependency-injection strictness. When enabled, a parameter receives `None` instead of raising `AnnotationError` both when it has no annotation and when its annotation has no matching value in the DI/workflow context. It does not continue the update to another handler.
 - Filter-produced dependency data is preserved while handlers are checked.

@@ -23,6 +23,32 @@ message = await api(
 
 Это полезно сервисам, которые получают класс метода динамически. Для фиксированной операции понятнее `await api.send_message(...)`. Callable-путь также нормализует mapper transport/API errors в `BaseMaxApiMethodError`.
 
+## Отложенная отправка
+
+`api.send_message()`, `message.answer()`, `message.reply()` и `chat.answer()` принимают `send_at`:
+
+- `datetime` — абсолютное время отправки;
+- `timedelta` — задержка относительно текущего локального времени;
+- `int` — Unix time в секундах.
+
+```python
+from datetime import datetime, timedelta, timezone
+
+await api.send_message(
+    chat_id=123456,
+    text="Через пять минут",
+    send_at=timedelta(minutes=5),
+)
+
+await message.reply(
+    "В назначенное время",
+    send_at=datetime(2027, 1, 2, 12, 0, tzinfo=timezone.utc),
+    notify=False,
+)
+```
+
+[//]: # (`None` и `0` означают немедленную отправку. Для отложенного сообщения `Message.delayed_attributes` содержит время срабатывания в миллисекундах и настройки уведомлений.)
+
 ## Пользовательский high-level метод
 
 ```python

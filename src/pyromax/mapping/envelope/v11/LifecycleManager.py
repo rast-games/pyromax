@@ -2,22 +2,21 @@ from __future__ import annotations
 import asyncio
 from asyncio import wait_for
 from collections.abc import Callable, Generator
-from typing import TYPE_CHECKING, Any, Coroutine, cast
+from typing import TYPE_CHECKING, Any, Coroutine
 import logging
 from enum import Enum
 
 from ....utils import Backoff
-from ....models import DisconnectEvent
+from ....models import DisconnectEvent, UnsupportedClientVersionEvent
 from .constants import DEFAULT_BACKOFF_CONFIG
 from ....exceptions import (
     RestartMapperError,
-    AlreadyFailedError,
     BackoffError,
-    MapperCancelledError,
     MapperLifecycleError,
     MapperConnectError,
     MapperRestartCycleError,
     NeedReloginMapperError,
+    UnsupportedClientVersionMapperError,
     AuthInputRequired,
 )
 
@@ -85,6 +84,7 @@ class LifecycleManager:
         self._generation_lock: asyncio.Lock = asyncio.Lock()
         self._state: _LifecycleStates = _LifecycleStates.DISCONNECTED
         self._only_send_user_agent = False
+        self._unsupported_app_versions: set[str] = set()
 
     def notify_about_exception(
         self, exception: Exception, generation: int, source: str
@@ -176,11 +176,28 @@ class LifecycleManager:
                 connected_task.cancel()
                 await asyncio.gather(connected_task, return_exceptions=True)
 
+    async def request_reconnect(self, exception: Exception) -> None:
+        """Queue a reconnect and wait until the new connection is established."""
+        if self._state is not _LifecycleStates.CONNECTED:
+            return
+
+        generation = await self.get_generation()
+        self.mapper._protocol_connected.clear()
+        self.notify_about_exception(
+            exception,
+            generation=generation,
+            source="LifecycleManager.request_reconnect",
+        )
+        await self.wait_until_connected()
+
     async def _close(
         self,
         pending_requests_exc: Exception | None = None,
     ) -> None:
         """Close."""
+        protocol_connected = getattr(self.mapper, "_protocol_connected", None)
+        if protocol_connected is not None:
+            protocol_connected.clear()
         try:
             await self.mapper.close(pending_requests_exc)
         except Exception:
@@ -210,6 +227,39 @@ class LifecycleManager:
         await asyncio.sleep(delay)
         return True
 
+    async def _handle_unsupported_version(
+        self,
+        exception: UnsupportedClientVersionMapperError,
+    ) -> None:
+        """Notify handlers and select a replacement when none was chosen."""
+        max_api = self.mapper.max_api
+        rejected_version = exception.app_version or max_api.app_version
+        if rejected_version is not None:
+            self._unsupported_app_versions.add(rejected_version)
+
+        available_versions = await max_api.get_available_app_versions()
+        await max_api._emit_unsupported_version(
+            UnsupportedClientVersionEvent(
+                exception=exception,
+                app_version=rejected_version,
+                available_versions=available_versions,
+            )
+        )
+
+        if (
+            max_api.app_version == rejected_version
+            and self.mapper.extra_config.autochange_app_version_if_current_unsupported
+        ):
+            selected_version = await max_api.set_random_app_version(
+                reconnect=False,
+                exclude=tuple(self._unsupported_app_versions),
+            )
+            self._logger.warning(
+                "Application version %s is unsupported; selected %s",
+                rejected_version,
+                selected_version,
+            )
+
     async def _connect(
         self,
         manage_lifecycle_backoff: Backoff,
@@ -229,9 +279,7 @@ class LifecycleManager:
         """
         if auth_params is None:
             auth_params = {}
-        only_send_user_agent = (
-            only_send_user_agent or self._only_send_user_agent
-        )
+        only_send_user_agent = only_send_user_agent or self._only_send_user_agent
         if only_send_user_agent:
             self._only_send_user_agent = True
         try:
@@ -339,7 +387,7 @@ class LifecycleManager:
                     auth_params=auth_params,
                     **kwargs,
                 )
-            except NeedReloginMapperError:
+            except (NeedReloginMapperError, UnsupportedClientVersionMapperError):
                 raise
             except RestartMapperError as e:
                 self._logger.exception("Connect failed with exception=%s", e)
@@ -347,9 +395,14 @@ class LifecycleManager:
             except MapperRestartCycleError:
                 raise
 
-            await self._next_generation()
             self._state = _LifecycleStates.CONNECTED
             self.mapper._protocol_connected.set()
+        except UnsupportedClientVersionMapperError:
+            # The authorize cycle owns disconnect handling for this domain
+            # error.  Propagate it before awaiting close(), otherwise a
+            # concurrent reader failure can cancel this task and replace the
+            # useful API error with MapperLifecycleError.
+            raise
         except Exception as e:
             try:
                 self._state = _LifecycleStates.DISCONNECTING
@@ -357,7 +410,10 @@ class LifecycleManager:
             finally:
                 self._state = _LifecycleStates.DISCONNECTED
 
-            if not isinstance(e, NeedReloginMapperError):
+            if not isinstance(
+                e,
+                (NeedReloginMapperError, UnsupportedClientVersionMapperError),
+            ):
                 self._logger.exception("Connection failed", exc_info=True)
             raise
         except asyncio.CancelledError:
@@ -375,15 +431,20 @@ class LifecycleManager:
         :raises MapperLifecycleError: If _observe_error.
         """
         while True:
-            gen = await self.get_next_generation()
+            gen = await self.get_generation()
             if not self.mapper._authorized.is_set():
                 error_state = await self._lifecycle_queue.get()
             else:
                 return
             if error_state and error_state.generation != gen:
                 continue
+            # A server may send a domain error response and close the socket in
+            # the same event-loop iteration.  Give the request consumer a turn
+            # to surface that specific error before this generic transport
+            # observer cancels the connection task.
+            await asyncio.sleep(0)
             if not self.mapper._authorized.is_set():
-                raise MapperLifecycleError("_observe_error")
+                raise MapperLifecycleError("_observe_error") from error_state.exception
             elif self.mapper._authorized.is_set():
                 try:
                     self._lifecycle_queue.put_nowait(error_state)
@@ -416,25 +477,50 @@ class LifecycleManager:
                 await asyncio.gather(*main_tasks)
                 observe_task.cancel()
 
-        except* NeedReloginMapperError as eg:
-            relogin_error = next(
-                exc
-                for exc in eg.exceptions
-                if isinstance(exc, NeedReloginMapperError)
+        except BaseExceptionGroup as group:
+            exceptions = tuple(self._flatten_exception_group(group))
+            for error_type in (
+                NeedReloginMapperError,
+                UnsupportedClientVersionMapperError,
+                AuthInputRequired,
+            ):
+                domain_error = next(
+                    (exc for exc in exceptions if isinstance(exc, error_type)),
+                    None,
+                )
+                if domain_error is not None:
+                    raise domain_error
+
+            cancelled_error = next(
+                (
+                    exc
+                    for exc in exceptions
+                    if isinstance(exc, asyncio.CancelledError)
+                ),
+                None,
             )
-            raise relogin_error
-        except* AuthInputRequired as eg:
-            auth_input_error = next(
-                exc for exc in eg.exceptions if isinstance(exc, AuthInputRequired)
-            )
-            raise auth_input_error
-        except* Exception as eg:
-            original_error = eg.exceptions[0] if eg.exceptions else eg
+            if cancelled_error is not None:
+                raise cancelled_error
+
+            original_error = exceptions[0] if exceptions else group
             self._logger.exception(
                 "Exception occurred while observing lifecycle tasks",
                 exc_info=True,
             )
             raise MapperRestartCycleError("observe task failed") from original_error
+
+    @staticmethod
+    def _flatten_exception_group(
+        exception: BaseException,
+    ) -> Generator[BaseException, None, None]:
+        """Yield leaf exceptions from a possibly nested exception group."""
+        if isinstance(exception, BaseExceptionGroup):
+            for nested_exception in exception.exceptions:
+                yield from LifecycleManager._flatten_exception_group(
+                    nested_exception
+                )
+            return
+        yield exception
 
     async def _authorize(
         self,
@@ -481,6 +567,12 @@ class LifecycleManager:
                     timeout=self.connect_timeout,
                 )
 
+        # Allocate the generation before starting either task.  Failed
+        # connection attempts must consume a generation too: their reader
+        # callbacks may arrive after the next attempt has already started.
+        # Reusing the same number would make that stale transport failure look
+        # as if it belonged to the new connection.
+        await self._next_generation()
         self.mapper._authorized.clear()
         try:
             await self._observe_task(
@@ -489,7 +581,9 @@ class LifecycleManager:
             )
         except NeedReloginMapperError:
             raise
-        except MapperRestartCycleError as e:
+        except UnsupportedClientVersionMapperError:
+            raise
+        except MapperRestartCycleError:
             raise
         except Exception as e:
             self._logger.exception(
@@ -540,11 +634,16 @@ class LifecycleManager:
                         if not await self._handle_disconnect(e):
                             raise
                     continue
+                except UnsupportedClientVersionMapperError as e:
+                    await self._handle_unsupported_version(e)
+                    if not await self._handle_disconnect(e):
+                        raise
+                    continue
                 except MapperRestartCycleError as e:
                     if not await self._handle_disconnect(e):
                         raise
                     continue
-                except Exception as e:
+                except Exception:
                     self._logger.exception("establish connection failed")
                     await self._close(exception)
                     raise

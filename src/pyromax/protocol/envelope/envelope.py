@@ -1,8 +1,7 @@
 from __future__ import annotations
 import asyncio
-import json
 import logging
-from asyncio import Event, Future
+from asyncio import Future
 from collections.abc import Iterable, Callable, Awaitable
 from typing import Any, cast, TYPE_CHECKING
 
@@ -21,7 +20,7 @@ from ...exceptions import (
 
 from pydantic import BaseModel
 
-from ...transport.bases import BaseTransport, StreamTransport
+from ...transport.bases import StreamTransport
 from ..registry import register_protocol
 from ...utils import hide_func_call
 
@@ -452,7 +451,14 @@ class EnvelopeProtocol(
 
             response = self.from_response(response)
             self.__logger.debug("fetched response %s", response)
-            await event_router.resolve_response(response, gen=gen)
+            response_resolved = await event_router.resolve_response(response, gen=gen)
+            if response_resolved:
+                # Let the request coroutine consume a delivered response before
+                # reading again.  Some API errors are immediately followed by a
+                # server-side socket close; without this hand-off the lifecycle
+                # observer can cancel the request and mask the domain error with
+                # a generic transport failure.
+                await asyncio.sleep(0)
 
     async def get_updates(self) -> Iterable[Envelope]:
         """get updates from event router

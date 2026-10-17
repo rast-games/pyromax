@@ -5,7 +5,13 @@ from typing import Any
 from pyromax import F
 from pyromax.dispatcher.Dispatcher import Dispatcher
 from pyromax.dispatcher.Router import Router
-from pyromax.models import DataDict, DisconnectEvent, ErrorEvent
+from pyromax.exceptions import UnsupportedClientVersionMapperError
+from pyromax.models import (
+    DataDict,
+    DisconnectEvent,
+    ErrorEvent,
+    UnsupportedClientVersionEvent,
+)
 
 
 class RouterStructureTest(unittest.TestCase):
@@ -38,6 +44,52 @@ class RouterStructureTest(unittest.TestCase):
 
 
 class DisconnectHandlerTest(unittest.IsolatedAsyncioTestCase):
+    async def test_unsupported_version_uses_dispatcher_and_di(self) -> None:
+        dispatcher = Dispatcher(disable_fsm=True)
+        selected: list[str] = []
+
+        class DispatchApi:
+            workflow_data: dict[Any, Any] = {}
+
+            async def set_app_version(
+                self,
+                app_version: str,
+                *,
+                reconnect: bool = True,
+            ) -> str:
+                selected.append(app_version)
+                self.reconnect = reconnect
+                return app_version
+
+        api = DispatchApi()
+
+        @dispatcher.unsupported_version()
+        async def handler(
+            event: UnsupportedClientVersionEvent,
+            injected_api: DispatchApi,
+        ) -> None:
+            self.assertIs(injected_api, api)
+            self.assertEqual(event.app_version, "26.25.0")
+            await injected_api.set_app_version("26.35.1", reconnect=False)
+
+        error = UnsupportedClientVersionMapperError(
+            "unsupported",
+            app_version="26.25.0",
+        )
+        event = UnsupportedClientVersionEvent(
+            exception=error,
+            app_version="26.25.0",
+            available_versions=("26.25.0", "26.35.1"),
+        )
+
+        await dispatcher._process_unsupported_client_version(  # type: ignore[arg-type]
+            event,
+            api,
+        )
+
+        self.assertEqual(selected, ["26.35.1"])
+        self.assertFalse(api.reconnect)
+
     async def test_disconnect_uses_nested_router_filter_middleware_and_di(self) -> None:
         dispatcher = Dispatcher(disable_fsm=True)
         child = Router(name="child")
@@ -149,6 +201,13 @@ class DisconnectHandlerTest(unittest.IsolatedAsyncioTestCase):
                 if self.listener == listener:
                     self.listener = None
 
+            def _add_unsupported_version_listener(self, listener) -> None:
+                self.version_listener = listener
+
+            def _remove_unsupported_version_listener(self, listener) -> None:
+                if self.version_listener == listener:
+                    self.version_listener = None
+
             def listen_updates(self, context):
                 async def updates():
                     assert self.listener is not None
@@ -157,7 +216,8 @@ class DisconnectHandlerTest(unittest.IsolatedAsyncioTestCase):
                             exception=ConnectionError("offline"),
                             reconnect=True,
                             delay=0.0,
-                        )
+                        ),
+                        self,
                     )
                     if False:
                         yield None

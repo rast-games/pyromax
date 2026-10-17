@@ -524,6 +524,7 @@ class ExtraConfig(BaseConfig):
     reconnect: bool = True
     reconnect_delay: float = 1.0
     relogin: bool = True
+    autochange_app_version_if_current_unsupported: bool = True
 
     sync: SyncOverrides = Field(default_factory=SyncOverrides)
 

@@ -161,6 +161,12 @@ finally:
 
 `relogin=True` удаляет сохранённый login token, отклонённый сервером, и заново запускает настроенный процесс авторизации. При `relogin=False` сохранённая сессия остаётся нетронутой, ошибка авторизации отправляется как `DisconnectEvent`, а цикл reconnect продолжается в user-agent-only режиме без авторизации.
 
+## Смена версии во время работы
+
+`await api.set_app_version("26.35.1")` выбирает конкретную версию из `VersionApi`, одновременно обновляя `appVersion`, build number, mobile fingerprint и сохранённый user-agent. `await api.set_random_app_version()` выбирает другую версию из того же каталога. При активном соединении оба метода по умолчанию выполняют reconnect; `reconnect=False` только меняет состояние для ближайшего подключения.
+
+Ответ MAX `client.unsupported-version` преобразуется в `UnsupportedClientVersionMapperError`. Lifecycle передаёт его в version-handler и `DisconnectEvent`; если handler не выбрал версию, Pyromax сам выберет другую из каталога перед следующей reconnect-попыткой(если `autochange_app_version_if_current_unsupported = True`).
+
 ## Сессии и синхронизация
 
 `work_dir` и `session_name` задают расположение стандартного `AioSqLiteSessionStorage`, а `session_id` идентифицирует аккаунт. `SessionInfo` хранит токен, телефон, устройство, user agent и sync-маркеры.

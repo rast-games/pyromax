@@ -1,5 +1,5 @@
 from .base import BaseMaxObject
-from .Message import Message, MessageLink
+from .Message import DelayedAttributes, Message, MessageLink
 from .EmojiReaction import EmojiReaction
 from .Attachments import *
 from .Contact import Contact
@@ -22,6 +22,7 @@ from .ContactInfo import ContactInfo
 from .Poll import Poll, PollState, PollVote, PollAnswer, PollResult
 from .Events import (
     DisconnectEvent,
+    UnsupportedClientVersionEvent,
     MessageDeleteEvent,
     MessageReadEvent,
     PresenceEvent,
@@ -40,6 +41,7 @@ __all__ = [
     "BaseMaxObject",
     "Message",
     "MessageLink",
+    "DelayedAttributes",
     "EmojiReaction",
     "BaseFileAttachment",
     "PhotoAttachment",
@@ -89,6 +91,7 @@ __all__ = [
     "MapperRegistry",
     "DeviceType",
     "DisconnectEvent",
+    "UnsupportedClientVersionEvent",
     "MessageDeleteEvent",
     "MessageReadEvent",
     "PresenceEvent",

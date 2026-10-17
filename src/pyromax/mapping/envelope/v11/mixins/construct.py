@@ -16,11 +16,12 @@ from ..LifecycleManager import LifecycleManager
 from ..telemetry import TelemetryManager
 from .....utils import FingerprintGenerator, hide_func_call
 from .....interaction import AuthInteractor
+from .....exceptions import RestartMapperError
 
 if TYPE_CHECKING:
     from .....core import MaxApi
     from ..Mapper import Mapper
-    from .....models import RegistrationConfig, BaseMaxObject
+    from .....models import ApkBuildFingerprint, RegistrationConfig, BaseMaxObject
 
 T = TypeVar("T", bound="BaseMaxObject")
 
@@ -261,6 +262,38 @@ class ConstructorMixin(
     async def wait_until_ready(self) -> None:
         """Wait until the current connection is authorized."""
         await self._authorized.wait()
+
+    def apply_app_version(
+        self,
+        app_version: str,
+        fingerprint: ApkBuildFingerprint,
+    ) -> None:
+        """Update the configured and live user-agent version as one pair."""
+        config = self.mapper_config.user_agent_config
+        update: dict[str, Any] = {"app_version": app_version}
+        if "build_number" in type(config).model_fields:
+            update["build_number"] = fingerprint.build_number
+        self.mapper_config.user_agent_config = config.model_copy(update=update)
+
+        user_agent = self.user_agent
+        if user_agent is not None:
+            live_update = {
+                key: value
+                for key, value in update.items()
+                if key in type(user_agent).model_fields
+            }
+            self.user_agent = user_agent.model_copy(update=live_update)
+
+        self.fingerprint_generator.data[app_version] = fingerprint
+
+    async def reconnect_for_app_version_change(self, app_version: str) -> None:
+        """Reconnect so the newly selected version is sent to MAX."""
+        lifecycle_manager = self._lifecycle_manager
+        if lifecycle_manager is None or not self._protocol_connected.is_set():
+            return
+        await lifecycle_manager.request_reconnect(
+            RestartMapperError(f"Application version changed to {app_version}")
+        )
 
     def bind_api_instance(self, obj: T) -> T:
         """Bind api instance.

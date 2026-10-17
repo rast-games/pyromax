@@ -32,14 +32,17 @@ async def ping(message: Message) -> None:
 
 
 async def main() -> None:
-    api = await MaxApi(device_type=DeviceType.Web)
+    api = await MaxApi(
+        device_type=DeviceType.Web,
+        dispatcher=dispatcher,
+    )
     await dispatcher.start_polling(max_api=api)
 
 
 asyncio.run(main())
 ```
 
-`await MaxApi(...)` is intentional: the client uses an asynchronous constructor to create the selected transport, protocol, and mapper and then runs authentication. `start_polling()` consumes mapped updates until it is cancelled.
+`await MaxApi(...)` is intentional: the client uses an asynchronous constructor to create the selected transport, protocol, and mapper and then runs authentication. The `dispatcher=` argument is used only to extract lifecycle listeners early, allowing `disconnect` and `unsupported_version` handlers to run during authentication. It does not bind the dispatcher to the client or start polling; the same dispatcher may be passed to multiple `MaxApi` instances. `start_polling()` is still called explicitly and consumes mapped updates until it is cancelled.
 
 ## Use an existing token
 

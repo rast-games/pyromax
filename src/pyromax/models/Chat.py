@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import datetime, timedelta
 from typing import Literal, Any, overload, cast
 
 from pydantic import Field
@@ -48,6 +49,7 @@ class Chat(BaseMaxObject):
         link: MessageLink | None = None,
         attaches: list[BaseFileAttachment] | None = None,
         notify: bool = True,
+        send_at: datetime | timedelta | int | None = None,
     ) -> Message | None:
         """Answer.
 
@@ -59,6 +61,9 @@ class Chat(BaseMaxObject):
         :type attaches: list[BaseFileAttachment] | None
         :param notify: Whether MAX should notify affected users.
         :type notify: bool
+        :param send_at: Scheduled send time as an absolute datetime, a relative
+            timedelta, or Unix time in seconds. None and 0 send immediately.
+        :type send_at: datetime | timedelta | int | None
         :returns: The resulting Message | None value.
         :rtype: Message | None
         """
@@ -68,6 +73,7 @@ class Chat(BaseMaxObject):
             link=link,
             attaches=attaches,
             notify=notify,
+            send_at=send_at,
         )
 
     @overload

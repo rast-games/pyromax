@@ -27,6 +27,32 @@ message = await api(
 
 This is useful for generic services that receive a method class dynamically. For a fixed operation, `await api.send_message(...)` is clearer. The callable path also normalizes mapper transport/API failures into `BaseMaxApiMethodError`.
 
+## Scheduled sending
+
+`api.send_message()`, `message.answer()`, `message.reply()`, and `chat.answer()` accept `send_at` as:
+
+- a `datetime` for an absolute send time;
+- a `timedelta` for a delay from the current local time;
+- an `int` containing Unix time in seconds.
+
+```python
+from datetime import datetime, timedelta, timezone
+
+await api.send_message(
+    chat_id=123456,
+    text="In five minutes",
+    send_at=timedelta(minutes=5),
+)
+
+await message.reply(
+    "At the selected time",
+    send_at=datetime(2027, 1, 2, 12, 0, tzinfo=timezone.utc),
+    notify=False,
+)
+```
+
+[//]: # (`None` and `0` send immediately. For a scheduled message, `Message.delayed_attributes` contains the firing time in milliseconds and notification settings.)
+
 ## Define an application method
 
 A custom method can compose existing mapper operations while retaining the generic `api(Method, ...)` interface:

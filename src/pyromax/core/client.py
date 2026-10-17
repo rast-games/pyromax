@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import logging
+import secrets
 import uuid
 from contextlib import suppress
 from typing import (
@@ -22,6 +23,7 @@ from ..session import AioSqLiteSessionStorage
 
 if TYPE_CHECKING:
     from ..interaction import AuthCallbacks, AuthInteractor
+    from ..dispatcher.Dispatcher import Dispatcher as MaxDispatcher
     from ..dispatcher.event import MaxObject
     from ..protocol import Response, BaseMaxProtocol
     from ..transport import BaseTransport
@@ -32,6 +34,7 @@ if TYPE_CHECKING:
     from ..models import (
         Chat,
         DisconnectEvent,
+        UnsupportedClientVersionEvent,
         Profile,
         Name,
         Contact,
@@ -90,6 +93,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         mapper: MapperRegistry | None = None,
         workflow_data: dict[Any, Any] | None = None,
         auth_middleware_manager: AuthMiddlewareManager | None = None,
+        dispatcher: MaxDispatcher | None = None,
         extra_config: ExtraConfig | None = None,
         **kwargs: Any,
     ) -> None:
@@ -118,6 +122,9 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         :type user_agent_params: dict[str, Any] | None
         :param auth_middleware_manager: AuthMiddlewareManager instance of auth middleware manager.
         :type auth_middleware_manager: AuthMiddlewareManager | None
+        :param dispatcher: Optional source of lifecycle listeners used during
+            initialization. The dispatcher is not bound to this client.
+        :type dispatcher: Dispatcher | None
         :param registration_config: instance of RegistrationConfig for register account.
         :type registration_config: RegistrationConfig | None
         :param token_suffix: The token suffix value.
@@ -131,8 +138,12 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         self._initialization_task: asyncio.Task[Any] | None = asyncio.current_task()
         self._logger = logging.getLogger("MaxApi")
         self._disconnect_listeners: list[
-            Callable[[DisconnectEvent], Awaitable[Any]]
+            Callable[[DisconnectEvent, MaxApi], Awaitable[Any]]
         ] = []
+        self._unsupported_version_listeners: list[
+            Callable[[UnsupportedClientVersionEvent, MaxApi], Awaitable[Any]]
+        ] = []
+        self._app_version_lock = asyncio.Lock()
         self.transport = cast("BaseTransport[Any]", None)
         self.protocol = cast("BaseMaxProtocol[Any, Any]", None)
         self.mapper = cast("BaseMapper[Any, Any]", None)
@@ -372,6 +383,8 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
                 auth_middleware_manager=auth_middleware_manager,
                 extra_config=self.extra_config,
             )
+            if dispatcher is not None:
+                self._load_dispatcher_lifecycle_listeners(dispatcher)
             if self.extra_config.auto_connect_after_init:
                 await self.connect(**kwargs)
         except asyncio.CancelledError:
@@ -472,6 +485,69 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         await self.mapper.start()
         self._connected = True
 
+    @property
+    def app_version(self) -> str | None:
+        """Return the application version currently used by the mapper."""
+        return getattr(self.extra_config.mapper.user_agent_config, "app_version", None)
+
+    async def get_available_app_versions(self) -> tuple[str, ...]:
+        """Load and return versions available in the configured catalog."""
+        from ..versions import VersionApi
+
+        catalog = self.extra_config.resolved_version_api or VersionApi()
+        await catalog.load()
+        return tuple(sorted(catalog.versions))
+
+    async def set_app_version(
+        self,
+        app_version: str,
+        *,
+        reconnect: bool = True,
+    ) -> str:
+        """Apply a catalog version and optionally reconnect the live mapper."""
+        from ..versions import VersionApi
+
+        async with self._app_version_lock:
+            catalog = self.extra_config.resolved_version_api or VersionApi()
+            await catalog.load()
+            fingerprint = catalog.resolve(app_version)
+
+            self.extra_config.app_version = app_version
+            if self.extra_config.mapper.user_agent_config.supports_app_fingerprint:
+                self.extra_config.app_fingerprint = fingerprint
+
+            self.mapper.apply_app_version(app_version, fingerprint)
+            self.session.user_agent_config = (
+                self.extra_config.mapper.user_agent_config.to_string()
+            )
+            self._session_updates_queue.put_nowait(
+                (self.session_key, self.session.model_copy(deep=True))
+            )
+
+        if reconnect:
+            await self.mapper.reconnect_for_app_version_change(app_version)
+        return app_version
+
+    async def set_random_app_version(
+        self,
+        *,
+        reconnect: bool = True,
+        exclude: tuple[str, ...] = (),
+    ) -> str:
+        """Choose another catalog version at random and apply it."""
+        versions = await self.get_available_app_versions()
+        excluded = {*exclude}
+        current_version = self.app_version
+        if current_version is not None:
+            excluded.add(current_version)
+        candidates = tuple(version for version in versions if version not in excluded)
+        if not candidates:
+            raise RuntimeError("No alternative application versions are available")
+        return await self.set_app_version(
+            secrets.choice(candidates),
+            reconnect=reconnect,
+        )
+
     def request_shutdown(self) -> None:
         """Request graceful shutdown without blocking the caller."""
         self._shutdown_event.set()
@@ -485,7 +561,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
 
     def _add_disconnect_listener(
         self,
-        listener: Callable[[DisconnectEvent], Awaitable[Any]],
+        listener: Callable[[DisconnectEvent, MaxApi], Awaitable[Any]],
     ) -> None:
         """Subscribe an internal listener to connection-loss notifications."""
         if listener not in self._disconnect_listeners:
@@ -493,11 +569,42 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
 
     def _remove_disconnect_listener(
         self,
-        listener: Callable[[DisconnectEvent], Awaitable[Any]],
+        listener: Callable[[DisconnectEvent, MaxApi], Awaitable[Any]],
     ) -> None:
         """Unsubscribe an internal connection-loss listener."""
         if listener in self._disconnect_listeners:
             self._disconnect_listeners.remove(listener)
+
+    def _add_unsupported_version_listener(
+        self,
+        listener: Callable[
+            [UnsupportedClientVersionEvent, MaxApi], Awaitable[Any]
+        ],
+    ) -> None:
+        """Subscribe an internal listener to unsupported-version events."""
+        if listener not in self._unsupported_version_listeners:
+            self._unsupported_version_listeners.append(listener)
+
+    def _remove_unsupported_version_listener(
+        self,
+        listener: Callable[
+            [UnsupportedClientVersionEvent, MaxApi], Awaitable[Any]
+        ],
+    ) -> None:
+        """Unsubscribe an internal unsupported-version listener."""
+        if listener in self._unsupported_version_listeners:
+            self._unsupported_version_listeners.remove(listener)
+
+    def _load_dispatcher_lifecycle_listeners(
+        self,
+        dispatcher: MaxDispatcher,
+    ) -> None:
+        """Load reusable listeners without assigning dispatcher ownership."""
+        disconnect_listener, unsupported_version_listener = (
+            dispatcher.get_lifecycle_listeners()
+        )
+        self._add_disconnect_listener(disconnect_listener)
+        self._add_unsupported_version_listener(unsupported_version_listener)
 
     async def _emit_disconnect(
         self,
@@ -506,10 +613,24 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         """Notify runtime listeners without allowing one to break reconnect."""
         for listener in tuple(self._disconnect_listeners):
             try:
-                await listener(event)
+                await listener(event, self)
             except Exception as error:
                 self._logger.exception(
                     "Error in disconnect listener: %s",
+                    error,
+                )
+
+    async def _emit_unsupported_version(
+        self,
+        event: UnsupportedClientVersionEvent,
+    ) -> None:
+        """Notify runtime listeners without breaking version recovery."""
+        for listener in tuple(self._unsupported_version_listeners):
+            try:
+                await listener(event, self)
+            except Exception as error:
+                self._logger.exception(
+                    "Error in unsupported-version listener: %s",
                     error,
                 )
 
@@ -636,6 +757,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         logger: logging.Logger | None = None,
         workflow_data: dict[Any, Any] | None = None,
         auth_middleware_manager: AuthMiddlewareManager | None = None,
+        dispatcher: MaxDispatcher | None = None,
         registration_config: RegistrationConfig | None = None,
         extra_config: ExtraConfig | None = None,
         **kwargs: Any,
@@ -665,6 +787,9 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         :type user_agent_params: dict[str, Any] | None
         :param auth_middleware_manager: AuthMiddlewareManager instance of auth middleware manager.
         :type auth_middleware_manager: AuthMiddlewareManager | None
+        :param dispatcher: Optional source of lifecycle listeners used during
+            asynchronous initialization. It is not stored as this client's dispatcher.
+        :type dispatcher: Dispatcher | None
         :param registration_config: instance of RegistrationConfig for register account.
         :type registration_config: RegistrationConfig | None
         :param token_suffix: The token suffix value.

@@ -1,16 +1,10 @@
 import asyncio
-import logging
-from collections.abc import Callable, Coroutine
 from typing import Any, cast
 
-from .....protocol.envelope import EnvelopeProtocol, Envelope
+from .....protocol.envelope import Envelope
 from .....methods import BaseMaxApiMethod
 from ..methods.immutable import BaseMethod
 from .....exceptions import (
-    MapperApiError,
-    AlreadyFailedError,
-    AlreadyCancelledError,
-    MapperCancelledError,
     MapperApiError,
     SendingProtocolError,
     MapperTransportError,
@@ -21,6 +15,7 @@ from .....exceptions import (
     RequestWasCancelledError,
 )
 from ..payloads.responses import ErrorMessageResponse
+from ..translate.ErrorTranslate import translate_error_response
 from ..methods.build_ins import build_method, method_names
 from ..translate.high_level_methods_translate import (
     get_registry as get_methods_registry,
@@ -47,7 +42,7 @@ class TransportMixin(MixinProtocol):
             if self._lifecycle_manager is None:
                 raise RuntimeError("Lifecycle manager not initialized")
             await self.protocol.connect(
-                await self._lifecycle_manager.get_next_generation()
+                await self._lifecycle_manager.get_generation()
             )
         except ConnectProtocolError as e:
             self._logger.error("Connect failed", stack_info=True, exc_info=True)
@@ -60,7 +55,7 @@ class TransportMixin(MixinProtocol):
                 await self._keepalive_task
             except asyncio.CancelledError:
                 self._logger.debug(
-                    f"self.mapper.connect() -> self._keepalive_task.cancel() -> CancelledError"
+                    "self.mapper.connect() -> self._keepalive_task.cancel() -> CancelledError"
                 )
             self._logger.debug("keepalive task cancelled")
         self._logger.debug("start keepalive task")
@@ -182,19 +177,10 @@ class TransportMixin(MixinProtocol):
         #     raise MapperCancelledError("try response was cancelled while wait it")
         if check_errors and response.payload.get("error"):
             error = ErrorMessageResponse(**response.payload)
-            error_msg = f"""
-            error: {error.error},
-            title: {error.title},
-            localized_message: {error.localized_message},
-            message: {error.error_message}
-
-            """
-            error_obj = MapperApiError(error_msg)
-            error_obj.title = error.title
-            error_obj.localized_message = error.localized_message
-            error_obj.message = error.error_message
-            error_obj.error = error.error
-            raise error_obj
+            raise translate_error_response(
+                error,
+                app_version=getattr(self.user_agent, "app_version", None),
+            )
         return response
 
     async def send_raw_with_running_wait(
@@ -340,7 +326,7 @@ class TransportMixin(MixinProtocol):
                     ) from e
         else:
             raise MapperTransportError(
-                f"max retries to send exceeded",
+                "max retries to send exceeded",
             )
 
     async def _call_build_in_method(

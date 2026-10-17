@@ -4,6 +4,7 @@ from .base import BaseMaxObject
 from .Chat import Chat
 from .Message import Message
 from .Presence import Presence
+from ..exceptions import UnsupportedClientVersionMapperError
 
 
 class DisconnectEvent(BaseMaxObject):
@@ -14,6 +15,16 @@ class DisconnectEvent(BaseMaxObject):
     exception: Exception
     reconnect: bool
     delay: float
+
+
+class UnsupportedClientVersionEvent(BaseMaxObject):
+    """MAX rejected the application version reported by the client."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    exception: UnsupportedClientVersionMapperError
+    app_version: str | None
+    available_versions: tuple[str, ...]
 
 
 class MessageReadEvent(BaseMaxObject):

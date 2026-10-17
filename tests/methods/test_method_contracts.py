@@ -73,8 +73,33 @@ class MethodContractTest(unittest.IsolatedAsyncioTestCase):
         method = SendMessageMethod().as_(api)  # type: ignore[arg-type]
 
         self.assertIs(await method(chat_id=4, text="hello", custom=True), marker)
-        self.assertEqual(api.mapper.direct_calls, [
-            ("send_message", {
-                "chat_id": 4, "text": "hello", "attaches": [], "notify": True, "custom": True
-            })
-        ])
+        self.assertEqual(
+            api.mapper.direct_calls,
+            [
+                (
+                    "send_message",
+                    {
+                        "chat_id": 4,
+                        "text": "hello",
+                        "attaches": [],
+                        "notify": True,
+                        "send_at": None,
+                        "custom": True,
+                    },
+                )
+            ],
+        )
+
+    async def test_send_message_forwards_send_at(self) -> None:
+        marker = object()
+        api = FakeApi(marker)
+        method = SendMessageMethod().as_(api)  # type: ignore[arg-type]
+
+        self.assertIs(
+            await method(chat_id=4, text="later", send_at=1_800_000_000),
+            marker,
+        )
+        self.assertEqual(
+            api.mapper.direct_calls[0][1]["send_at"],
+            1_800_000_000,
+        )

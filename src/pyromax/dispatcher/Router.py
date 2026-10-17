@@ -25,6 +25,7 @@ from ..models import (
     MessageReadEvent,
     PresenceEvent,
     TypingEvent,
+    UnsupportedClientVersionEvent,
 )
 from ..protocol import Envelope
 
@@ -81,6 +82,12 @@ class Router(Subject):
             "DISCONNECT",
             type_of_update=DisconnectEvent,
         )
+        self.unsupported_client_version = StandardMaxEventObserver(
+            self,
+            "UNSUPPORTED_CLIENT_VERSION",
+            type_of_update=UnsupportedClientVersionEvent,
+        )
+        self.unsupported_version = self.unsupported_client_version
         self.message_read = StandardMaxEventObserver(
             self, "MESSAGE_READ", type_of_update=MessageReadEvent
         )
@@ -111,6 +118,7 @@ class Router(Subject):
             "MESSAGE_REACTION": self.message_reaction,
             "ERROR": self.error,
             "DISCONNECT": self.disconnect,
+            "UNSUPPORTED_CLIENT_VERSION": self.unsupported_client_version,
             "MESSAGE_READ": self.message_read,
             "TYPING": self.typing,
             "PRESENCE": self.presence,

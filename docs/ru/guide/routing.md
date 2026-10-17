@@ -61,6 +61,35 @@ async def disconnected(event: DisconnectEvent) -> None:
 
 Событие отправляется после закрытия сбойного соединения и перед попыткой переподключения. Для него работают те же фильтры, вложенные роутеры, middleware и dependency injection, что и для остальных событий. Исключения обработчиков проходят через `dispatcher.error` и не отменяют reconnect. Поля `reconnect` и `delay` берутся из `ExtraConfig.reconnect` и `ExtraConfig.reconnect_delay`.
 
+## Неподдерживаемая версия клиента
+
+`client.unsupported-version` доступен как типизированное событие. Handler может выбрать конкретную версию для следующей reconnect-попытки:
+
+```python
+from pyromax import MaxApi
+from pyromax.models import UnsupportedClientVersionEvent
+
+
+@dispatcher.unsupported_version()
+async def unsupported_version(
+    event: UnsupportedClientVersionEvent,
+    api: MaxApi,
+) -> None:
+    if "26.35.1" in event.available_versions:
+        await api.set_app_version("26.35.1", reconnect=False)
+```
+
+Если handler не поменял версию, lifecycle автоматически выберет другую из `event.available_versions`. После version-event та же ошибка приходит в `dispatcher.disconnect`, а затем начинается reconnect.
+
+Если ошибка может возникнуть во время автоматического подключения внутри `await MaxApi(...)`, передайте dispatcher в конструктор клиента:
+
+```python
+api = await MaxApi(dispatcher=dispatcher)
+await dispatcher.start_polling(api)
+```
+
+`dispatcher=` используется только как источник lifecycle-listeners. `MaxApi` не назначает переданный объект своим dispatcher, не запускает через него polling и не создаёт эксклюзивную связь между объектами. Поэтому один экземпляр `Dispatcher` можно передать нескольким клиентам; при каждом событии listener получает именно тот `MaxApi`, который его отправил. Если аргумент не указан, поведение остаётся прежним: lifecycle-listeners подключаются при входе в `start_polling()`.
+
 ## Регистрация обработчика
 
 ```python

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any, TYPE_CHECKING, TypeVar
 
 from .Router import Router
@@ -21,7 +22,7 @@ from ..fsm.storage.base import BaseEventIsolation, BaseStorage
 from ..fsm.strategy import FSMStrategy
 
 
-from ..models import DataDict, DisconnectEvent
+from ..models import DataDict, DisconnectEvent, UnsupportedClientVersionEvent
 from .middlewares.error import ErrorsMiddleware
 from .middlewares.user_context import UserContextMiddleware
 
@@ -141,6 +142,53 @@ class Dispatcher(Router):
 
         return await self._errors_middleware(notify_disconnect, event, data)
 
+    async def _process_unsupported_client_version(
+        self,
+        event: UnsupportedClientVersionEvent,
+        max_api: MaxApi,
+    ) -> Any:
+        """Dispatch an unsupported-version event through the router pipeline."""
+        event.as_(max_api)
+        data: dict[str | type[Any], Any] = {
+            type(max_api): max_api,
+            UnsupportedClientVersionEvent: event,
+        }
+        data.update(max_api.workflow_data)
+        data[DataDict] = data
+
+        async def notify_unsupported_version(
+            update: MaxObject,
+            context: dict[str | type[Any], Any],
+        ) -> Any:
+            return await self.notify(
+                update=update,
+                data=context,
+                event_types=["UNSUPPORTED_CLIENT_VERSION"],
+            )
+
+        return await self._errors_middleware(
+            notify_unsupported_version,
+            event,
+            data,
+        )
+
+    def get_lifecycle_listeners(
+        self,
+    ) -> tuple[
+        Callable[[DisconnectEvent, MaxApi], Awaitable[Any]],
+        Callable[[UnsupportedClientVersionEvent, MaxApi], Awaitable[Any]],
+    ]:
+        """Return reusable lifecycle listeners for a ``MaxApi`` instance.
+
+        The listeners receive the emitting client as an argument, so these
+        callables are not tied to one client and can be registered on several
+        ``MaxApi`` instances at the same time.
+        """
+        return (
+            self._process_disconnect,
+            self._process_unsupported_client_version,
+        )
+
     def _process_update_with_semaphore(
         self,
         update: Update,
@@ -195,10 +243,12 @@ class Dispatcher(Router):
 
         context = {"max_api": max_api}
 
-        async def disconnect_listener(event: DisconnectEvent) -> None:
-            await self._process_disconnect(event, max_api)
+        disconnect_listener, unsupported_version_listener = (
+            self.get_lifecycle_listeners()
+        )
 
         max_api._add_disconnect_listener(disconnect_listener)
+        max_api._add_unsupported_version_listener(unsupported_version_listener)
         try:
             update_translator, updates = max_api.listen_updates(context=context)
             async for update in updates:
@@ -240,6 +290,9 @@ class Dispatcher(Router):
                     await self._process_update(update, data, max_api)
         finally:
             max_api._remove_disconnect_listener(disconnect_listener)
+            max_api._remove_unsupported_version_listener(
+                unsupported_version_listener
+            )
             tasks = tuple(semaphore_calls)
             for task in tasks:
                 task.cancel()

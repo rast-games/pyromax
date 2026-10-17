@@ -34,7 +34,7 @@ async def echo(message: Message) -> None:
 
 
 async def main() -> None:
-    api = await MaxApi()
+    api = await MaxApi(dispatcher=dp)
     await dp.start_polling(api)
 
 

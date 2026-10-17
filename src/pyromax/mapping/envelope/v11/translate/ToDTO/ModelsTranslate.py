@@ -14,6 +14,7 @@ from ...payloads.shared import (
 )
 from ......models import (
     Contact,
+    DelayedAttributes,
     Message,
     MessageLink,
     BaseMaxObject,
@@ -255,6 +256,16 @@ class TranslateMessage(BaseTranslateMappingModel[MessageMappingModel]):
                 msg_time = -1
             else:
                 msg_time = msg.time
+
+            delayed_attributes = (
+                DelayedAttributes(
+                    time_to_fire=msg.delayed_attributes.time_to_fire,
+                    notify_sender=msg.delayed_attributes.notify_sender,
+                    notify_opponents=msg.delayed_attributes.notify_opponents,
+                )
+                if msg.delayed_attributes is not None
+                else None
+            )
             if msg_link is not None and msg_link.message is not None:
                 return Message(
                     message_id=cast(int, msg_id),
@@ -267,6 +278,7 @@ class TranslateMessage(BaseTranslateMappingModel[MessageMappingModel]):
                     elements=msg.elements,
                     sender_id=msg.sender,
                     attaches=msg.attaches,
+                    delayed_attributes=delayed_attributes,
                     link=MessageLink(
                         message=translate_message(msg=msg_link.message),
                         message_id=msg_link.message_id,
@@ -285,6 +297,7 @@ class TranslateMessage(BaseTranslateMappingModel[MessageMappingModel]):
                 elements=msg.elements,
                 sender_id=msg.sender,
                 attaches=msg.attaches,
+                delayed_attributes=delayed_attributes,
             )
 
         return translate_message(msg=message)

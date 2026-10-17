@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime, timedelta
 from typing import Optional, Literal, Any, TYPE_CHECKING
 
 from .base import BaseMaxObject
@@ -14,6 +15,12 @@ class MessageLink(BaseMaxObject):
     chat_id: int | None = None
 
 
+class DelayedAttributes(BaseMaxObject):
+    time_to_fire: int
+    notify_sender: bool
+    notify_opponents: bool | None = None
+
+
 class Message(BaseMaxObject):
     message_id: int | str
     chat_id: int
@@ -25,6 +32,7 @@ class Message(BaseMaxObject):
     cid: int | None
     elements: list[dict[str, Any]] | None = None
     link: MessageLink | None = None
+    delayed_attributes: DelayedAttributes | None = None
 
     if TYPE_CHECKING:
         from .Attachments import (
@@ -56,6 +64,9 @@ class Message(BaseMaxObject):
         text: str | None = None,
         attaches: list[BaseFileAttachment] | None = None,
         link: MessageLink | None = None,
+        *,
+        notify: bool = True,
+        send_at: datetime | timedelta | int | None = None,
     ) -> Any:
         """Answer.
 
@@ -65,6 +76,11 @@ class Message(BaseMaxObject):
         :type attaches: list[BaseFileAttachment] | None
         :param link: Invite, message, or resource link.
         :type link: MessageLink | None
+        :param notify: Whether MAX should notify affected users.
+        :type notify: bool
+        :param send_at: Scheduled send time as an absolute datetime, a relative
+            timedelta, or Unix time in seconds. None and 0 send immediately.
+        :type send_at: datetime | timedelta | int | None
         :returns: The value returned by the wrapped callable or backend.
         :rtype: Any
         """
@@ -76,12 +92,17 @@ class Message(BaseMaxObject):
             chat_id=self.chat_id,
             attaches=attaches,
             link=link,
+            notify=notify,
+            send_at=send_at,
         )
 
     async def reply(
         self,
         text: str | None = None,
         attaches: list[BaseFileAttachment] | None = None,
+        *,
+        notify: bool = True,
+        send_at: datetime | timedelta | int | None = None,
     ) -> Any:
         """Reply.
 
@@ -89,6 +110,11 @@ class Message(BaseMaxObject):
         :type text: str | None
         :param attaches: Attachments associated with the message.
         :type attaches: list[BaseFileAttachment] | None
+        :param notify: Whether MAX should notify affected users.
+        :type notify: bool
+        :param send_at: Scheduled send time as an absolute datetime, a relative
+            timedelta, or Unix time in seconds. None and 0 send immediately.
+        :type send_at: datetime | timedelta | int | None
         :returns: The value returned by the wrapped callable or backend.
         :rtype: Any
         """
@@ -101,6 +127,8 @@ class Message(BaseMaxObject):
             text=text,
             attaches=attaches,
             link=link,
+            notify=notify,
+            send_at=send_at,
         )
 
     async def forward(

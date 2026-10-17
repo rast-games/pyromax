@@ -10,12 +10,17 @@ from typing import TYPE_CHECKING, Any
 #     StartSMSAuthMethod,
 #     VerifySMSCodeMethod,
 # )
-from ......exceptions import MapperApiError
+from ......exceptions import (
+    MapperApiError,
+    MapperTransportError,
+    UnsupportedClientVersionMapperError,
+)
 from ...payloads.responses import (
     MetadataResponse,
     ChoiceLoginVariantResponse,
     SuccessLoginResponse,
 )
+from ...constants import ErrorCode
 from ......utils import Backoff
 
 if TYPE_CHECKING:
@@ -63,6 +68,18 @@ class LoginBuildInMappingMethod(BaseBuildInMappingMethod):
         :rtype: ChoiceLoginVariantResponse
         """
         pass
+
+    @staticmethod
+    def _ensure_sms_transport_connected(
+        mapper: Mapper,
+        cause: BaseException | None = None,
+    ) -> None:
+        """Stop SMS retries when the underlying transport is disconnected."""
+        if mapper.protocol.transport.connected:
+            return
+        raise MapperTransportError(
+            "Transport disconnected during SMS authentication"
+        ) from cause
 
     @staticmethod
     async def _track_login(
@@ -201,9 +218,11 @@ class LoginBuildInMappingMethod(BaseBuildInMappingMethod):
                 wrong_attempts = 4
                 while True:
                     try:
+                        self._ensure_sms_transport_connected(mapper)
                         verify_code = await mapper.auth_interactor.request_sms_code(
                             mapper.phone
                         )
+                        self._ensure_sms_transport_connected(mapper)
                         choice = await mapper.send_code(
                             token=temp_token,
                             verify_code=str(verify_code),
@@ -222,22 +241,25 @@ class LoginBuildInMappingMethod(BaseBuildInMappingMethod):
                             )
 
                         return choice
+                    except UnsupportedClientVersionMapperError:
+                        raise
                     except MapperApiError as e:
                         mapper.log(40, f"Error while login with SMS code: {e}")
                         error = e.error
                         # await sms_backoff.asleep()
                         match error:
-                            case "verify.code.wrong":
+                            case ErrorCode.VERIFY_CODE_WRONG:
                                 if wrong_attempts == 0:
                                     raise e
                                 wrong_attempts -= 1
+                                self._ensure_sms_transport_connected(mapper, e)
                                 mapper.log(20, "SMS code wrong, try again...")
                                 continue
 
-                            case "error.limit.violate":
+                            case ErrorCode.LIMIT_VIOLATED:
                                 mapper.log(20, "SMS code limit reached, over login")
                                 raise e
-                            case "auth.request.forbidden":
+                            case ErrorCode.AUTH_REQUEST_FORBIDDEN:
                                 mapper.log(
                                     20, "SMS auth request forbidden for this transport"
                                 )
@@ -247,24 +269,28 @@ class LoginBuildInMappingMethod(BaseBuildInMappingMethod):
                                     20, f"Error while login with SMS code: {error}"
                                 )
                                 raise e
+            except UnsupportedClientVersionMapperError:
+                raise
             except MapperApiError as e:
                 error = e.error
                 match error:
-                    case "verify.code.wrong":
+                    case ErrorCode.VERIFY_CODE_WRONG:
+                        self._ensure_sms_transport_connected(mapper, e)
                         mapper.log(20, "SMS code wrong, resending...")
                         auth_type["auth_type"] = "RESEND"
                         continue
-                    case "error.limit.violate":
+                    case ErrorCode.LIMIT_VIOLATED:
                         mapper.log(20, "SMS limit violate")
                         raise e
-                    case "error.code.attempt.limit":
+                    case ErrorCode.CODE_ATTEMPT_LIMIT:
                         mapper.log(20, "SMS code limit reached, over login")
                         raise e
-                    case "auth.request.forbidden":
+                    case ErrorCode.AUTH_REQUEST_FORBIDDEN:
                         mapper.log(20, "SMS auth request forbidden for this transport")
                         raise e
                     case _:
                         mapper.log(20, f"Error while login with SMS code: {error}")
+                        self._ensure_sms_transport_connected(mapper, e)
                         continue
         else:
             raise MapperApiError("SMS auth send code limit reached.")

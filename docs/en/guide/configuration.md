@@ -161,6 +161,12 @@ The default is `True`. When a matching session exists and no custom user-agent c
 
 `relogin=True` deletes a rejected saved login token and starts the configured authentication flow again. With `relogin=False`, the saved session is left intact, the authorization error is emitted as a `DisconnectEvent`, and the reconnect cycle continues in user-agent-only mode without authorization.
 
+## Changing the version at runtime
+
+`await api.set_app_version("26.35.1")` selects an exact version from `VersionApi` and updates `appVersion`, the build number, the mobile fingerprint, and the persisted user-agent as one unit. `await api.set_random_app_version()` selects a different version from the same catalog. On an active connection both methods reconnect by default; pass `reconnect=False` to update only the state used by the next connection.
+
+MAX responses with `client.unsupported-version` become `UnsupportedClientVersionMapperError`. The lifecycle sends the error to the version handler and as a `DisconnectEvent`. If the handler does not select a version, Pyromax selects another catalog version before the next reconnect attempt(if `autochange_app_version_if_current_unsupported = True`).
+
 ## Sessions and synchronization
 
 `work_dir` and `session_name` locate the default `AioSqLiteSessionStorage`; `session_id` identifies an account inside it. The stored `SessionInfo` contains token, phone, device identity, user-agent configuration, and sync markers.

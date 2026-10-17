@@ -1,8 +1,7 @@
 from __future__ import annotations
-import logging
 from collections.abc import Sequence, Iterable
-from typing import TYPE_CHECKING, Any, cast, overload, Literal
-from collections.abc import Callable, Coroutine
+from datetime import datetime, timedelta
+from typing import Any, cast, overload, Literal
 import time
 import asyncio
 
@@ -11,8 +10,7 @@ from ..payloads.models import (
     ReadStateMappingModel,
     PollMappingModel,
 )
-from .....protocol.envelope import Envelope, EnvelopeProtocol
-from ..constants import DEFAULT_BACKOFF_CONFIG
+from ..constants import DEFAULT_BACKOFF_CONFIG, ErrorCode
 from .....utils import clean_and_map, Backoff
 from ..methods.immutable import (
     SendMessageMethod,
@@ -55,10 +53,6 @@ from .MixinProtocol import MixinProtocol
 
 from .....models import MessageLink
 
-if TYPE_CHECKING:
-    pass
-
-
 class MessageMixin(MixinProtocol):
     async def send_message(
         self,
@@ -68,6 +62,7 @@ class MessageMixin(MixinProtocol):
         link: MessageLink | None = None,
         parse_tags: bool = True,
         notify: bool = True,
+        send_at: datetime | timedelta | int | None = None,
         **kwargs: Any,
     ) -> Message | None:
         """Send a message through the envelope mapper.
@@ -87,6 +82,9 @@ class MessageMixin(MixinProtocol):
         :type parse_tags: bool
         :param notify: Whether MAX should notify affected users.
         :type notify: bool
+        :param send_at: Scheduled send time as an absolute datetime, a relative
+            timedelta, or Unix time in seconds. None and 0 send immediately.
+        :type send_at: datetime | timedelta | int | None
         :param kwargs: Keyword arguments forwarded to the wrapped callable.
         :type kwargs: Any
         :returns: The resulting Message | None value.
@@ -123,6 +121,7 @@ class MessageMixin(MixinProtocol):
                     elements=elements,
                     link=link,
                     notify=notify,
+                    send_at=send_at,
                 ),
             )
 
@@ -137,7 +136,7 @@ class MessageMixin(MixinProtocol):
                     )
                     title = response.model_dump().get("payload", {}).get("title")
                     match error_if_exist:
-                        case "attachment.not.ready":
+                        case ErrorCode.ATTACHMENT_NOT_READY:
                             response = await self.send(
                                 method=SendMessageMethod(
                                     chat_id=chat_id,
@@ -146,17 +145,19 @@ class MessageMixin(MixinProtocol):
                                     attaches=attachments,
                                     elements=elements,
                                     link=link,
+                                    notify=notify,
+                                    send_at=send_at,
                                 ),
                             )
                             await backoff.asleep()
                             continue
-                        case "proto.payload":
+                        case ErrorCode.PROTOCOL_PAYLOAD:
                             raise SendMessageFileError(f"""
                                 title: {title},
                                 error: {error_if_exist},
                                 message: {error_message}
                                 """)
-                        case "not.found":
+                        case ErrorCode.NOT_FOUND:
                             raise SendMessageNotFoundError(f"""
                                 title: {title},
                                 error: {error_if_exist},
@@ -663,9 +664,9 @@ class MessageMixin(MixinProtocol):
                 check_errors=True,
             )
         except MapperApiError as e:
-            if e.error == "error.message.like.unknown.reaction":
+            if e.error == ErrorCode.UNKNOWN_REACTION:
                 raise ReactionMapperError(
-                    f"Your reaction_id is not supported by server"
+                    "Your reaction_id is not supported by server"
                 ) from e
             raise ReactionMapperError(
                 "Unknown error while adding reaction to message"

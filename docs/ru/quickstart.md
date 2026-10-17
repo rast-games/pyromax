@@ -32,14 +32,17 @@ async def ping(message: Message) -> None:
 
 
 async def main() -> None:
-    api = await MaxApi(device_type=DeviceType.Web)
+    api = await MaxApi(
+        device_type=DeviceType.Web,
+        dispatcher=dispatcher,
+    )
     await dispatcher.start_polling(max_api=api)
 
 
 asyncio.run(main())
 ```
 
-Конструкция `await MaxApi(...)` используется намеренно: асинхронный конструктор создаёт выбранные транспорт, протокол и маппер, после чего выполняет авторизацию. `start_polling()` читает и обрабатывает события до отмены задачи.
+Конструкция `await MaxApi(...)` используется намеренно: асинхронный конструктор создаёт выбранные транспорт, протокол и маппер, после чего выполняет авторизацию. Аргумент `dispatcher=` нужен только для предварительного извлечения lifecycle-listeners, чтобы обработчики `disconnect` и `unsupported_version` работали уже во время авторизации. Он не привязывает dispatcher к клиенту и не запускает polling; один dispatcher можно передать нескольким экземплярам `MaxApi`. `start_polling()` по-прежнему вызывается явно и читает обновления до отмены задачи.
 
 ## Использование готового токена
 
