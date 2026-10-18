@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from .....utils import FingerprintGenerator
     from .....config import EnvelopeMapperConfigV11, ExtraConfig
     from .....models import BaseMaxObject
+    from .....utils import CircuitBreaker
     from .....models.Chat import Chat
     from .....models.Contact import Contact
     from .....interaction import AuthInteractor
@@ -53,6 +54,8 @@ class MixinProtocol(Protocol):
     _mapper_connected: asyncio.Event
     _protocol_connected: asyncio.Event
     _telemetry: TelemetryManager | None
+    _transport_circuit_breaker: CircuitBreaker | None
+    _api_circuit_breaker: CircuitBreaker | None
 
     @property
     def auth_interactor(self) -> AuthInteractor: ...

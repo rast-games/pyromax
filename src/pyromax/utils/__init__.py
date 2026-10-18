@@ -12,6 +12,7 @@ from .html_parser import DeepestTagScanner
 from .clean_and_map import clean_and_map
 from .fingerpint import FingerprintGenerator
 from .hide_call import hide_func_call
+from .circuit_breaker import CircuitBreaker, CircuitBreakerState
 
 __all__ = [
     "Correlator",
@@ -29,4 +30,6 @@ __all__ = [
     "FingerprintGenerator",
     "hide_func_call",
     "DeepestTagScanner",
+    "CircuitBreaker",
+    "CircuitBreakerState",
 ]

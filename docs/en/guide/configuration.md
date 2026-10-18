@@ -7,8 +7,10 @@
 ```python
 from pyromax import MaxApi
 from pyromax.config import (
+    CircuitBreakerConfig,
     EnvelopeMapperConfigV11,
     ExtraConfig,
+    MappingCircuitBreakersConfig,
     WebSocketTransportConfig,
 )
 from pyromax.models import DeviceType, SyncOverrides
@@ -26,6 +28,24 @@ config = ExtraConfig(
         interactive=True,
         use_telemetry=True,
         request_timeout=30,
+        circuit_breakers=MappingCircuitBreakersConfig(
+            transport=CircuitBreakerConfig(
+                failure_threshold=1,
+                recovery_timeout=1,
+                max_cycles=5,
+                backoff_factor=2,
+                max_recovery_timeout=30,
+                wait_when_open=True,
+            ),
+            api=CircuitBreakerConfig(
+                failure_threshold=1,
+                recovery_timeout=1,
+                max_cycles=5,
+                backoff_factor=2,
+                max_recovery_timeout=30,
+                wait_when_open=True,
+            ),
+        ),
     ),
     work_dir=".data",
     session_name="accounts.db",
@@ -120,12 +140,22 @@ If only a mapper profile is supplied, Smart Init selects its matching transport 
 - `sms_auth` defaults to false for Web and true for Desktop/Android;
 - `interactive` controls interactive mapper behavior;
 - `keepalive_ping_interval`, `connect_timeout`, and `request_timeout` control timing;
+- `circuit_breakers` configures independent fail-fast policies for transport failures and API error responses;
 - `registration_config` supplies profile data for a new account;
 - `use_mobile_fingerprint` and `use_telemetry` control mapper features;
 - `mapper_logger` replaces the mapper logger;
 - `user_agent_config` supplies a Web, Desktop, or Android fingerprint.
 
 User-agent configuration includes device ID, locale, timezone, OS, device name, application version, and device-specific fields. Supplying it explicitly marks it as custom and prevents an automatically restored fingerprint from replacing it.
+
+After a request exhausts its normal mapper retries, its circuit breaker opens
+and repeats the complete request as a half-open probe. The default policy
+allows five additional cycles and waits 1, 2, 4, 8, then 16 seconds. The delay
+is capped by `max_recovery_timeout`; setting `max_cycles=0` disables these
+automatic repeats for that error category. With `wait_when_open=True`, new
+requests wait for the next half-open probe; `False` makes them fail fast with
+`CircuitBreakerOpenError`. Breaker-owned retry cycles always wait for their
+cooldown regardless of this option.
 
 ## Directives
 

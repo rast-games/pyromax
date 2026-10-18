@@ -9,6 +9,7 @@ from .ReactionError import (
 )
 from .AnnotationError import AnnotationError
 from .BackoffError import BackoffError
+from .CircuitBreakerError import CircuitBreakerOpenError
 from .FileError import FileError, DownloadFileError
 from .TransportError import (
     BaseTransportError,
@@ -60,6 +61,7 @@ __all__ = [
     "SendMessageFileError",
     "AnnotationError",
     "BackoffError",
+    "CircuitBreakerOpenError",
     "FileError",
     "DownloadFileError",
     "BaseTransportError",

@@ -219,6 +219,12 @@ class TransportMixin(MixinProtocol):
     ) -> Envelope:
         """Execute a mapped method and return its response envelope.
 
+        Transport and API failures are tracked by independent circuit
+        breakers. Transport failures count once after this method's retries
+        are exhausted; API error envelopes count even when ``check_errors``
+        is disabled. A breaker may repeat the complete logical request up to
+        its configured cycle limit, with an increasing recovery delay.
+
         :raises MapperTransportError: If sending or receiving protocol data fails.
         :raises MapperCancelledError: If the request is cancelled.
 
@@ -236,6 +242,110 @@ class TransportMixin(MixinProtocol):
         :rtype: Envelope
         :raises RuntimeError: If lifecycle manager not initialized.
         """
+        transport_breaker = getattr(self, "_transport_circuit_breaker", None)
+        api_breaker = getattr(self, "_api_circuit_breaker", None)
+        if transport_breaker is None and api_breaker is None:
+            return await self._send_with_retries(
+                method=method,
+                data=data,
+                return_exception=return_exception,
+                check_errors=check_errors,
+                max_retries=max_retries,
+                timeout=timeout,
+                wait_auth=wait_auth,
+            )
+
+        transport_cycles = 0
+        api_cycles = 0
+        while True:
+            transport_permit = None
+            api_permit = None
+            try:
+                if transport_breaker is not None:
+                    if transport_breaker.wait_when_open or transport_cycles > 0:
+                        transport_permit = await transport_breaker.wait_for_call()
+                    else:
+                        transport_permit = await transport_breaker.before_call()
+                if api_breaker is not None:
+                    if api_breaker.wait_when_open or api_cycles > 0:
+                        api_permit = await api_breaker.wait_for_call()
+                    else:
+                        api_permit = await api_breaker.before_call()
+            except BaseException:
+                if transport_breaker is not None and transport_permit is not None:
+                    await transport_breaker.record_ignored(transport_permit)
+                raise
+
+            try:
+                response = await self._send_with_retries(
+                    method=method,
+                    data=data,
+                    return_exception=return_exception,
+                    check_errors=check_errors,
+                    max_retries=max_retries,
+                    timeout=timeout,
+                    wait_auth=wait_auth,
+                )
+            except MapperTransportError:
+                if transport_breaker is not None and transport_permit is not None:
+                    await transport_breaker.record_failure(transport_permit)
+                if api_breaker is not None and api_permit is not None:
+                    await api_breaker.record_ignored(api_permit)
+                if (
+                    transport_breaker is not None
+                    and transport_cycles < transport_breaker.max_cycles
+                ):
+                    transport_cycles += 1
+                    continue
+                raise
+            except MapperApiError:
+                if transport_breaker is not None and transport_permit is not None:
+                    await transport_breaker.record_success(transport_permit)
+                if api_breaker is not None and api_permit is not None:
+                    await api_breaker.record_failure(api_permit)
+                if api_breaker is not None and api_cycles < api_breaker.max_cycles:
+                    api_cycles += 1
+                    continue
+                raise
+            except BaseException:
+                if transport_breaker is not None and transport_permit is not None:
+                    await transport_breaker.record_ignored(transport_permit)
+                if api_breaker is not None and api_permit is not None:
+                    await api_breaker.record_ignored(api_permit)
+                raise
+            else:
+                if transport_breaker is not None and transport_permit is not None:
+                    await transport_breaker.record_success(transport_permit)
+
+                has_api_error = isinstance(response.payload, dict) and bool(
+                    response.payload.get("error")
+                )
+                if api_breaker is not None and api_permit is not None:
+                    if has_api_error:
+                        await api_breaker.record_failure(api_permit)
+                    else:
+                        await api_breaker.record_success(api_permit)
+
+                if (
+                    has_api_error
+                    and api_breaker is not None
+                    and api_cycles < api_breaker.max_cycles
+                ):
+                    api_cycles += 1
+                    continue
+                return response
+
+    async def _send_with_retries(
+        self,
+        method: BaseMethod,
+        data: dict[Any, Any] | None = None,
+        return_exception: bool = False,
+        check_errors: bool = False,
+        max_retries: int = 3,
+        timeout: int | float = 30,
+        wait_auth: bool = True,
+    ) -> Envelope:
+        """Run one logical send, including its reconnect retries."""
         if data is None:
             data = {}
 

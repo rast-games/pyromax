@@ -13,7 +13,7 @@ from ..payloads.models import BaseUserAgentMappingModel
 from ..constants import DEVICE_TYPE_TO_USERAGENT_MODEL as DEVICE_TYPE_TO_USER_AGENT_MAP
 from ..LifecycleManager import LifecycleManager
 from ..telemetry import TelemetryManager
-from .....utils import FingerprintGenerator, hide_func_call
+from .....utils import CircuitBreaker, FingerprintGenerator, hide_func_call
 from .....interaction import AuthInteractor
 from .....exceptions import RestartMapperError
 from .MixinProtocol import MixinProtocol
@@ -72,6 +72,35 @@ class ConstructorMixin(
         self.phone: str | None = self.mapper_config.phone
         self.sms_auth = self.mapper_config.sms_auth
         self.request_timeout: float = self.mapper_config.request_timeout
+        circuit_breakers_config = self.mapper_config.circuit_breakers
+        transport_config = circuit_breakers_config.transport
+        api_config = circuit_breakers_config.api
+        self._transport_circuit_breaker = (
+            CircuitBreaker(
+                failure_threshold=transport_config.failure_threshold,
+                recovery_timeout=transport_config.recovery_timeout,
+                max_cycles=transport_config.max_cycles,
+                backoff_factor=transport_config.backoff_factor,
+                max_recovery_timeout=transport_config.max_recovery_timeout,
+                wait_when_open=transport_config.wait_when_open,
+                name="transport",
+            )
+            if transport_config.enabled
+            else None
+        )
+        self._api_circuit_breaker = (
+            CircuitBreaker(
+                failure_threshold=api_config.failure_threshold,
+                recovery_timeout=api_config.recovery_timeout,
+                max_cycles=api_config.max_cycles,
+                backoff_factor=api_config.backoff_factor,
+                max_recovery_timeout=api_config.max_recovery_timeout,
+                wait_when_open=api_config.wait_when_open,
+                name="api",
+            )
+            if api_config.enabled
+            else None
+        )
         self.use_telemetry: bool = self.mapper_config.use_telemetry
         self.keep_alive_interactive: bool = self.mapper_config.interactive
         self.connect_timeout = self.mapper_config.connect_timeout
@@ -127,6 +156,16 @@ class ConstructorMixin(
         if not isinstance(interactor, AuthInteractor):
             raise TypeError("auth_interactor must implement AuthInteractor")
         return interactor
+
+    @property
+    def transport_circuit_breaker(self) -> CircuitBreaker | None:
+        """Return the mapper transport circuit breaker, if enabled."""
+        return self._transport_circuit_breaker
+
+    @property
+    def api_circuit_breaker(self) -> CircuitBreaker | None:
+        """Return the mapper API circuit breaker, if enabled."""
+        return self._api_circuit_breaker
 
     @property
     def DEVICE_TYPE_TO_USERAGENT_MODEL(

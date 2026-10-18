@@ -58,6 +58,7 @@ from .....exceptions import (
     BaseMapperError,
     MapperTransportError,
     MapperApiError,
+    CircuitBreakerOpenError,
     NeedReloginMapperError,
     UnsupportedClientVersionMapperError,
 )
@@ -843,6 +844,8 @@ class AuthMixin(MixinProtocol):
             self._logger.error("Login cancelled")
             await login_backoff.asleep()
             raise RestartMapperError("Failed to login")
+        except CircuitBreakerOpenError:
+            raise
         except TimeoutError:
             self._logger.error("Login timed out")
             raise RestartMapperError("Failed to login - timeout")
@@ -886,6 +889,8 @@ class AuthMixin(MixinProtocol):
             await self._send_user_agent(
                 user_agent=user_agent,
             )
+        except CircuitBreakerOpenError:
+            raise
         except BaseMapperError as e:
             self._logger.warning("Error while sending user agent: %s", e)
             # self._authorized.clear()
@@ -937,7 +942,11 @@ class AuthMixin(MixinProtocol):
             self._authorized.set()
             if self._telemetry is not None:
                 await self._telemetry.start()
-        except (NeedReloginMapperError, UnsupportedClientVersionMapperError):
+        except (
+            NeedReloginMapperError,
+            UnsupportedClientVersionMapperError,
+            CircuitBreakerOpenError,
+        ):
             self._logger.warning("Authentication requires lifecycle handling")
             self._authorized.clear()
             raise
@@ -957,13 +966,20 @@ class AuthMixin(MixinProtocol):
             while True:
                 await asyncio.sleep(self._keepalive_ping_interval)
                 self._logger.debug("send keepalive ping...")
-                pong = await self.send(
-                    method=SendKeepAlivePingMethod(
-                        interactive=self.keep_alive_interactive
-                    ),
-                    return_exception=True,
-                    wait_auth=False,
-                )
+                try:
+                    pong = await self.send(
+                        method=SendKeepAlivePingMethod(
+                            interactive=self.keep_alive_interactive
+                        ),
+                        return_exception=True,
+                        wait_auth=False,
+                    )
+                except CircuitBreakerOpenError as e:
+                    self._logger.debug(
+                        "keepalive skipped while %s circuit is open",
+                        e.circuit or "unknown",
+                    )
+                    continue
                 self._logger.debug("keepalive pong %s", pong)
         except MapperCancelledError:
             self._logger.warning("keepalive ping canceled")

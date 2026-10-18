@@ -18,6 +18,7 @@ from ....exceptions import (
     NeedReloginMapperError,
     UnsupportedClientVersionMapperError,
     AuthInputRequired,
+    CircuitBreakerOpenError,
 )
 
 if TYPE_CHECKING:
@@ -260,6 +261,25 @@ class LifecycleManager:
                 selected_version,
             )
 
+    async def _wait_for_circuit_breaker(
+        self, exception: CircuitBreakerOpenError
+    ) -> None:
+        """Wait for an open mapper circuit without restarting the lifecycle."""
+        breaker = None
+        if exception.circuit == "transport":
+            breaker = getattr(self.mapper, "transport_circuit_breaker", None)
+        elif exception.circuit == "api":
+            breaker = getattr(self.mapper, "api_circuit_breaker", None)
+
+        self._logger.warning(
+            "Mapper %s circuit is open; lifecycle authorization will wait",
+            exception.circuit or "unknown",
+        )
+        if breaker is not None:
+            await breaker.wait_until_available()
+            return
+        await asyncio.sleep(exception.retry_after)
+
     async def _connect(
         self,
         manage_lifecycle_backoff: Backoff,
@@ -483,6 +503,7 @@ class LifecycleManager:
                 NeedReloginMapperError,
                 UnsupportedClientVersionMapperError,
                 AuthInputRequired,
+                CircuitBreakerOpenError,
             ):
                 domain_error = next(
                     (exc for exc in exceptions if isinstance(exc, error_type)),
@@ -583,6 +604,8 @@ class LifecycleManager:
             raise
         except UnsupportedClientVersionMapperError:
             raise
+        except CircuitBreakerOpenError:
+            raise
         except MapperRestartCycleError:
             raise
         except Exception as e:
@@ -638,6 +661,9 @@ class LifecycleManager:
                     await self._handle_unsupported_version(e)
                     if not await self._handle_disconnect(e):
                         raise
+                    continue
+                except CircuitBreakerOpenError as e:
+                    await self._wait_for_circuit_breaker(e)
                     continue
                 except MapperRestartCycleError as e:
                     if not await self._handle_disconnect(e):

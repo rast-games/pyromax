@@ -324,6 +324,33 @@ class BaseMapperConfig(BaseConfig, ABC):
         return "user_agent_config" in self.model_fields_set
 
 
+class CircuitBreakerConfig(BaseConfig):
+    """Failure policy for one category of operations."""
+
+    enabled: bool = True
+    failure_threshold: int = Field(default=1, ge=1)
+    recovery_timeout: float = Field(default=1.0, ge=0)
+    max_cycles: int = Field(default=5, ge=0)
+    backoff_factor: float = Field(default=2.0, ge=1)
+    max_recovery_timeout: float = Field(default=30.0, ge=0)
+    wait_when_open: bool = True
+
+    @model_validator(mode="after")
+    def validate_recovery_timeouts(self) -> Self:
+        if self.max_recovery_timeout < self.recovery_timeout:
+            raise ValueError(
+                "max_recovery_timeout cannot be less than recovery_timeout"
+            )
+        return self
+
+
+class MappingCircuitBreakersConfig(BaseConfig):
+    """Independent failure policies for mapper transport and API errors."""
+
+    transport: CircuitBreakerConfig = Field(default_factory=CircuitBreakerConfig)
+    api: CircuitBreakerConfig = Field(default_factory=CircuitBreakerConfig)
+
+
 USER_AGENTS_V11_PER_DEVICE_TYPE = {
     DeviceType.Android: AndroidEnvelopeMappingUserAgentConfigV11,
     DeviceType.Web: WebEnvelopeMappingUserAgentConfigV11,
@@ -348,6 +375,9 @@ class EnvelopeMapperConfigV11(BaseMapperConfig):
     use_mobile_fingerprint: bool = True
     use_telemetry: bool = True
     request_timeout: float = 30.0
+    circuit_breakers: MappingCircuitBreakersConfig = Field(
+        default_factory=MappingCircuitBreakersConfig
+    )
     mapper_logger: Logger | None = None
 
     @model_validator(mode="after")

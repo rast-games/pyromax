@@ -7,8 +7,10 @@
 ```python
 from pyromax import MaxApi
 from pyromax.config import (
+    CircuitBreakerConfig,
     EnvelopeMapperConfigV11,
     ExtraConfig,
+    MappingCircuitBreakersConfig,
     WebSocketTransportConfig,
 )
 from pyromax.models import DeviceType, SyncOverrides
@@ -26,6 +28,24 @@ config = ExtraConfig(
         interactive=True,
         use_telemetry=True,
         request_timeout=30,
+        circuit_breakers=MappingCircuitBreakersConfig(
+            transport=CircuitBreakerConfig(
+                failure_threshold=1,
+                recovery_timeout=1,
+                max_cycles=5,
+                backoff_factor=2,
+                max_recovery_timeout=30,
+                wait_when_open=True,
+            ),
+            api=CircuitBreakerConfig(
+                failure_threshold=1,
+                recovery_timeout=1,
+                max_cycles=5,
+                backoff_factor=2,
+                max_recovery_timeout=30,
+                wait_when_open=True,
+            ),
+        ),
     ),
     work_dir=".data",
     session_name="accounts.db",
@@ -120,12 +140,22 @@ Preset Smart Init зависит от эффективного `mapper.device_ty
 - `sms_auth` по умолчанию выключен для Web и включён для Desktop/Android;
 - `interactive` управляет интерактивным поведением маппера;
 - `keepalive_ping_interval`, `connect_timeout`, `request_timeout` задают тайминги;
+- `circuit_breakers` задаёт независимые fail-fast политики для transport-ошибок и API error responses;
 - `registration_config` содержит данные нового аккаунта;
 - `use_mobile_fingerprint` и `use_telemetry` включают возможности маппера;
 - `mapper_logger` заменяет logger маппера;
 - `user_agent_config` задаёт Web-, Desktop- или Android-fingerprint.
 
 User-agent config содержит device ID, locale, timezone, ОС, имя устройства, версию приложения и специфичные для устройства поля. Явно переданный объект считается пользовательским и не заменяется fingerprint из сессии.
+
+После исчерпания обычных retry запроса его circuit breaker
+открывается и повторяет полный запрос как half-open probe.
+По умолчанию разрешены пять дополнительных циклов с паузами 1, 2,
+4, 8 и 16 секунд. Задержка ограничена `max_recovery_timeout`;
+`max_cycles=0` отключает автоматические повторы для этой категории ошибок.
+При `wait_when_open=True` новые запросы ждут следующий half-open probe;
+`False` сразу возвращает `CircuitBreakerOpenError`. Циклы повтора, уже
+запущенные breaker’ом, в любом случае ждут свой cooldown.
 
 ## Директивы
 
