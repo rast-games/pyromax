@@ -4,7 +4,7 @@ from typing import Any, TypeVar, Generic, TYPE_CHECKING
 from abc import abstractmethod
 
 
-from ...mixins import AsyncInitializerMixin, AsyncConstructorMeta
+from ...mixins import AsyncInitializerMixin
 from ...encoding import BaseEncoding
 
 if TYPE_CHECKING:

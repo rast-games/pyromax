@@ -4,10 +4,8 @@ import time
 from random import Random
 from typing import Any
 
-from pydantic import Field
 
 from ..payloads.models import TelemetryEventMappingModel
-from ..payloads.requests import TelemetryRequest
 
 
 class TelemetryPayloadBuilder:

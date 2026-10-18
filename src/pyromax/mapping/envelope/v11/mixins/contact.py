@@ -3,7 +3,6 @@ from typing import cast
 
 from .MixinProtocol import MixinProtocol, T_USER
 from .....models import Contact, Session, ContactInfo
-from .....exceptions import MapperApiError
 from ..methods.immutable import (
     GetGeneralInfoAboutMemberMethod,
     SearchByPhoneMethod,
@@ -167,7 +166,7 @@ class ContactMixin(MixinProtocol):
         :type contact_id: int
         :raises RuntimeError: If mapper not bound to max_api instance.
         """
-        response = await self.send(
+        await self.send(
             method=ContactActionMethod(
                 contact_id=contact_id,
                 action="REMOVE",

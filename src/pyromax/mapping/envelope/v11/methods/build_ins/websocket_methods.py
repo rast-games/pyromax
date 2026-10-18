@@ -4,12 +4,10 @@ from typing import TYPE_CHECKING, Any
 
 from .base import LoginBuildInMappingMethod
 from ......exceptions import MapperApiError
-from ..immutable import GetUserDataMethod
 from ...payloads.responses import ChoiceLoginVariantResponse
 
 if TYPE_CHECKING:
     from ...Mapper import Mapper
-    from ...payloads.responses import MetadataResponse
 
 
 class WebSocketLoginBuildInMappingMethod(LoginBuildInMappingMethod):

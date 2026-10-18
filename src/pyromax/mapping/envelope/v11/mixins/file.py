@@ -1,11 +1,9 @@
 from __future__ import annotations
-import logging
 from http import HTTPStatus
 
 import aiohttp
 
-from collections.abc import Callable, Coroutine
-from typing import Any, cast, TYPE_CHECKING
+from typing import Any, cast
 
 from ..methods.immutable import GetUrlToUploadFileMethod
 from ..payloads.responses import ResponseWithUrl
@@ -20,7 +18,7 @@ from ..translate.ToDTO import (
     upload_file,
 )
 from ....bases import BaseMapper
-from .....protocol import BaseMaxProtocol, Envelope
+from .....protocol import BaseMaxProtocol
 from .....exceptions import DownloadFileError
 
 from .MixinProtocol import MixinProtocol

@@ -3,9 +3,8 @@ import asyncio
 from asyncio import Task, Lock, Event
 import logging
 from typing import TYPE_CHECKING, Any, _ProtocolMeta, TypeVar
-from collections.abc import Callable, Coroutine
 
-from typing import cast, Protocol
+from typing import cast
 
 from .....config import ExtraConfig, EnvelopeMapperConfigV11
 from .....mixins import AsyncInitializerMixin, AsyncConstructorMeta
@@ -17,16 +16,13 @@ from ..telemetry import TelemetryManager
 from .....utils import FingerprintGenerator, hide_func_call
 from .....interaction import AuthInteractor
 from .....exceptions import RestartMapperError
+from .MixinProtocol import MixinProtocol
 
 if TYPE_CHECKING:
     from .....core import MaxApi
-    from ..Mapper import Mapper
-    from .....models import ApkBuildFingerprint, RegistrationConfig, BaseMaxObject
+    from .....models import ApkBuildFingerprint, BaseMaxObject
 
 T = TypeVar("T", bound="BaseMaxObject")
-
-
-from .MixinProtocol import MixinProtocol
 
 # ProtocolMeta: type = type(Protocol)
 

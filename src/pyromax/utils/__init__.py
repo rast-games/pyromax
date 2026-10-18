@@ -1,8 +1,12 @@
-from .correlator import *
+from .correlator import Correlator
 from .debug import debug_tasks, get_caller_info, EventFake
 from .return_self import return_self_after_method
 from .inspect_func_and_form_args import inspect_and_form
-from .get_random_creeds import *
+from .get_random_creeds import (
+    get_random_device_id,
+    get_random_device_id_numeric,
+    get_random_string,
+)
 from .backoff import Backoff, BackoffConfig
 from .html_parser import DeepestTagScanner
 from .clean_and_map import clean_and_map
@@ -24,4 +28,5 @@ __all__ = [
     "EventFake",
     "FingerprintGenerator",
     "hide_func_call",
+    "DeepestTagScanner",
 ]

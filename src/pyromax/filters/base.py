@@ -10,7 +10,7 @@ from ..utils import inspect_and_form
 
 if TYPE_CHECKING:
     from ..models import BaseMaxObject
-    from ..dispatcher.event import Update, ResolvedUpdate
+    from ..dispatcher.event import ResolvedUpdate
 
 
 class Filter(ABC):
@@ -53,7 +53,7 @@ class Filter(ABC):
         if self._SKIP_CHECK_PREPARATIONS:
             return await self._check(update, data, *args, **kwargs)
 
-        if not type(update) in self.work_with:
+        if type(update) not in self.work_with:
             return False
 
         data.update({type(elem): elem for elem in args})

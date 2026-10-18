@@ -6,7 +6,7 @@ from typing import Any, TYPE_CHECKING
 from .base import BaseEncoding
 
 if TYPE_CHECKING:
-    from ..mixins import AsyncConstructorType
+    pass
 
 ENCODINGS = {}
 

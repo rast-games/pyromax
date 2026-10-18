@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import TYPE_CHECKING
 
 from ..models import SessionInfo, SessionKey
 
 if TYPE_CHECKING:
-    from ..core import MaxApi
+    pass
 
 
 class BaseSessionStorage(ABC):

@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Awaitable
-from typing import TypeVar, Generic, TYPE_CHECKING, Any
+from typing import Generic, TYPE_CHECKING, Any
 
 from .base import SkipHandler
 from ..ObserverPattern import Observer
 from .Handler import Handler, FilterObject
 from ..middlewares.manager import MiddlewareManager
 from ..middlewares.base import MiddlewareType
-from ...models import BaseMaxObject
-from ...protocol import Response
 from .UpdateType import ResolvedUpdate, MaxObject, UNHANDLED
 
 if TYPE_CHECKING:

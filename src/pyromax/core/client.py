@@ -7,7 +7,6 @@ from contextlib import suppress
 from typing import (
     TYPE_CHECKING,
     AsyncGenerator,
-    Union,
 )
 from collections.abc import Callable, Awaitable
 from typing import Any, cast
@@ -49,7 +48,7 @@ if TYPE_CHECKING:
     )
     from ..auth import AuthMiddlewareManager
 
-from .context import *
+from .context import ENCODINGS, MAPPERS, PROTOCOLS, TRANSPORTS, from_registry
 from .CoreMixins import FullMixin, AsyncConstructorProtocolMeta
 from ..exceptions import (
     MapperTransportError,

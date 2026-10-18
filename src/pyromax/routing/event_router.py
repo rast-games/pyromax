@@ -1,12 +1,10 @@
 from __future__ import annotations
 import asyncio
-from asyncio import CancelledError, Event, Task, Future
+from asyncio import Task, Future
 from collections.abc import Iterable
 from contextlib import suppress
 from typing import (
     Any,
-    Protocol,
-    Awaitable,
     TYPE_CHECKING,
     TypeVar,
     Generic,

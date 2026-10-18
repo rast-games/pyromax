@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 from .bases import BaseTransport
 
 if TYPE_CHECKING:
-    from ..mixins import AsyncConstructorType
+    pass
 
 TRANSPORTS = {}
 

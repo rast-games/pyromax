@@ -1,4 +1,4 @@
-from typing import cast, Any
+from typing import cast
 
 from .Base import BaseMaxApiMethod
 from ..models.Folder import FolderUpdate

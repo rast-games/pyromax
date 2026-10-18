@@ -12,7 +12,6 @@ from .models import (
     ReactionInfoMappingModel,
     ContactMappingModel,
     PasswordConfig,
-    CreateGroupMessageMappingModel,
     ChatMappingModel,
     SessionMappingModel,
     PollStateMappingModel,

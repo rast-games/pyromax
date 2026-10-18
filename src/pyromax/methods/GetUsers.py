@@ -1,4 +1,4 @@
-from typing import Union, cast
+from typing import cast
 
 from .Base import BaseMaxApiMethod
 from ..models.Contact import Contact

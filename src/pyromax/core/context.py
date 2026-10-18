@@ -14,7 +14,6 @@ from ..encoding.registry import ENCODINGS as _ENCODINGS
 from ..protocol import BaseMaxProtocol
 from ..transport import BaseTransport
 from ..mapping import BaseMapper
-from ..encoding import BaseEncoding
 
 if TYPE_CHECKING:
     from ..models.enum.Registrys import BaseRegistry

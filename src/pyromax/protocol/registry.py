@@ -6,7 +6,7 @@ from typing import Any, TYPE_CHECKING
 from .bases import BaseMaxProtocol
 
 if TYPE_CHECKING:
-    from ..mixins import AsyncConstructorType
+    pass
 
 PROTOCOLS = {}
 

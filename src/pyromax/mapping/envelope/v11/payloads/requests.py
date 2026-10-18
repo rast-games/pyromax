@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from .shared import CamelCaseModel, PollFlagsMappingModel, PollAnswerMappingModel
+from .shared import CamelCaseModel, PollAnswerMappingModel
 from .models import (
     BaseUserAgentMappingModel,
     MessageMappingModel,

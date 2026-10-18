@@ -1,4 +1,4 @@
-from typing import TypeVar, TYPE_CHECKING, TypeAlias, Any
+from typing import TypeVar, TYPE_CHECKING, TypeAlias
 
 if TYPE_CHECKING:
     from ...models import BaseMaxObject

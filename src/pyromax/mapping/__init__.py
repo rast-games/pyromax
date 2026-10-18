@@ -1,4 +1,4 @@
-from .bases import *
+from .bases import BaseMapper
 from .envelope.v11.Mapper import Mapper as EnvelopeMapperV11
 from .registry import MAPPERS
 

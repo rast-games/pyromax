@@ -4,8 +4,6 @@ from typing import Any, TypeVar, TYPE_CHECKING, TypeAlias, Generic
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Awaitable
 
-from ...models import BaseMaxObject
-from ...protocol import Response
 
 if TYPE_CHECKING:
     from ..event import MaxObject

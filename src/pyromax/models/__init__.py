@@ -1,7 +1,16 @@
 from .base import BaseMaxObject
 from .Message import DelayedAttributes, Message, MessageLink
 from .EmojiReaction import EmojiReaction
-from .Attachments import *
+from .Attachments import (
+    BaseFileAttachment,
+    ControlAttachment,
+    FileAttachment,
+    PhotoAttachment,
+    ShareAttachment,
+    VideoAttachment,
+    VideoNoteAttachment,
+    VoiceAttachment,
+)
 from .Contact import Contact
 from .UserAgent import BaseUserAgent
 from .Helpers import DataDict, MapperUpdateTranslator

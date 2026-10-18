@@ -11,15 +11,14 @@ from ..ObserverPattern import Observer
 from ...utils import inspect_and_form
 from ...filters.magic import MagicFilter
 
-from .UpdateType import UNHANDLED, ResolvedUpdate, MaxObject
+from .UpdateType import ResolvedUpdate, MaxObject
 from ...filters import Filter
 
 
 from magic_filter.magic import MagicFilter as OriginalMagicFilter
 
 if TYPE_CHECKING:
-    from ...models import DataDict
-    from ...models import BaseMaxObject
+    pass
 
 
 f = TypeVar("f", bound=Filter | Callable[[MaxObject, Mapping[Any, Any]], Any])

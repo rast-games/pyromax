@@ -1,5 +1,5 @@
 from __future__ import annotations
-from enum import Enum, IntFlag
+from enum import Enum
 from abc import abstractmethod, ABC
 import random
 from typing import Annotated, Literal, Any, ClassVar, TYPE_CHECKING, Self
@@ -13,7 +13,6 @@ from pydantic import (
     model_validator,
     field_validator,
     ValidationError,
-    BaseModel,
 )
 
 from .....models import (

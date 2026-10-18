@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import cast
 
 from .Base import BaseMaxApiMethod
 from ..models import TwoFactorAction

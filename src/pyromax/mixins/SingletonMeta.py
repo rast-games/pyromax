@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar
 
 
 class SingletonMeta(type):

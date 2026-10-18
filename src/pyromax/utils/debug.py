@@ -75,7 +75,6 @@ class EventFake:
 
     def set(self) -> None:
         """Set."""
-        caller = get_caller_info(2)
         self.event.set()
 
     def clear(self) -> None:

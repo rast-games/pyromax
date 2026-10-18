@@ -6,13 +6,11 @@ from .event import (
     MessageEventObserver,
     ReplyToMessageEventObserver,
     MessageForwardEventObserver,
-    RemovedMessageEventObserver,
     EmojiReactionAddObserver,
     EmojiReactionRemoveObserver,
     UNHANDLED,
     UNKNOWN_UPDATE,
     StandardMaxEventObserver,
-    UpdateMaxEventObserver,
     MaxObject,
 )
 from ..models import (
@@ -27,7 +25,6 @@ from ..models import (
     TypingEvent,
     UnsupportedClientVersionEvent,
 )
-from ..protocol import Envelope
 
 
 class Router(Subject):

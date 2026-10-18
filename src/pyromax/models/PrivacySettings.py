@@ -1,4 +1,3 @@
-from typing import Literal
 
 from .base import BaseMaxObject
 from .enum import PrivacyAccess

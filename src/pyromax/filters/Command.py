@@ -165,7 +165,7 @@ class Command(Filter):
 
         try:
             command = await self.parse_command(text=text, max_api=max_api)
-        except CommandException as e:
+        except CommandException:
             return False
 
         result = {type(command): command}

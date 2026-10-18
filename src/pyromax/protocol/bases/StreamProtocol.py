@@ -1,10 +1,7 @@
 from abc import abstractmethod
-from collections.abc import Callable
-from typing import Any, Generic
+from typing import Generic
 
 from .base import BaseMaxProtocol, T, R, TRANSPORT_TYPE
-from ...transport import StreamTransport
-from ...encoding import BaseEncoding
 
 
 class StreamMaxProtocol(

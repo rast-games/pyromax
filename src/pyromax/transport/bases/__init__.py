@@ -1,5 +1,5 @@
-from .base import *
-from .StreamTransport import *
+from .base import BaseTransport
+from .StreamTransport import StreamTransport
 
 __all__ = [
     "BaseTransport",

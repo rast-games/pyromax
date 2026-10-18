@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import types
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from .StandardMaxEventObserver import StandardMaxEventObserver
-from ...models import BaseMaxObject
 from .UpdateType import Update, MaxObject
 from ...protocol import Response
 

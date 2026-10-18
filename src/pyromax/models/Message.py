@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timedelta
-from typing import Optional, Literal, Any, TYPE_CHECKING
+from typing import Literal, Any, TYPE_CHECKING
 
 from .base import BaseMaxObject
 from .ReadState import ReadState

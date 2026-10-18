@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import uuid
 from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import parse_qsl
 
 import aiosqlite as asq
 
 from .base import BaseSessionStorage
-from ..models.Session import SessionInfo, DEFAULT_CONFIG_HASH, SessionKey
+from ..models.Session import SessionInfo, SessionKey
 
 if TYPE_CHECKING:
-    from .. import MaxApi
+    pass
 
 
 SESSION_COLUMNS = """

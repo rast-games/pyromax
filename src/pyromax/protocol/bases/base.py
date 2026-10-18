@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from asyncio import Event
 from collections.abc import Awaitable, Iterable
 from typing import Any, TYPE_CHECKING, Generic
 from typing_extensions import TypeVar
 
-from ...mixins import AsyncInitializerMixin, AsyncConstructorMeta
+from ...mixins import AsyncInitializerMixin
 from .request_response import Request, Response
 
 if TYPE_CHECKING:

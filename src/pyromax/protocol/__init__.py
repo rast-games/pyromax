@@ -1,5 +1,12 @@
 from .envelope import Envelope, EnvelopeProtocol
-from .bases import *
+from .bases import (
+    BaseMaxProtocol,
+    BaseMaxProtocolMethod,
+    ErrorResponse,
+    Request,
+    Response,
+    StreamMaxProtocol,
+)
 from .registry import PROTOCOLS
 
 __all__ = [

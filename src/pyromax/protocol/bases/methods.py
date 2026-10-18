@@ -1,4 +1,4 @@
-from typing import Protocol, TypeVar, Any, Generic
+from typing import Protocol, TypeVar, Any
 
 from .request_response import Request
 

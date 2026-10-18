@@ -5,7 +5,7 @@ from functools import reduce
 from operator import or_
 
 from .MixinProtocol import MixinProtocol, T_CHAT
-from .....exceptions import MapperApiError, ParseMaxApiError
+from .....exceptions import MapperApiError
 from .....models import Chat, Message, Member, ChannelPermissions
 from ..methods.immutable import (
     CreateChatMethod,
@@ -592,7 +592,7 @@ class ChatMixin(MixinProtocol):
             for permission in permissions
         ]
 
-        response = await self.send(
+        await self.send(
             method=AddAdminMethod(
                 chat_id=chat_id,
                 user_ids=[user_id],

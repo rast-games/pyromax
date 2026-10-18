@@ -6,7 +6,6 @@ from pydantic import ConfigDict
 from .base import BaseMaxObject
 
 if TYPE_CHECKING:
-    from ..core import MaxApi
     from ..mapping import BaseMapper
     from ..protocol import BaseMaxProtocol
     from ..transport import BaseTransport

@@ -8,15 +8,13 @@ from pydantic import BaseModel
 
 
 from ...protocol import Response
-from ...mixins import AsyncInitializerMixin, AsyncConstructorMeta
+from ...mixins import AsyncInitializerMixin
 
 if TYPE_CHECKING:
     # from ...models import BaseFileAttachment, BaseMaxObject, Message, Contact
     from ...models.Message import Message
     from ...models.Contact import Contact
     from ...models import ApkBuildFingerprint, BaseMaxObject, BaseFileAttachment
-    from ...protocol import Request
-    from ...dispatcher.event import Update
     from ...core import MaxApi
     from ...protocol import BaseMaxProtocol
     from ...methods import BaseMaxApiMethod

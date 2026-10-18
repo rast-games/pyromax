@@ -1,13 +1,11 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Any
-import asyncio
 
 from ......utils import Backoff
 from ......exceptions import MapperApiError
 from .base import LoginBuildInMappingMethod
 from ...payloads.responses import ChoiceLoginVariantResponse
 
-from ..immutable import GetUserDataMethod
 
 if TYPE_CHECKING:
     from ...Mapper import Mapper

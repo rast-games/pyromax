@@ -1,5 +1,3 @@
-from typing import TypeVar
-
 from .StandardMaxEventObserver import StandardMaxEventObserver
 from .MessageEventObservers import (
     MessageEventObserver,
@@ -7,7 +5,11 @@ from .MessageEventObservers import (
     MessageForwardEventObserver,
     RemovedMessageEventObserver,
 )
-from .EmojiReactionObservers import *
+from . import EmojiReactionObservers
+from .EmojiReactionObservers import (
+    EmojiReactionAddObserver,
+    EmojiReactionRemoveObserver,
+)
 from .UpdateMaxEventObserver import UpdateMaxEventObserver
 from .Handler import Handler
 from .UpdateType import Update, MaxObject, UNHANDLED, UNKNOWN_UPDATE, ResolvedUpdate

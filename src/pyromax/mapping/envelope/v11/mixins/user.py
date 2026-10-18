@@ -1,17 +1,13 @@
 import uuid
-from collections.abc import Sequence, Coroutine, Callable
 from typing import cast, Any
 
 from .....models import (
-    Contact,
     PhotoAttachment,
     Profile,
     FolderUpdate,
     FolderList,
     PrivacySettings,
 )
-from .....protocol.envelope import Envelope
-from ..payloads.shared import CamelCaseModel
 from ..payloads.responses import (
     ResponseWithUrl,
     ProfileContainsResponse,
@@ -35,8 +31,6 @@ from ..payloads.models import (
     FolderListMappingModel,
 )
 from ..translate.ToDTO import (
-    FILE_OPCODES,
-    FALLBACK_FILE_OPCODE,
     translate_models,
     upload_file,
 )
@@ -310,7 +304,7 @@ class UserMixin(MixinProtocol):
         """Logout.
         """
         self._logger.info("logout")
-        response = await self.send(method=LogoutMethod())
+        await self.send(method=LogoutMethod())
         return None
 
     async def set_presence(self, online: bool) -> None:

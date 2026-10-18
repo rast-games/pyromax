@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 from .bases.BaseMapper import BaseMapper
 

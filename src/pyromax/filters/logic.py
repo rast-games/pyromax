@@ -1,6 +1,5 @@
 from __future__ import annotations
 from abc import ABC
-from collections.abc import Callable, Awaitable
 from typing import Any
 
 
@@ -8,12 +7,11 @@ from typing_extensions import TYPE_CHECKING
 
 from ..models import BaseMaxObject, DataDict
 from .base import Filter
-from ..dispatcher.event.UpdateType import Update
 
 if TYPE_CHECKING:
     from ..dispatcher.event.Handler import FilterObject
     from .magic import MagicFilter
-    from ..dispatcher.event import Update, ResolvedUpdate
+    from ..dispatcher.event import ResolvedUpdate
 
 
 class _LogicFilter(Filter, ABC):

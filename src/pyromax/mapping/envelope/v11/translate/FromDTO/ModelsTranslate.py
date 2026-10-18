@@ -282,10 +282,6 @@ def reverse_translate_privacy_settings(
     :returns: The resulting PrivacySettingsMappingModel value.
     :rtype: PrivacySettingsMappingModel
     """
-    none_or_not_none = lambda value: (
-        reverse_translate_privacy_access(value) if value is not None else None
-    )
-
     def translate_access(
         value: PrivacyAccess | None,
     ) -> Literal["ALL", "CONTACTS", "_NONE_"] | None:
