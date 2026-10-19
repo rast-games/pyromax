@@ -58,6 +58,13 @@ from .EditComment import EditCommentMethod
 from .DeleteComment import DeleteCommentMethod
 from .AddCommentReaction import AddCommentReactionMethod
 from .SetChannelComments import SetChannelCommentsMethod
+from .GetComment import GetCommentMethod
+from .GetComments import GetCommentsMethod
+from .RemoveCommentReaction import RemoveCommentReactionMethod
+from .SubscribeComments import SubscribeCommentsMethod
+from .GetCommentsInfo import GetCommentsInfoMethod
+from .DeleteUserComments import DeleteUserCommentsMethod
+from .BlockCommentAuthor import BlockCommentAuthorMethod
 
 __all__ = [
     "BaseMaxApiMethod",
@@ -122,4 +129,11 @@ __all__ = [
     "DeleteCommentMethod",
     "AddCommentReactionMethod",
     "SetChannelCommentsMethod",
+    "GetCommentMethod",
+    "GetCommentsMethod",
+    "RemoveCommentReactionMethod",
+    "SubscribeCommentsMethod",
+    "GetCommentsInfoMethod",
+    "DeleteUserCommentsMethod",
+    "BlockCommentAuthorMethod",
 ]

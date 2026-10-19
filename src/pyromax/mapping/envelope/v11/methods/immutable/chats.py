@@ -16,6 +16,7 @@ from ...payloads.requests import (
     DeleteChatRequest,
     AddAdminRequest,
     SetChannelCommentsRequest,
+    BlockCommentAuthorRequest,
 )
 from ...payloads.models import (
     CreateGroupMessageMappingModel,
@@ -119,6 +120,21 @@ class SetChannelCommentsMethod(BaseMethod):
             options=ChannelCommentsMappingModel(
                 comments=self.args["enabled"],
             ),
+        ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
+class BlockCommentAuthorMethod(BaseMethod):
+    async def __call__(self, request: Envelope) -> Envelope:
+        request.opcode = Opcode.OPERATION_WITH_CHAT_MEMBER
+        request.cmd = Cmd.REQUEST
+        request.ver = VERSION
+        request.payload = BlockCommentAuthorRequest(
+            chat_id=self.args["chat_id"],
+            post_id=self.args["post_id"],
+            user_ids=self.args["user_ids"],
+            message_id=self.args["message_id"],
+            clean_msg_period=self.args["clean_msg_period"],
         ).model_dump(by_alias=True, exclude_none=True)
         return request
 
@@ -321,6 +337,7 @@ __all__ = [
     "ChatMemberOperationMethod",
     "ChangeGroupSettingsMethod",
     "SetChannelCommentsMethod",
+    "BlockCommentAuthorMethod",
     "ChangeGroupProfileMethod",
     "JoinGroupMethod",
     "ResolveGroupByLinkMethod",

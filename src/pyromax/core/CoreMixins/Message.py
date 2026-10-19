@@ -21,6 +21,12 @@ from ...methods import (
     EditCommentMethod,
     DeleteCommentMethod,
     AddCommentReactionMethod,
+    GetCommentMethod,
+    GetCommentsMethod,
+    RemoveCommentReactionMethod,
+    SubscribeCommentsMethod,
+    GetCommentsInfoMethod,
+    DeleteUserCommentsMethod,
 )
 
 from ...exceptions import SendMessageError, MapperApiError, ReactionError
@@ -34,6 +40,7 @@ from ...models import (
     Poll,
     PollState,
     Chat,
+    CommentsInfoUpdate,
 )
 from .CoreMixinsProtocol import CoreMixinsProtocol
 
@@ -708,6 +715,40 @@ class MessageMixin(CoreMixinsProtocol):
             ),
         )
 
+    async def get_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        message_ids: list[int | str],
+    ) -> list[Message]:
+        """Get specific comments from a channel post."""
+        return cast(
+            list[Message],
+            await self(
+                GetCommentsMethod,
+                chat_id=chat_id,
+                post_id=post_id,
+                message_ids=message_ids,
+            ),
+        )
+
+    async def get_comment(
+        self,
+        chat_id: int,
+        post_id: int,
+        message_id: int | str,
+    ) -> Message | None:
+        """Get one comment from a channel post."""
+        return cast(
+            Message | None,
+            await self(
+                GetCommentMethod,
+                chat_id=chat_id,
+                post_id=post_id,
+                message_id=message_id,
+            ),
+        )
+
     async def delete_comment(
         self,
         chat_id: int,
@@ -743,5 +784,73 @@ class MessageMixin(CoreMixinsProtocol):
                 post_id=post_id,
                 message_id=message_id,
                 reaction=reaction,
+            ),
+        )
+
+    async def remove_comment_reaction(
+        self,
+        chat_id: int,
+        post_id: int,
+        message_id: int | str,
+    ) -> EmojiReaction | None:
+        """Remove the current account's reaction from a comment."""
+        return cast(
+            EmojiReaction | None,
+            await self(
+                RemoveCommentReactionMethod,
+                chat_id=chat_id,
+                post_id=post_id,
+                message_id=message_id,
+            ),
+        )
+
+    async def subscribe_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        subscribe: bool = True,
+    ) -> None:
+        """Subscribe to or unsubscribe from a post's comment events."""
+        return cast(
+            None,
+            await self(
+                SubscribeCommentsMethod,
+                chat_id=chat_id,
+                post_id=post_id,
+                subscribe=subscribe,
+            ),
+        )
+
+    async def get_comments_info(
+        self,
+        chat_id: int,
+        post_ids: list[int],
+    ) -> list[CommentsInfoUpdate]:
+        """Get comment counters for channel posts."""
+        return cast(
+            list[CommentsInfoUpdate],
+            await self(
+                GetCommentsInfoMethod,
+                chat_id=chat_id,
+                post_ids=post_ids,
+            ),
+        )
+
+    async def delete_user_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        user_id: int,
+        message_id: int | str,
+    ) -> bool:
+        """Delete a user's comments through the dedicated server operation."""
+        return cast(
+            bool,
+            await self(
+                DeleteUserCommentsMethod,
+                chat_id=chat_id,
+                post_id=post_id,
+                user_id=user_id,
+                message_id=message_id,
             ),
         )

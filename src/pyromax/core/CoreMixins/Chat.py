@@ -21,6 +21,7 @@ from ...methods import (
     DeleteChatMethod,
     AddAdminMethod,
     SetChannelCommentsMethod,
+    BlockCommentAuthorMethod,
 )
 from ...models import (
     Message,
@@ -501,5 +502,26 @@ class ChatMixin(CoreMixinsProtocol):
                 SetChannelCommentsMethod,
                 chat_id=chat_id,
                 enabled=enabled,
+            ),
+        )
+
+    async def block_comment_author(
+        self,
+        chat_id: int,
+        post_id: int,
+        user_ids: list[int],
+        message_id: int | str,
+        clean_msg_period: int = 0,
+    ) -> bool:
+        """Block comment authors and optionally remove their comments."""
+        return cast(
+            bool,
+            await self(
+                BlockCommentAuthorMethod,
+                chat_id=chat_id,
+                post_id=post_id,
+                user_ids=user_ids,
+                message_id=message_id,
+                clean_msg_period=clean_msg_period,
             ),
         )

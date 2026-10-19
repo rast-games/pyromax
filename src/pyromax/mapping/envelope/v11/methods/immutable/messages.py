@@ -20,6 +20,11 @@ from ...payloads.requests import (
     CommentsHistoryRequest,
     DeleteCommentRequest,
     AddCommentReactionRequest,
+    GetCommentsRequest,
+    RemoveCommentReactionRequest,
+    SubscribeCommentsRequest,
+    GetCommentsInfoRequest,
+    DeleteUserCommentsRequest,
 )
 from ...translate.FromDTO import reverse_translate_message
 from ...payloads.models import (
@@ -164,6 +169,15 @@ class GetMessagesMethod(BaseMethod):
         return request
 
 
+class GetCommentsMethod(GetMessagesMethod):
+    async def __call__(self, request: Envelope) -> Envelope:
+        request = await super().__call__(request)
+        request.payload = GetCommentsRequest.model_validate(
+            {**request.payload, "postId": self.args["post_id"]}
+        ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
 class GetChatHistoryMethod(BaseMethod):
     circuit_breaker_retry_safe = True
 
@@ -304,6 +318,56 @@ class RemoveReactionMethod(BaseMethod):
         return request
 
 
+class RemoveCommentReactionMethod(RemoveReactionMethod):
+    async def __call__(self, request: Envelope) -> Envelope:
+        request = await super().__call__(request)
+        request.payload = RemoveCommentReactionRequest.model_validate(
+            {**request.payload, "postId": self.args["post_id"]}
+        ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
+class SubscribeCommentsMethod(BaseMethod):
+    async def __call__(self, request: Envelope) -> Envelope:
+        request.opcode = Opcode.SUBSCRIBE_COMMENTS
+        request.cmd = Cmd.REQUEST
+        request.ver = VERSION
+        request.payload = SubscribeCommentsRequest(
+            chat_id=self.args["chat_id"],
+            post_id=self.args["post_id"],
+            subscribe=self.args["subscribe"],
+        ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
+class GetCommentsInfoMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
+    async def __call__(self, request: Envelope) -> Envelope:
+        request.opcode = Opcode.GET_COMMENTS_INFO
+        request.cmd = Cmd.REQUEST
+        request.ver = VERSION
+        request.payload = GetCommentsInfoRequest(
+            chat_id=self.args["chat_id"],
+            post_ids=self.args["post_ids"],
+        ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
+class DeleteUserCommentsMethod(BaseMethod):
+    async def __call__(self, request: Envelope) -> Envelope:
+        request.opcode = Opcode.DELETE_USER_COMMENTS
+        request.cmd = Cmd.REQUEST
+        request.ver = VERSION
+        request.payload = DeleteUserCommentsRequest(
+            chat_id=self.args["chat_id"],
+            post_id=self.args["post_id"],
+            user_id=self.args["user_id"],
+            message_id=self.args["message_id"],
+        ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
 class GetReactionsMethod(BaseMethod):
     circuit_breaker_retry_safe = True
 
@@ -373,6 +437,7 @@ __all__ = [
     "EditMessageMethod",
     "EditCommentMethod",
     "GetMessagesMethod",
+    "GetCommentsMethod",
     "GetChatHistoryMethod",
     "FetchCommentsMethod",
     "DeleteMessageMethod",
@@ -380,6 +445,10 @@ __all__ = [
     "PinMessageMethod",
     "AddReactionMethod",
     "AddCommentReactionMethod",
+    "RemoveCommentReactionMethod",
+    "SubscribeCommentsMethod",
+    "GetCommentsInfoMethod",
+    "DeleteUserCommentsMethod",
     "RemoveReactionMethod",
     "GetReactionsMethod",
     "ReadMessageMethod",

@@ -16,6 +16,7 @@ from .models import (
     SessionMappingModel,
     PollStateMappingModel,
     AuthConfigMappingModel,
+    CommentsInfoUpdateMappingModel,
 )
 
 
@@ -151,6 +152,12 @@ class AddOrRemoveReactionResponse(CamelCaseModel):
 
 class GetReactionsResponse(CamelCaseModel):
     messages_reactions: dict[str | int, ReactionInfoMappingModel]
+
+
+class CommentsInfoUpdatesResponse(CamelCaseModel):
+    comments_info_updates: list[CommentsInfoUpdateMappingModel] = Field(
+        default_factory=list
+    )
 
 
 class CreateGroupResponse(CamelCaseModel):

@@ -149,6 +149,10 @@ class GetMessagesRequest(CamelCaseModel):
     message_ids: list[int | str]
 
 
+class GetCommentsRequest(GetMessagesRequest):
+    post_id: int
+
+
 class GetChatHistoryRequest(CamelCaseModel):
     chat_id: int
     forward: int
@@ -202,6 +206,28 @@ class RemoveReactionRequest(CamelCaseModel):
     message_id: str | int
 
 
+class RemoveCommentReactionRequest(RemoveReactionRequest):
+    post_id: int
+
+
+class SubscribeCommentsRequest(CamelCaseModel):
+    chat_id: int
+    post_id: int
+    subscribe: bool = True
+
+
+class GetCommentsInfoRequest(CamelCaseModel):
+    chat_id: int
+    post_ids: list[int]
+
+
+class DeleteUserCommentsRequest(CamelCaseModel):
+    chat_id: int
+    post_id: int
+    user_id: int
+    message_id: int | str
+
+
 class GetReactionsRequest(CamelCaseModel):
     chat_id: int
     message_ids: list[int] | list[str]
@@ -242,6 +268,16 @@ class ChangeGroupSettingsRequest(CamelCaseModel):
 class SetChannelCommentsRequest(CamelCaseModel):
     chat_id: int
     options: ChannelCommentsMappingModel
+
+
+class BlockCommentAuthorRequest(CamelCaseModel):
+    chat_id: int
+    post_id: int
+    user_ids: list[int]
+    message_id: int | str
+    type: Literal["COMMENTS_BLACKLIST"] = "COMMENTS_BLACKLIST"
+    operation: Literal["add"] = "add"
+    clean_msg_period: int = 0
 
 
 class ChangeGroupProfileRequest(CamelCaseModel):

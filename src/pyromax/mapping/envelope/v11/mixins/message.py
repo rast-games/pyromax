@@ -29,6 +29,11 @@ from ..methods.immutable import (
     EditCommentMethod as EditCommentProtocolMethod,
     DeleteCommentMethod as DeleteCommentProtocolMethod,
     AddCommentReactionMethod as AddCommentReactionProtocolMethod,
+    GetCommentsMethod as GetCommentsProtocolMethod,
+    RemoveCommentReactionMethod as RemoveCommentReactionProtocolMethod,
+    SubscribeCommentsMethod as SubscribeCommentsProtocolMethod,
+    GetCommentsInfoMethod as GetCommentsInfoProtocolMethod,
+    DeleteUserCommentsMethod as DeleteUserCommentsProtocolMethod,
 )
 from .....exceptions import (
     SendMessageFileError,
@@ -49,10 +54,20 @@ from ..payloads.responses import (
     AddOrRemoveReactionResponse,
     GetReactionsResponse,
     VoteStateContainsResponse,
+    CommentsInfoUpdatesResponse,
 )
 from ..translate.ToDTO import translate_models
 from ..translate.FromDTO import reverse_translate_poll
-from .....models import Message, EmojiReaction, ReadState, Poll, PollState, Chat
+from .....models import (
+    Message,
+    EmojiReaction,
+    ReadState,
+    Poll,
+    PollState,
+    Chat,
+    CommentsInfo,
+    CommentsInfoUpdate,
+)
 
 from .MixinProtocol import MixinProtocol
 
@@ -1160,6 +1175,40 @@ class MessageMixin(MixinProtocol):
         comment = cast(Message, translate_models(mapped_comment))
         return self.bind_api_instance(comment)
 
+    async def get_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        message_ids: list[int | str],
+    ) -> list[Message]:
+        """Get specific comments from a channel post."""
+        response = await self.send(
+            method=GetCommentsProtocolMethod(
+                chat_id=chat_id,
+                post_id=post_id,
+                message_ids=message_ids,
+            ),
+            check_errors=True,
+        )
+        mapped_comments = GetChatHistoryMessagesResponse(**response.payload).messages
+        for comment in mapped_comments:
+            comment.chat_id = chat_id
+        comments = cast(
+            list[Message],
+            [translate_models(comment) for comment in mapped_comments],
+        )
+        return [self.bind_api_instance(comment) for comment in comments]
+
+    async def get_comment(
+        self,
+        chat_id: int,
+        post_id: int,
+        message_id: int | str,
+    ) -> Message | None:
+        """Get one comment from a channel post."""
+        comments = await self.get_comments(chat_id, post_id, [message_id])
+        return comments[0] if comments else None
+
     async def delete_comment(
         self,
         chat_id: int,
@@ -1223,3 +1272,99 @@ class MessageMixin(MixinProtocol):
             ),
         )
         return self.bind_api_instance(reaction_info)
+
+    async def remove_comment_reaction(
+        self,
+        chat_id: int,
+        post_id: int,
+        message_id: int | str,
+    ) -> EmojiReaction | None:
+        """Remove the current account's reaction from a comment."""
+        response = await self.send(
+            method=RemoveCommentReactionProtocolMethod(
+                chat_id=chat_id,
+                post_id=post_id,
+                message_id=message_id,
+            ),
+            check_errors=True,
+        )
+        mapped_reaction_info = AddOrRemoveReactionResponse(
+            **response.payload
+        ).reaction_info
+        if mapped_reaction_info is None:
+            return None
+
+        reaction_info = cast(
+            EmojiReaction,
+            translate_models(
+                mapped_reaction_info,
+                chat_id=chat_id,
+                message_id=message_id,
+                status="REMOVE",
+            ),
+        )
+        return self.bind_api_instance(reaction_info)
+
+    async def subscribe_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        subscribe: bool = True,
+    ) -> None:
+        """Subscribe to or unsubscribe from a post's comment events."""
+        await self.send(
+            method=SubscribeCommentsProtocolMethod(
+                chat_id=chat_id,
+                post_id=post_id,
+                subscribe=subscribe,
+            ),
+            check_errors=True,
+        )
+
+    async def get_comments_info(
+        self,
+        chat_id: int,
+        post_ids: list[int],
+    ) -> list[CommentsInfoUpdate]:
+        """Get comment counters for channel posts."""
+        response = await self.send(
+            method=GetCommentsInfoProtocolMethod(
+                chat_id=chat_id,
+                post_ids=post_ids,
+            ),
+            check_errors=True,
+        )
+        mapped_updates = CommentsInfoUpdatesResponse(
+            **response.payload
+        ).comments_info_updates
+        updates = [
+            CommentsInfoUpdate(
+                post_id=update.post_id,
+                comments_info=(
+                    CommentsInfo(total_count=update.comments_info.total_count)
+                    if update.comments_info is not None
+                    else None
+                ),
+            )
+            for update in mapped_updates
+        ]
+        return [self.bind_api_instance(update) for update in updates]
+
+    async def delete_user_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        user_id: int,
+        message_id: int | str,
+    ) -> bool:
+        """Delete a user's comments through the dedicated server operation."""
+        await self.send(
+            method=DeleteUserCommentsProtocolMethod(
+                chat_id=chat_id,
+                post_id=post_id,
+                user_id=user_id,
+                message_id=message_id,
+            ),
+            check_errors=True,
+        )
+        return True

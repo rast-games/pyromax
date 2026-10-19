@@ -898,6 +898,15 @@ class ReactionInfoMappingModel(CamelCaseModel):
     counters: list[dict[str, Any]] | None = None
 
 
+class CommentsInfoMappingModel(CamelCaseModel):
+    total_count: int = 0
+
+
+class CommentsInfoUpdateMappingModel(CamelCaseModel):
+    post_id: int
+    comments_info: CommentsInfoMappingModel | None
+
+
 class ReadStateMappingModel(CamelCaseModel):
     unread: int
     mark: int

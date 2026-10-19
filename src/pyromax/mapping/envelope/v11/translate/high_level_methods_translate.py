@@ -67,6 +67,13 @@ from .....methods import (
     DeleteCommentMethod,
     AddCommentReactionMethod,
     SetChannelCommentsMethod,
+    GetCommentMethod,
+    GetCommentsMethod,
+    RemoveCommentReactionMethod,
+    SubscribeCommentsMethod,
+    GetCommentsInfoMethod,
+    DeleteUserCommentsMethod,
+    BlockCommentAuthorMethod,
 )
 
 if TYPE_CHECKING:
@@ -181,6 +188,16 @@ def get_registry(
             "ANDROID": mapper.fetch_comments,
             "DESKTOP": mapper.fetch_comments,
         },
+        GetCommentsMethod: {
+            "WEB": mapper.get_comments,
+            "ANDROID": mapper.get_comments,
+            "DESKTOP": mapper.get_comments,
+        },
+        GetCommentMethod: {
+            "WEB": mapper.get_comment,
+            "ANDROID": mapper.get_comment,
+            "DESKTOP": mapper.get_comment,
+        },
         EditCommentMethod: {
             "WEB": mapper.edit_comment,
             "ANDROID": mapper.edit_comment,
@@ -195,6 +212,26 @@ def get_registry(
             "WEB": mapper.add_comment_reaction,
             "ANDROID": mapper.add_comment_reaction,
             "DESKTOP": mapper.add_comment_reaction,
+        },
+        RemoveCommentReactionMethod: {
+            "WEB": mapper.remove_comment_reaction,
+            "ANDROID": mapper.remove_comment_reaction,
+            "DESKTOP": mapper.remove_comment_reaction,
+        },
+        SubscribeCommentsMethod: {
+            "WEB": mapper.subscribe_comments,
+            "ANDROID": mapper.subscribe_comments,
+            "DESKTOP": mapper.subscribe_comments,
+        },
+        GetCommentsInfoMethod: {
+            "WEB": mapper.get_comments_info,
+            "ANDROID": mapper.get_comments_info,
+            "DESKTOP": mapper.get_comments_info,
+        },
+        DeleteUserCommentsMethod: {
+            "WEB": mapper.delete_user_comments,
+            "ANDROID": mapper.delete_user_comments,
+            "DESKTOP": mapper.delete_user_comments,
         },
         CreateGroupMethod: {
             "WEB": mapper.create_group,
@@ -290,6 +327,11 @@ def get_registry(
             "WEB": mapper.set_channel_comments,
             "ANDROID": mapper.set_channel_comments,
             "DESKTOP": mapper.set_channel_comments,
+        },
+        BlockCommentAuthorMethod: {
+            "WEB": mapper.block_comment_author,
+            "ANDROID": mapper.block_comment_author,
+            "DESKTOP": mapper.block_comment_author,
         },
         Set2FaMethod: {
             "WEB": mapper.set_2fa,

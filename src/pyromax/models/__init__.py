@@ -28,6 +28,7 @@ from .RegistrationConfig import RegistrationConfig
 from .Folder import Folder, FolderUpdate, FolderList
 from .Session import Session, SessionInfo, SyncState, SyncOverrides, SessionKey
 from .ContactInfo import ContactInfo
+from .CommentsInfo import CommentsInfo, CommentsInfoUpdate
 from .Poll import Poll, PollState, PollVote, PollAnswer, PollResult
 from .Events import (
     DisconnectEvent,
@@ -87,6 +88,8 @@ __all__ = [
     "SyncOverrides",
     "SessionKey",
     "ContactInfo",
+    "CommentsInfo",
+    "CommentsInfoUpdate",
     "PhotoAttachment",
     "Poll",
     "PollState",

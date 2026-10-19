@@ -13,6 +13,13 @@ from pyromax.methods.EditComment import EditCommentMethod
 from pyromax.methods.FetchComments import FetchCommentsMethod
 from pyromax.methods.SendComment import SendCommentMethod
 from pyromax.methods.SetChannelComments import SetChannelCommentsMethod
+from pyromax.methods.BlockCommentAuthor import BlockCommentAuthorMethod
+from pyromax.methods.DeleteUserComments import DeleteUserCommentsMethod
+from pyromax.methods.GetComment import GetCommentMethod
+from pyromax.methods.GetComments import GetCommentsMethod
+from pyromax.methods.GetCommentsInfo import GetCommentsInfoMethod
+from pyromax.methods.RemoveCommentReaction import RemoveCommentReactionMethod
+from pyromax.methods.SubscribeComments import SubscribeCommentsMethod
 
 from tests.helpers.fakes import FakeApi
 
@@ -144,6 +151,59 @@ class MethodContractTest(unittest.IsolatedAsyncioTestCase):
                 (10, True),
                 {},
                 {"chat_id": 10, "enabled": True},
+            ),
+            (
+                GetCommentMethod,
+                (10, 20, 30),
+                {},
+                {"chat_id": 10, "post_id": 20, "message_id": 30},
+            ),
+            (
+                GetCommentsMethod,
+                (10, 20, [30, 31]),
+                {},
+                {"chat_id": 10, "post_id": 20, "message_ids": [30, 31]},
+            ),
+            (
+                RemoveCommentReactionMethod,
+                (10, 20, 30),
+                {},
+                {"chat_id": 10, "post_id": 20, "message_id": 30},
+            ),
+            (
+                SubscribeCommentsMethod,
+                (10, 20),
+                {},
+                {"chat_id": 10, "post_id": 20, "subscribe": True},
+            ),
+            (
+                GetCommentsInfoMethod,
+                (10, [20, 21]),
+                {},
+                {"chat_id": 10, "post_ids": [20, 21]},
+            ),
+            (
+                DeleteUserCommentsMethod,
+                (10, 20, 40, 30),
+                {},
+                {
+                    "chat_id": 10,
+                    "post_id": 20,
+                    "user_id": 40,
+                    "message_id": 30,
+                },
+            ),
+            (
+                BlockCommentAuthorMethod,
+                (10, 20, [40], 30),
+                {},
+                {
+                    "chat_id": 10,
+                    "post_id": 20,
+                    "user_ids": [40],
+                    "message_id": 30,
+                    "clean_msg_period": 0,
+                },
             ),
         ]
         marker = object()

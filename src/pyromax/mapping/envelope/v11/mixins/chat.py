@@ -22,6 +22,7 @@ from ..methods.immutable import (
     DeleteChatMethod,
     AddAdminMethod,
     SetChannelCommentsMethod as SetChannelCommentsProtocolMethod,
+    BlockCommentAuthorMethod as BlockCommentAuthorProtocolMethod,
 )
 from ..payloads.responses import (
     CreateGroupResponse,
@@ -270,6 +271,31 @@ class ChatMixin(MixinProtocol):
         if mapped_chat is not None:
             chat = cast(Chat, translate_models(mapped_chat))
             self._cache_chat(chat)
+
+    async def block_comment_author(
+        self,
+        chat_id: int,
+        post_id: int,
+        user_ids: list[int],
+        message_id: int | str,
+        clean_msg_period: int = 0,
+    ) -> bool:
+        """Block comment authors and optionally remove their comments."""
+        response = await self.send(
+            method=BlockCommentAuthorProtocolMethod(
+                chat_id=chat_id,
+                post_id=post_id,
+                user_ids=user_ids,
+                message_id=message_id,
+                clean_msg_period=clean_msg_period,
+            ),
+            check_errors=True,
+        )
+        mapped_chat = ChatContainsResponse(**response.payload).chat
+        if mapped_chat is not None:
+            chat = cast(Chat, translate_models(mapped_chat))
+            self._cache_chat(chat)
+        return True
 
     async def change_group_profile(
         self,

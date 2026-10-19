@@ -43,6 +43,7 @@ def required_arguments(method_type: type[BaseMaxApiMethod[Any]]) -> dict[str, An
         "poll": object(),
         "poll_id": 1,
         "post_id": 1,
+        "post_ids": [1],
         "privacy_settings": object(),
         "qr_link": "qr",
         "reaction_id": "heart",
