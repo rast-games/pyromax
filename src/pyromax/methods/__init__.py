@@ -52,6 +52,12 @@ from .ImportContacts import ImportContactsMethod
 from .CreatePoll import CreatePollMethod
 from .VotePoll import VotePollMethod
 from .ChangeProfileSettings import ChangeProfileSettingsMethod
+from .SendComment import SendCommentMethod
+from .FetchComments import FetchCommentsMethod
+from .EditComment import EditCommentMethod
+from .DeleteComment import DeleteCommentMethod
+from .AddCommentReaction import AddCommentReactionMethod
+from .SetChannelComments import SetChannelCommentsMethod
 
 __all__ = [
     "BaseMaxApiMethod",
@@ -110,4 +116,10 @@ __all__ = [
     "GetChatIdMethod",
     "CreatePollMethod",
     "VotePollMethod",
+    "SendCommentMethod",
+    "FetchCommentsMethod",
+    "EditCommentMethod",
+    "DeleteCommentMethod",
+    "AddCommentReactionMethod",
+    "SetChannelCommentsMethod",
 ]

@@ -17,6 +17,7 @@ from .models import (
     ShareMappingModel,
     CreateGroupMessageMappingModel,
     ChangeGroupSettingsMappingModel,
+    ChannelCommentsMappingModel,
     TwoFactorActionMappingModel,
     ChangeProfileSettingsMappingModel,
     TelemetryEventMappingModel,
@@ -121,6 +122,10 @@ class SendMessageRequest(CamelCaseModel):
     notify: bool = True
 
 
+class SendCommentRequest(SendMessageRequest):
+    post_id: int
+
+
 class EditMessageRequest(CamelCaseModel):
     chat_id: int
     message_id: str | int
@@ -133,6 +138,10 @@ class EditMessageRequest(CamelCaseModel):
         | ShareMappingModel
         | Any
     ] = []
+
+
+class EditCommentRequest(EditMessageRequest):
+    post_id: int
 
 
 class GetMessagesRequest(CamelCaseModel):
@@ -153,10 +162,18 @@ class GetChatHistoryRequest(CamelCaseModel):
     interactive: bool = False
 
 
+class CommentsHistoryRequest(GetChatHistoryRequest):
+    post_id: int
+
+
 class DeleteMessageRequest(CamelCaseModel):
     chat_id: int
     message_ids: list[str | int]
     for_me: bool = False
+
+
+class DeleteCommentRequest(DeleteMessageRequest):
+    post_id: int
 
 
 class PinMessageRequest(CamelCaseModel):
@@ -174,6 +191,10 @@ class AddReactionRequest(CamelCaseModel):
     chat_id: int
     message_id: str | int
     reaction: ReactionInfoRequest
+
+
+class AddCommentReactionRequest(AddReactionRequest):
+    post_id: int
 
 
 class RemoveReactionRequest(CamelCaseModel):
@@ -216,6 +237,11 @@ class ChatMemberOperationRequest(CamelCaseModel):
 class ChangeGroupSettingsRequest(CamelCaseModel):
     chat_id: int
     options: ChangeGroupSettingsMappingModel
+
+
+class SetChannelCommentsRequest(CamelCaseModel):
+    chat_id: int
+    options: ChannelCommentsMappingModel
 
 
 class ChangeGroupProfileRequest(CamelCaseModel):

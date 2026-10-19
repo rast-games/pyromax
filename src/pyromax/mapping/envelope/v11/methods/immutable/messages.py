@@ -15,6 +15,11 @@ from ...payloads.requests import (
     ReactionInfoRequest,
     ReadMessageRequest,
     VotePollRequest,
+    SendCommentRequest,
+    EditCommentRequest,
+    CommentsHistoryRequest,
+    DeleteCommentRequest,
+    AddCommentReactionRequest,
 )
 from ...translate.FromDTO import reverse_translate_message
 from ...payloads.models import (
@@ -94,6 +99,15 @@ class SendMessageMethod(BaseMethod):
         return request
 
 
+class SendCommentMethod(SendMessageMethod):
+    async def __call__(self, request: Envelope) -> Envelope:
+        request = await super().__call__(request)
+        request.payload = SendCommentRequest.model_validate(
+            {**request.payload, "postId": self.args["post_id"]}
+        ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
 class EditMessageMethod(BaseMethod):
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the edit message protocol request.
@@ -116,6 +130,15 @@ class EditMessageMethod(BaseMethod):
                 else None
             ),
             attachments=self.args["attaches"] if self.args["attaches"] else [],
+        ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
+class EditCommentMethod(EditMessageMethod):
+    async def __call__(self, request: Envelope) -> Envelope:
+        request = await super().__call__(request)
+        request.payload = EditCommentRequest.model_validate(
+            {**request.payload, "postId": self.args["post_id"]}
         ).model_dump(by_alias=True, exclude_none=True)
         return request
 
@@ -170,6 +193,15 @@ class GetChatHistoryMethod(BaseMethod):
         return request
 
 
+class FetchCommentsMethod(GetChatHistoryMethod):
+    async def __call__(self, request: Envelope) -> Envelope:
+        request = await super().__call__(request)
+        request.payload = CommentsHistoryRequest.model_validate(
+            {**request.payload, "postId": self.args["post_id"]}
+        ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
 class DeleteMessageMethod(BaseMethod):
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the delete message protocol request.
@@ -186,6 +218,15 @@ class DeleteMessageMethod(BaseMethod):
             chat_id=self.args["chat_id"],
             message_ids=self.args["message_ids"],
             for_me=cast(bool, self.args.get("for_me")),
+        ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
+class DeleteCommentMethod(DeleteMessageMethod):
+    async def __call__(self, request: Envelope) -> Envelope:
+        request = await super().__call__(request)
+        request.payload = DeleteCommentRequest.model_validate(
+            {**request.payload, "postId": self.args["post_id"]}
         ).model_dump(by_alias=True, exclude_none=True)
         return request
 
@@ -229,6 +270,15 @@ class AddReactionMethod(BaseMethod):
                 reaction_type=self.args.get("reaction_type", "EMOJI"),
                 id=self.args["reaction_id"],
             ),
+        ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
+class AddCommentReactionMethod(AddReactionMethod):
+    async def __call__(self, request: Envelope) -> Envelope:
+        request = await super().__call__(request)
+        request.payload = AddCommentReactionRequest.model_validate(
+            {**request.payload, "postId": self.args["post_id"]}
         ).model_dump(by_alias=True, exclude_none=True)
         return request
 
@@ -317,12 +367,17 @@ class VotePollMethod(BaseMethod):
 
 __all__ = [
     "SendMessageMethod",
+    "SendCommentMethod",
     "EditMessageMethod",
+    "EditCommentMethod",
     "GetMessagesMethod",
     "GetChatHistoryMethod",
+    "FetchCommentsMethod",
     "DeleteMessageMethod",
+    "DeleteCommentMethod",
     "PinMessageMethod",
     "AddReactionMethod",
+    "AddCommentReactionMethod",
     "RemoveReactionMethod",
     "GetReactionsMethod",
     "ReadMessageMethod",

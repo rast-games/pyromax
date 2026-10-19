@@ -61,6 +61,12 @@ from .....methods import (
     ImportContactsMethod,
     CreatePollMethod,
     VotePollMethod,
+    SendCommentMethod,
+    FetchCommentsMethod,
+    EditCommentMethod,
+    DeleteCommentMethod,
+    AddCommentReactionMethod,
+    SetChannelCommentsMethod,
 )
 
 if TYPE_CHECKING:
@@ -71,7 +77,6 @@ if TYPE_CHECKING:
 def get_registry(
     mapper: Mapper,
 ) -> dict[type[BaseMaxApiMethod[Any]], dict[str, Callable[..., Awaitable[Any]]]]:
-
     """Retrieve registry.
 
     :param mapper: Mapper backend or mapper instance.
@@ -166,6 +171,31 @@ def get_registry(
             "ANDROID": mapper.vote_poll,
             "DESKTOP": mapper.vote_poll,
         },
+        SendCommentMethod: {
+            "WEB": mapper.send_comment,
+            "ANDROID": mapper.send_comment,
+            "DESKTOP": mapper.send_comment,
+        },
+        FetchCommentsMethod: {
+            "WEB": mapper.fetch_comments,
+            "ANDROID": mapper.fetch_comments,
+            "DESKTOP": mapper.fetch_comments,
+        },
+        EditCommentMethod: {
+            "WEB": mapper.edit_comment,
+            "ANDROID": mapper.edit_comment,
+            "DESKTOP": mapper.edit_comment,
+        },
+        DeleteCommentMethod: {
+            "WEB": mapper.delete_comment,
+            "ANDROID": mapper.delete_comment,
+            "DESKTOP": mapper.delete_comment,
+        },
+        AddCommentReactionMethod: {
+            "WEB": mapper.add_comment_reaction,
+            "ANDROID": mapper.add_comment_reaction,
+            "DESKTOP": mapper.add_comment_reaction,
+        },
         CreateGroupMethod: {
             "WEB": mapper.create_group,
             "ANDROID": mapper.create_group,
@@ -255,6 +285,11 @@ def get_registry(
             "WEB": mapper.add_admin,
             "ANDROID": mapper.add_admin,
             "DESKTOP": mapper.add_admin,
+        },
+        SetChannelCommentsMethod: {
+            "WEB": mapper.set_channel_comments,
+            "ANDROID": mapper.set_channel_comments,
+            "DESKTOP": mapper.set_channel_comments,
         },
         Set2FaMethod: {
             "WEB": mapper.set_2fa,

@@ -426,6 +426,21 @@ class Chat(BaseMaxObject):
             only_owner_can_change_icon_title=only_owner_can_change_icon_title,
         )
 
+    async def set_comments(self, enabled: bool) -> None:
+        """Enable or disable comments for this channel.
+
+        :param enabled: Whether comments should be enabled.
+        :type enabled: bool
+        :raises RuntimeError: If this chat is not a channel.
+        """
+        if not self.is_channel:
+            raise RuntimeError("Comments can only be configured for CHANNEL chats")
+
+        return await self.max_api.set_channel_comments(
+            chat_id=self.id,
+            enabled=enabled,
+        )
+
     async def revoke_invite_link(self) -> Chat:
         """Revoke invite link.
 

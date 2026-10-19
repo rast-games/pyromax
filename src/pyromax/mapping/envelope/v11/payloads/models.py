@@ -418,6 +418,10 @@ class ChangeGroupSettingsMappingModel(CamelCaseModel):
     )
 
 
+class ChannelCommentsMappingModel(CamelCaseModel):
+    comments: bool = Field(serialization_alias="COMMENTS")
+
+
 PrivacyAccess = Literal[
     "ALL",
     "CONTACTS",

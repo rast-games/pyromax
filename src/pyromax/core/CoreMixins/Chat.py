@@ -20,6 +20,7 @@ from ...methods import (
     DeclineJoinRequestsMethod,
     DeleteChatMethod,
     AddAdminMethod,
+    SetChannelCommentsMethod,
 )
 from ...models import (
     Message,
@@ -485,5 +486,20 @@ class ChatMixin(CoreMixinsProtocol):
                 chat_id=chat_id,
                 user_id=user_id,
                 permissions=permissions,
+            ),
+        )
+
+    async def set_channel_comments(self, chat_id: int, enabled: bool) -> None:
+        """Enable or disable comments in a channel.
+
+        :param chat_id: Channel identifier.
+        :param enabled: Whether comments should be enabled.
+        """
+        return cast(
+            None,
+            await self(
+                SetChannelCommentsMethod,
+                chat_id=chat_id,
+                enabled=enabled,
             ),
         )

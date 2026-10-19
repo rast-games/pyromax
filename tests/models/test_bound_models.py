@@ -91,3 +91,35 @@ class BoundChatTest(unittest.IsolatedAsyncioTestCase):
                 )
             ],
         )
+
+    async def test_set_comments_delegates_for_channel(self) -> None:
+        marker = object()
+        api = FakeApi(marker)
+        channel = Chat(
+            id=5,
+            type="CHANNEL",
+            status="ACTIVE",
+            owner=1,
+        ).as_(api)  # type: ignore[arg-type]
+
+        self.assertIs(await channel.set_comments(enabled=False), marker)
+        self.assertEqual(
+            api.calls,
+            [("set_channel_comments", {"chat_id": 5, "enabled": False})],
+        )
+
+    async def test_set_comments_rejects_non_channel_chats(self) -> None:
+        for chat_type in ("CHAT", "DIALOG"):
+            with self.subTest(chat_type=chat_type):
+                api = FakeApi()
+                chat = Chat(
+                    id=5,
+                    type=chat_type,
+                    status="ACTIVE",
+                    owner=1,
+                ).as_(api)  # type: ignore[arg-type]
+
+                with self.assertRaisesRegex(RuntimeError, "CHANNEL"):
+                    await chat.set_comments(enabled=True)
+
+                self.assertEqual(api.calls, [])

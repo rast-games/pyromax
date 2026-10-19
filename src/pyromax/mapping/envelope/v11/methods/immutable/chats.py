@@ -15,11 +15,13 @@ from ...payloads.requests import (
     FetchJoinRequestsRequest,
     DeleteChatRequest,
     AddAdminRequest,
+    SetChannelCommentsRequest,
 )
 from ...payloads.models import (
     CreateGroupMessageMappingModel,
     CreateGroupAttachMappingModel,
     ChangeGroupSettingsMappingModel,
+    ChannelCommentsMappingModel,
 )
 
 
@@ -102,6 +104,20 @@ class ChangeGroupSettingsMethod(BaseMethod):
                 members_can_see_private_link=self.args.get(
                     "members_can_see_private_link"
                 ),
+            ),
+        ).model_dump(by_alias=True, exclude_none=True)
+        return request
+
+
+class SetChannelCommentsMethod(BaseMethod):
+    async def __call__(self, request: Envelope) -> Envelope:
+        request.opcode = Opcode.CHAT_UPDATE
+        request.cmd = Cmd.REQUEST
+        request.ver = VERSION
+        request.payload = SetChannelCommentsRequest(
+            chat_id=self.args["chat_id"],
+            options=ChannelCommentsMappingModel(
+                comments=self.args["enabled"],
             ),
         ).model_dump(by_alias=True, exclude_none=True)
         return request
@@ -304,6 +320,7 @@ __all__ = [
     "CreateChatMethod",
     "ChatMemberOperationMethod",
     "ChangeGroupSettingsMethod",
+    "SetChannelCommentsMethod",
     "ChangeGroupProfileMethod",
     "JoinGroupMethod",
     "ResolveGroupByLinkMethod",

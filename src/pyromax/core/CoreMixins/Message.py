@@ -16,6 +16,11 @@ from ...methods import (
     ReadMessageMethod,
     CreatePollMethod,
     VotePollMethod,
+    SendCommentMethod,
+    FetchCommentsMethod,
+    EditCommentMethod,
+    DeleteCommentMethod,
+    AddCommentReactionMethod,
 )
 
 from ...exceptions import SendMessageError, MapperApiError, ReactionError
@@ -551,5 +556,120 @@ class MessageMixin(CoreMixinsProtocol):
                 message_id=message_id,
                 poll_id=poll_id,
                 answer_ids=answer_ids,
+            ),
+        )
+
+    async def send_comment(
+        self,
+        chat_id: int,
+        post_id: int,
+        text: str | None = None,
+        reply_to: int | str | None = None,
+        attachments: list[BaseFileAttachment] | None = None,
+        *,
+        notify: bool = True,
+    ) -> Message | None:
+        """Send a comment to a channel post.
+
+        :param chat_id: Channel identifier.
+        :param post_id: Identifier of the channel post.
+        :param text: Comment text with supported formatting tags.
+        :param reply_to: Optional comment identifier to reply to.
+        :param attachments: Optional comment attachments.
+        :param notify: Whether MAX should notify affected users.
+        :returns: The created comment, or ``None`` after a transport failure.
+        """
+        return cast(
+            Message | None,
+            await self(
+                SendCommentMethod,
+                chat_id=chat_id,
+                post_id=post_id,
+                text=text,
+                reply_to=reply_to,
+                attachments=attachments,
+                notify=notify,
+            ),
+        )
+
+    async def fetch_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        from_: int | None = None,
+        backward: int = 30,
+        get_messages: bool = True,
+        forward: int = 0,
+    ) -> list[Message]:
+        """Fetch comments for a channel post."""
+        return cast(
+            list[Message],
+            await self(
+                FetchCommentsMethod,
+                chat_id=chat_id,
+                post_id=post_id,
+                from_=from_,
+                backward=backward,
+                get_messages=get_messages,
+                forward=forward,
+            ),
+        )
+
+    async def edit_comment(
+        self,
+        chat_id: int,
+        post_id: int,
+        message_id: int | str,
+        text: str | None = None,
+        attachments: list[BaseFileAttachment] | None = None,
+    ) -> Message:
+        """Edit a comment on a channel post."""
+        return cast(
+            Message,
+            await self(
+                EditCommentMethod,
+                chat_id=chat_id,
+                post_id=post_id,
+                message_id=message_id,
+                text=text,
+                attachments=attachments,
+            ),
+        )
+
+    async def delete_comment(
+        self,
+        chat_id: int,
+        post_id: int,
+        message_ids: list[int] | list[str],
+        for_me: bool = False,
+    ) -> bool:
+        """Delete comments from a channel post."""
+        return cast(
+            bool,
+            await self(
+                DeleteCommentMethod,
+                chat_id=chat_id,
+                post_id=post_id,
+                message_ids=message_ids,
+                for_me=for_me,
+            ),
+        )
+
+    async def add_comment_reaction(
+        self,
+        chat_id: int,
+        post_id: int,
+        message_id: int | str,
+        reaction: str,
+    ) -> EmojiReaction | None:
+        """Add or replace the current account's reaction to a comment."""
+        return cast(
+            EmojiReaction | None,
+            await self(
+                AddCommentReactionMethod,
+                chat_id=chat_id,
+                post_id=post_id,
+                message_id=message_id,
+                reaction=reaction,
             ),
         )

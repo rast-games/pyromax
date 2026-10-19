@@ -24,6 +24,11 @@ from ..methods.immutable import (
     GetReactionsMethod,
     ReadMessageMethod,
     VotePollMethod,
+    SendCommentMethod as SendCommentProtocolMethod,
+    FetchCommentsMethod as FetchCommentsProtocolMethod,
+    EditCommentMethod as EditCommentProtocolMethod,
+    DeleteCommentMethod as DeleteCommentProtocolMethod,
+    AddCommentReactionMethod as AddCommentReactionProtocolMethod,
 )
 from .....exceptions import (
     SendMessageFileError,
@@ -863,3 +868,258 @@ class MessageMixin(MixinProtocol):
 
         poll_state = cast(PollState, translate_models(mapped_poll_state))
         return self.bind_api_instance(poll_state)
+
+    async def send_comment(
+        self,
+        chat_id: int,
+        post_id: int,
+        text: str | None = None,
+        reply_to: int | str | None = None,
+        attachments: Sequence[BaseFileMappingModel] | None = None,
+        *,
+        notify: bool = True,
+    ) -> Message | None:
+        """Send a comment to a channel post."""
+        if not text and not attachments:
+            raise ValueError("Either text or attachments must be provided")
+
+        original_attachments = attachments
+        attachment_payloads = []
+        for attachment in attachments or []:
+            if hasattr(attachment, "is_attach") and attachment.is_attach:
+                attachment_payloads.extend(attachment.to_payload)
+
+        text, elements = clean_and_map(
+            text if text else "",
+            [
+                "STRONG",
+                "EMPHASIZED",
+                "UNDERLINE",
+                "STRIKETHROUGH",
+                "QUOTE",
+                "LINK",
+            ],
+        )
+        link = (
+            MessageLink(type="REPLY", message_id=reply_to)
+            if reply_to is not None
+            else None
+        )
+        method_args = {
+            "chat_id": chat_id,
+            "post_id": post_id,
+            "text": text,
+            "cid": -self._next_cid(),
+            "attaches": attachment_payloads,
+            "elements": elements,
+            "link": link,
+            "notify": notify,
+        }
+
+        backoff = Backoff(config=DEFAULT_BACKOFF_CONFIG)
+        try:
+            response = await self.send(
+                method=SendCommentProtocolMethod(**method_args),
+            )
+            try:
+                while error := response.model_dump().get("payload", {}).get("error"):
+                    error_message = (
+                        response.model_dump().get("payload", {}).get("message")
+                    )
+                    title = response.model_dump().get("payload", {}).get("title")
+                    if error == ErrorCode.ATTACHMENT_NOT_READY:
+                        response = await self.send(
+                            method=SendCommentProtocolMethod(**method_args),
+                        )
+                        await backoff.asleep()
+                        continue
+                    if error == ErrorCode.PROTOCOL_PAYLOAD:
+                        raise SendMessageFileError(
+                            f"title: {title}, error: {error}, message: {error_message}"
+                        )
+                    if error == ErrorCode.NOT_FOUND:
+                        raise SendMessageNotFoundError(
+                            f"title: {title}, error: {error}, message: {error_message}"
+                        )
+                    raise SendMessageError(
+                        f"title: {title}, error: {error}, message: {error_message}"
+                    )
+            except BackoffError:
+                raise SendMessageError("Max attempts to send comment exceeded")
+
+            response_parsed = SendMessageResponse(**response.payload)
+            response_chat_id = response_parsed.chat_id or chat_id
+            for attachment in response_parsed.message.attaches:
+                if hasattr(attachment, "is_attach") and attachment.is_attach:
+                    attachment.message_id = response_parsed.message.id
+                    attachment.chat_id = response_chat_id
+                    attachment.uploaded = True
+            for index, attachment in enumerate(original_attachments or []):
+                if (
+                    hasattr(attachment, "is_attach")
+                    and attachment.is_attach
+                    and hasattr(attachment, "is_downloadable")
+                    and attachment.is_downloadable
+                ):
+                    received_attachment = response_parsed.message.attaches[index]
+                    for attr, value in received_attachment.__dict__.items():
+                        if hasattr(attachment, attr):
+                            setattr(attachment, attr, value)
+
+            response_parsed.message.chat_id = response_chat_id
+            comment = cast(
+                Message,
+                translate_models(
+                    response_parsed.message,
+                    fallback_chat_id=response_chat_id,
+                ),
+            )
+            return self.bind_api_instance(comment)
+        except asyncio.CancelledError:
+            raise
+        except BaseTransportError as error:
+            self._logger.error("Error sending comment: %s", error)
+            return None
+
+    async def fetch_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        from_: int | None = None,
+        backward: int = 30,
+        get_messages: bool = True,
+        forward: int = 0,
+    ) -> list[Message]:
+        """Fetch comments for a channel post."""
+        response = await self.send(
+            method=FetchCommentsProtocolMethod(
+                chat_id=chat_id,
+                post_id=post_id,
+                forward=forward,
+                backward=backward,
+                backward_time=0,
+                forward_time=0,
+                from_time=-1 if from_ is None else from_,
+                item_type="REGULAR",
+                get_chat=False,
+                get_messages=get_messages,
+                interactive=False,
+            )
+        )
+        mapped_comments = GetChatHistoryResponse(payload=response.payload)
+        if not isinstance(mapped_comments.payload, GetChatHistoryMessagesResponse):
+            return []
+
+        for comment in mapped_comments.payload.messages:
+            comment.chat_id = chat_id
+        comments = cast(
+            list[Message],
+            [translate_models(comment) for comment in mapped_comments.payload.messages],
+        )
+        return [self.bind_api_instance(comment) for comment in comments]
+
+    async def edit_comment(
+        self,
+        chat_id: int,
+        post_id: int,
+        message_id: int | str,
+        text: str | None = None,
+        attachments: Sequence[BaseFileMappingModel] | None = None,
+    ) -> Message:
+        """Edit a comment on a channel post."""
+        if not text and not attachments:
+            raise ValueError("Either text or attachments must be provided")
+
+        attachment_payloads = []
+        for attachment in attachments or []:
+            if hasattr(attachment, "is_attach") and attachment.is_attach:
+                attachment_payloads.extend(attachment.to_payload)
+
+        text, elements = clean_and_map(
+            text if text else "",
+            [
+                "STRONG",
+                "EMPHASIZED",
+                "UNDERLINE",
+                "STRIKETHROUGH",
+                "QUOTE",
+                "LINK",
+            ],
+        )
+        response = await self.send(
+            method=EditCommentProtocolMethod(
+                chat_id=chat_id,
+                post_id=post_id,
+                message_id=message_id,
+                text=text,
+                elements=elements,
+                attaches=attachment_payloads,
+            )
+        )
+        mapped_comment = EditMessageResponse(**response.payload).message
+        mapped_comment.chat_id = chat_id
+        comment = cast(Message, translate_models(mapped_comment))
+        return self.bind_api_instance(comment)
+
+    async def delete_comment(
+        self,
+        chat_id: int,
+        post_id: int,
+        message_ids: list[int] | list[str],
+        for_me: bool = False,
+    ) -> bool:
+        """Delete comments from a channel post."""
+        await self.send(
+            method=DeleteCommentProtocolMethod(
+                chat_id=chat_id,
+                post_id=post_id,
+                message_ids=message_ids,
+                for_me=for_me,
+            )
+        )
+        return True
+
+    async def add_comment_reaction(
+        self,
+        chat_id: int,
+        post_id: int,
+        message_id: int | str,
+        reaction: str,
+    ) -> EmojiReaction | None:
+        """Add or replace the current account's reaction to a comment."""
+        try:
+            response = await self.send(
+                method=AddCommentReactionProtocolMethod(
+                    chat_id=chat_id,
+                    post_id=post_id,
+                    message_id=message_id,
+                    reaction_id=reaction,
+                    reaction_type="EMOJI",
+                ),
+                check_errors=True,
+            )
+        except MapperApiError as error:
+            if error.error == ErrorCode.UNKNOWN_REACTION:
+                raise ReactionMapperError(
+                    "Your reaction is not supported by server"
+                ) from error
+            raise ReactionMapperError(
+                "Unknown error while adding reaction to comment"
+            ) from error
+
+        mapped_reaction_info = AddOrRemoveReactionResponse(
+            **response.payload
+        ).reaction_info
+        if mapped_reaction_info is None:
+            return None
+
+        reaction_info = cast(
+            EmojiReaction,
+            translate_models(
+                mapped_reaction_info,
+                chat_id=chat_id,
+                message_id=message_id,
+                status="ADD",
+            ),
+        )
+        return self.bind_api_instance(reaction_info)

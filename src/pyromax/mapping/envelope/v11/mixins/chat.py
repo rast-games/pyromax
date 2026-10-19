@@ -21,6 +21,7 @@ from ..methods.immutable import (
     FetchJoinRequestsMethod,
     DeleteChatMethod,
     AddAdminMethod,
+    SetChannelCommentsMethod as SetChannelCommentsProtocolMethod,
 )
 from ..payloads.responses import (
     CreateGroupResponse,
@@ -255,6 +256,19 @@ class ChatMixin(MixinProtocol):
 
         chat = cast(Chat, translate_models(mapped_chat))
         return self._cache_chat(chat)
+
+    async def set_channel_comments(self, chat_id: int, enabled: bool) -> None:
+        """Enable or disable comments in a channel."""
+        response = await self.send(
+            method=SetChannelCommentsProtocolMethod(
+                chat_id=chat_id,
+                enabled=enabled,
+            )
+        )
+        mapped_chat = ChatContainsResponse(**response.payload).chat
+        if mapped_chat is not None:
+            chat = cast(Chat, translate_models(mapped_chat))
+            self._cache_chat(chat)
 
     async def change_group_profile(
         self,
