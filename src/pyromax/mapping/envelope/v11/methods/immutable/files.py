@@ -50,6 +50,8 @@ class CreateCellForProfilePhotoMethod(GetUrlToUploadFileMethod):
 
 
 class GetFileLinkMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the get file link protocol request.
 

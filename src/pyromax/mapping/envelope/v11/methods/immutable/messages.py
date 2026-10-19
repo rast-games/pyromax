@@ -33,6 +33,10 @@ def _convert_send_at(send_at: datetime | timedelta | int) -> int:
 
 
 class SendMessageMethod(BaseMethod):
+    # Reusing the same method instance preserves CID, which lets MAX
+    # deduplicate a request when its response was lost in transit.
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the send message protocol request.
 
@@ -117,6 +121,8 @@ class EditMessageMethod(BaseMethod):
 
 
 class GetMessagesMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the get messages protocol request.
 
@@ -136,6 +142,8 @@ class GetMessagesMethod(BaseMethod):
 
 
 class GetChatHistoryMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the get chat history protocol request.
 
@@ -245,6 +253,8 @@ class RemoveReactionMethod(BaseMethod):
 
 
 class GetReactionsMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the get reactions protocol request.
 

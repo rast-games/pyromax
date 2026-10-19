@@ -146,6 +146,8 @@ class JoinGroupMethod(BaseMethod):
 
 
 class ResolveGroupByLinkMethod(JoinGroupMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the resolve group by link protocol request.
 
@@ -179,6 +181,8 @@ class RevokePrivateLinkMethod(BaseMethod):
 
 
 class GetChatInfoMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the get chat info protocol request.
 
@@ -215,6 +219,8 @@ class LeaveChatMethod(BaseMethod):
 
 
 class FetchChatsMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the fetch chats protocol request.
 
@@ -233,6 +239,8 @@ class FetchChatsMethod(BaseMethod):
 
 
 class FetchJoinRequestsMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the fetch join requests protocol request.
 

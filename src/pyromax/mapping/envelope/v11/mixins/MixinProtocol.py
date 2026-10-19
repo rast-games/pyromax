@@ -56,6 +56,9 @@ class MixinProtocol(Protocol):
     _telemetry: TelemetryManager | None
     _transport_circuit_breaker: CircuitBreaker | None
     _api_circuit_breaker: CircuitBreaker | None
+    _previous_cid: int
+
+    def _next_cid(self) -> int: ...
 
     @property
     def auth_interactor(self) -> AuthInteractor: ...

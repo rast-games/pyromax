@@ -1,5 +1,5 @@
 import abc
-from typing import Any
+from typing import Any, ClassVar
 
 
 from ......protocol import Envelope, BaseMaxProtocolMethod
@@ -8,6 +8,14 @@ from ...constants import VERSION
 
 
 class BaseMethod(abc.ABC, BaseMaxProtocolMethod[Envelope]):
+    # Transport failures do not contain an API response, so breaker recovery
+    # cycles are enabled by default and can be disabled for a specific method.
+    circuit_breaker_transport_retry_enabled: ClassVar[bool] = True
+
+    # API failures are explicit responses. Retrying them is opt-in because a
+    # rejected mutating operation is not necessarily safe to replay.
+    circuit_breaker_retry_safe: ClassVar[bool] = False
+
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the base method.
 

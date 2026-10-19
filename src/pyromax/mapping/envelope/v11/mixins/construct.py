@@ -2,6 +2,8 @@ from __future__ import annotations
 import asyncio
 from asyncio import Task, Lock, Event
 import logging
+import threading
+import time
 from typing import TYPE_CHECKING, Any, _ProtocolMeta, TypeVar
 
 from typing import cast
@@ -127,6 +129,8 @@ class ConstructorMixin(
         self.fingerprint_generator = FingerprintGenerator(fingerprint_overrides)
         self.logged: bool = False
         self.calls_seed: int | None = None
+        self._previous_cid = 0
+        self._cid_lock = threading.Lock()
 
         # self._update_listener_task: Task[Any] | None = None
 
@@ -148,6 +152,14 @@ class ConstructorMixin(
         )
 
         # self.user_agent: BaseUserAgentMappingModel | None = None
+
+    def _next_cid(self) -> int:
+        """Return a per-mapper CID that strictly increases in milliseconds."""
+        with self._cid_lock:
+            now = int(time.time() * 1000)
+            cid = max(now, self._previous_cid + 1)
+            self._previous_cid = cid
+            return cid
 
     @property
     def auth_interactor(self) -> AuthInteractor:

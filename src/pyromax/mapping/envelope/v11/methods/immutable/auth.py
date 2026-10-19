@@ -43,6 +43,8 @@ class TrackLoginMethod(BaseMethod):
 
 
 class GetUserDataMethod(TrackLoginMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the get user data protocol request.
 
@@ -117,6 +119,8 @@ class VerifySMSCodeMethod(BaseMethod):
 
 
 class GetMetadataForLoginMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the get metadata for login protocol request.
 
@@ -170,6 +174,8 @@ class SendAuthTokenMethod(BaseMethod):
 
 
 class SendKeepAlivePingMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the send keep alive ping protocol request.
 

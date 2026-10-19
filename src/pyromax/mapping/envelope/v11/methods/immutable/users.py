@@ -55,6 +55,8 @@ class CreateFolderMethod(BaseMethod):
 
 
 class GetFoldersMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the get folders protocol request.
 

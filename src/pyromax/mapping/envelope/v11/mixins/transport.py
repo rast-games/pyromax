@@ -222,8 +222,10 @@ class TransportMixin(MixinProtocol):
         Transport and API failures are tracked by independent circuit
         breakers. Transport failures count once after this method's retries
         are exhausted; API error envelopes count even when ``check_errors``
-        is disabled. A breaker may repeat the complete logical request up to
-        its configured cycle limit, with an increasing recovery delay.
+        is disabled. Transport recovery cycles are enabled for methods by
+        default and can be disabled per method. API recovery cycles require
+        the method to declare itself retry-safe. Every failure still updates
+        the corresponding breaker state.
 
         :raises MapperTransportError: If sending or receiving protocol data fails.
         :raises MapperCancelledError: If the request is cancelled.
@@ -244,6 +246,10 @@ class TransportMixin(MixinProtocol):
         """
         transport_breaker = getattr(self, "_transport_circuit_breaker", None)
         api_breaker = getattr(self, "_api_circuit_breaker", None)
+        transport_retry_enabled = getattr(
+            method, "circuit_breaker_transport_retry_enabled", True
+        )
+        api_retry_safe = getattr(method, "circuit_breaker_retry_safe", False)
         if transport_breaker is None and api_breaker is None:
             return await self._send_with_retries(
                 method=method,
@@ -292,7 +298,8 @@ class TransportMixin(MixinProtocol):
                 if api_breaker is not None and api_permit is not None:
                     await api_breaker.record_ignored(api_permit)
                 if (
-                    transport_breaker is not None
+                    transport_retry_enabled
+                    and transport_breaker is not None
                     and transport_cycles < transport_breaker.max_cycles
                 ):
                     transport_cycles += 1
@@ -303,7 +310,11 @@ class TransportMixin(MixinProtocol):
                     await transport_breaker.record_success(transport_permit)
                 if api_breaker is not None and api_permit is not None:
                     await api_breaker.record_failure(api_permit)
-                if api_breaker is not None and api_cycles < api_breaker.max_cycles:
+                if (
+                    api_retry_safe
+                    and api_breaker is not None
+                    and api_cycles < api_breaker.max_cycles
+                ):
                     api_cycles += 1
                     continue
                 raise
@@ -328,6 +339,7 @@ class TransportMixin(MixinProtocol):
 
                 if (
                     has_api_error
+                    and api_retry_safe
                     and api_breaker is not None
                     and api_cycles < api_breaker.max_cycles
                 ):

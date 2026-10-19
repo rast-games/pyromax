@@ -53,6 +53,7 @@ from .MixinProtocol import MixinProtocol
 
 from .....models import MessageLink
 
+
 class MessageMixin(MixinProtocol):
     async def send_message(
         self,
@@ -89,6 +90,7 @@ class MessageMixin(MixinProtocol):
         :type kwargs: Any
         :returns: The resulting Message | None value.
         :rtype: Message | None
+        :raises asyncio.CancelledError: If the calling task is cancelled.
         :raises SendMessageFileError: If the requested action cannot be completed.
         :raises SendMessageNotFoundError: If the requested action cannot be completed.
         """
@@ -116,7 +118,7 @@ class MessageMixin(MixinProtocol):
                 method=SendMessageMethod(
                     chat_id=chat_id,
                     text=text,
-                    cid=-round(time.time() * 1000),
+                    cid=-self._next_cid(),
                     attaches=attachments,
                     elements=elements,
                     link=link,
@@ -141,7 +143,7 @@ class MessageMixin(MixinProtocol):
                                 method=SendMessageMethod(
                                     chat_id=chat_id,
                                     text=text,
-                                    cid=-round(time.time() * 1000),
+                                    cid=-self._next_cid(),
                                     attaches=attachments,
                                     elements=elements,
                                     link=link,
@@ -200,15 +202,11 @@ class MessageMixin(MixinProtocol):
             self.bind_api_instance(translated_message)
             return translated_message
 
-        except (
-            asyncio.CancelledError,
-            BaseTransportError,
-        ) as e:
+        except asyncio.CancelledError:
+            raise
+        except BaseTransportError as e:
             self._logger.error("Error sending message: %s", e)
             return None
-            # raise SendMessageError(
-            #     'Transport error while sending message or bot was cancelled'
-            # )
 
     async def forward_message(
         self,

@@ -127,7 +127,7 @@ class ChatMixin(MixinProtocol):
                 chat_type=chat_type,
                 event=event,
                 type=typeof,
-                cid=int(time.time() * 1000),
+                cid=self._next_cid(),
             )
         )
         chat_and_message = CreateGroupResponse(**response.payload)

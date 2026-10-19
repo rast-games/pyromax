@@ -149,13 +149,21 @@ If only a mapper profile is supplied, Smart Init selects its matching transport 
 User-agent configuration includes device ID, locale, timezone, OS, device name, application version, and device-specific fields. Supplying it explicitly marks it as custom and prevents an automatically restored fingerprint from replacing it.
 
 After a request exhausts its normal mapper retries, its circuit breaker opens
-and repeats the complete request as a half-open probe. The default policy
-allows five additional cycles and waits 1, 2, 4, 8, then 16 seconds. The delay
-is capped by `max_recovery_timeout`; setting `max_cycles=0` disables these
-automatic repeats for that error category. With `wait_when_open=True`, new
-requests wait for the next half-open probe; `False` makes them fail fast with
-`CircuitBreakerOpenError`. Breaker-owned retry cycles always wait for their
-cooldown regardless of this option.
+and may repeat the complete request as a half-open probe. Transport recovery
+cycles are enabled for methods by default; a method can disable them with
+`circuit_breaker_transport_retry_enabled = False`. API recovery cycles are a
+separate policy and run only for methods marked with
+`circuit_breaker_retry_safe = True`. Read-only methods opt in, as does
+`SendMessageMethod`, because the same method instance preserves its CID across
+retries. Every failure updates the corresponding breaker even when its recovery
+cycles are disabled.
+
+The default policy allows five additional cycles and waits 1, 2, 4, 8, then 16
+seconds. The delay is capped by `max_recovery_timeout`; setting `max_cycles=0`
+disables automatic repeats globally for that error category. With
+`wait_when_open=True`, new requests wait for the next half-open probe; `False`
+makes them fail fast with `CircuitBreakerOpenError`. Breaker-owned retry cycles
+always wait for their cooldown regardless of this option.
 
 ## Directives
 

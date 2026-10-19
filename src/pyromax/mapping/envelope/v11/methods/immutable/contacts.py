@@ -13,6 +13,7 @@ from ......models import ContactInfo
 
 
 class GetGeneralInfoAboutMemberMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
 
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the get general info about member protocol request.
@@ -33,6 +34,8 @@ class GetGeneralInfoAboutMemberMethod(BaseMethod):
 
 
 class SearchByPhoneMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the search by phone protocol request.
 
@@ -51,6 +54,8 @@ class SearchByPhoneMethod(BaseMethod):
 
 
 class GetSessionsMethod(BaseMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         """Populate an envelope for the get sessions protocol request.
 

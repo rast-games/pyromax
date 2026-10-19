@@ -17,6 +17,11 @@ from pyromax.exceptions import (
 from pyromax.mapping.envelope.v11.mixins.transport import TransportMixin
 from pyromax.mapping.envelope.v11.LifecycleManager import LifecycleManager
 from pyromax.mapping.envelope.v11.mixins.auth import AuthMixin
+from pyromax.mapping.envelope.v11.methods.immutable import (
+    EditMessageMethod,
+    GetMessagesMethod,
+    SendMessageMethod,
+)
 from pyromax.utils import CircuitBreaker, CircuitBreakerState
 
 
@@ -188,6 +193,52 @@ class CircuitBreakerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(target._send_with_retries.await_count, 2)
         self.assertEqual(breaker.state, CircuitBreakerState.CLOSED)
 
+    async def test_transport_cycles_can_be_disabled_per_method(self) -> None:
+        breaker = CircuitBreaker(
+            1,
+            0,
+            max_cycles=5,
+            max_recovery_timeout=0,
+            name="transport",
+        )
+
+        class Target:
+            _transport_circuit_breaker = breaker
+            _api_circuit_breaker = None
+            _send_with_retries = AsyncMock(
+                side_effect=MapperTransportError("offline")
+            )
+
+        target = Target()
+        method = SimpleNamespace(circuit_breaker_transport_retry_enabled=False)
+        with self.assertRaises(MapperTransportError):
+            await TransportMixin.send(target, method)
+
+        self.assertEqual(target._send_with_retries.await_count, 1)
+        self.assertEqual(breaker.state, CircuitBreakerState.OPEN)
+
+    async def test_unsafe_method_api_error_is_not_replayed_by_breaker(self) -> None:
+        breaker = CircuitBreaker(
+            1,
+            0,
+            max_cycles=5,
+            max_recovery_timeout=0,
+            name="api",
+        )
+        response = SimpleNamespace(payload={"error": "rejected"})
+
+        class Target:
+            _transport_circuit_breaker = None
+            _api_circuit_breaker = breaker
+            _send_with_retries = AsyncMock(return_value=response)
+
+        target = Target()
+        method = SimpleNamespace(circuit_breaker_retry_safe=False)
+        self.assertIs(await TransportMixin.send(target, method), response)
+
+        self.assertEqual(target._send_with_retries.await_count, 1)
+        self.assertEqual(breaker.state, CircuitBreakerState.OPEN)
+
     async def test_wait_when_open_false_restores_fail_fast_behavior(self) -> None:
         breaker = CircuitBreaker(
             1,
@@ -254,8 +305,9 @@ class CircuitBreakerTest(unittest.IsolatedAsyncioTestCase):
             )
 
         target = Target()
+        method = SimpleNamespace(circuit_breaker_retry_safe=True)
         self.assertIs(
-            await TransportMixin.send(target, object()),
+            await TransportMixin.send(target, method),
             success_response,
         )
         self.assertEqual(target._send_with_retries.await_count, 3)
@@ -351,3 +403,9 @@ class CircuitBreakerTest(unittest.IsolatedAsyncioTestCase):
                 recovery_timeout=10,
                 max_recovery_timeout=5,
             )
+
+    def test_transport_retries_default_on_and_api_retries_are_opt_in(self) -> None:
+        self.assertTrue(EditMessageMethod.circuit_breaker_transport_retry_enabled)
+        self.assertTrue(SendMessageMethod.circuit_breaker_retry_safe)
+        self.assertTrue(GetMessagesMethod.circuit_breaker_retry_safe)
+        self.assertFalse(EditMessageMethod.circuit_breaker_retry_safe)
