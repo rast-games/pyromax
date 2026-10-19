@@ -263,7 +263,8 @@ class ChatMixin(MixinProtocol):
             method=SetChannelCommentsProtocolMethod(
                 chat_id=chat_id,
                 enabled=enabled,
-            )
+            ),
+            check_errors=True,
         )
         mapped_chat = ChatContainsResponse(**response.payload).chat
         if mapped_chat is not None:

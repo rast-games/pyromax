@@ -331,7 +331,7 @@ class CircuitBreakerConfig(BaseConfig):
     failure_threshold: int = Field(default=1, ge=1)
     recovery_timeout: float = Field(default=1.0, ge=0)
     max_cycles: int = Field(default=5, ge=0)
-    backoff_factor: float = Field(default=2.0, ge=1)
+    backoff_factor: float = Field(default=2.75, ge=1)
     max_recovery_timeout: float = Field(default=30.0, ge=0)
     wait_when_open: bool = True
 

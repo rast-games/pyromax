@@ -194,6 +194,8 @@ class GetChatHistoryMethod(BaseMethod):
 
 
 class FetchCommentsMethod(GetChatHistoryMethod):
+    circuit_breaker_retry_safe = True
+
     async def __call__(self, request: Envelope) -> Envelope:
         request = await super().__call__(request)
         request.payload = CommentsHistoryRequest.model_validate(

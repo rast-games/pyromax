@@ -592,6 +592,70 @@ class MessageMixin(CoreMixinsProtocol):
             ),
         )
 
+    @overload
+    async def fetch_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        from_: int | None = ...,
+        backward: int = ...,
+        get_messages: Literal[True] = True,
+        forward: int = ...,
+        get_chat: Literal[False] = False,
+    ) -> list[Message]: ...
+
+    @overload
+    async def fetch_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        from_: int | None = ...,
+        backward: int = ...,
+        get_messages: Literal[True] = True,
+        forward: int = ...,
+        get_chat: Literal[True] = True,
+    ) -> tuple[list[Message], Chat | None]: ...
+
+    @overload
+    async def fetch_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        from_: int | None = ...,
+        backward: int = ...,
+        get_messages: Literal[False] = False,
+        forward: int = ...,
+        get_chat: Literal[False] = False,
+    ) -> list[int | str]: ...
+
+    @overload
+    async def fetch_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        from_: int | None = ...,
+        backward: int = ...,
+        get_messages: Literal[False] = False,
+        forward: int = ...,
+        get_chat: Literal[True] = True,
+    ) -> tuple[list[int | str], Chat | None]: ...
+
+    @overload
+    async def fetch_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        from_: int | None = ...,
+        backward: int = ...,
+        get_messages: bool = ...,
+        forward: int = ...,
+        get_chat: bool = ...,
+    ) -> (
+        list[Message]
+        | list[int | str]
+        | tuple[list[Message] | list[int | str], Chat | None]
+    ): ...
+
     async def fetch_comments(
         self,
         chat_id: int,
@@ -600,10 +664,17 @@ class MessageMixin(CoreMixinsProtocol):
         backward: int = 30,
         get_messages: bool = True,
         forward: int = 0,
-    ) -> list[Message]:
+        get_chat: bool = False,
+    ) -> (
+        list[Message]
+        | list[int | str]
+        | tuple[list[Message] | list[int | str], Chat | None]
+    ):
         """Fetch comments for a channel post."""
         return cast(
-            list[Message],
+            list[Message]
+            | list[int | str]
+            | tuple[list[Message] | list[int | str], Chat | None],
             await self(
                 FetchCommentsMethod,
                 chat_id=chat_id,
@@ -612,6 +683,7 @@ class MessageMixin(CoreMixinsProtocol):
                 backward=backward,
                 get_messages=get_messages,
                 forward=forward,
+                get_chat=get_chat,
             ),
         )
 

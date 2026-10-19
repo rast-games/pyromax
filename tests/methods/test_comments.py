@@ -60,7 +60,7 @@ class CommentPayloadTest(unittest.IsolatedAsyncioTestCase):
             forward_time=0,
             from_time=-1,
             item_type="REGULAR",
-            get_chat=False,
+            get_chat=True,
             get_messages=True,
             interactive=False,
         )(Envelope(seq=1, payload={}))
@@ -69,6 +69,7 @@ class CommentPayloadTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.payload["postId"], 20)
         self.assertEqual(result.payload["from"], -1)
         self.assertEqual(result.payload["backward"], 30)
+        self.assertTrue(result.payload["getChat"])
 
     async def test_edit_delete_and_reaction_payloads_contain_post_id(self) -> None:
         cases = [

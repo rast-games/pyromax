@@ -981,6 +981,70 @@ class MessageMixin(MixinProtocol):
             self._logger.error("Error sending comment: %s", error)
             return None
 
+    @overload
+    async def fetch_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        from_: int | None = ...,
+        backward: int = ...,
+        get_messages: Literal[True] = True,
+        forward: int = ...,
+        get_chat: Literal[False] = False,
+    ) -> list[Message]: ...
+
+    @overload
+    async def fetch_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        from_: int | None = ...,
+        backward: int = ...,
+        get_messages: Literal[True] = True,
+        forward: int = ...,
+        get_chat: Literal[True] = True,
+    ) -> tuple[list[Message], Chat | None]: ...
+
+    @overload
+    async def fetch_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        from_: int | None = ...,
+        backward: int = ...,
+        get_messages: Literal[False] = False,
+        forward: int = ...,
+        get_chat: Literal[False] = False,
+    ) -> list[int | str]: ...
+
+    @overload
+    async def fetch_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        from_: int | None = ...,
+        backward: int = ...,
+        get_messages: Literal[False] = False,
+        forward: int = ...,
+        get_chat: Literal[True] = True,
+    ) -> tuple[list[int | str], Chat | None]: ...
+
+    @overload
+    async def fetch_comments(
+        self,
+        chat_id: int,
+        post_id: int,
+        from_: int | None = ...,
+        backward: int = ...,
+        get_messages: bool = ...,
+        forward: int = ...,
+        get_chat: bool = ...,
+    ) -> (
+        list[Message]
+        | list[int | str]
+        | tuple[list[Message] | list[int | str], Chat | None]
+    ): ...
+
     async def fetch_comments(
         self,
         chat_id: int,
@@ -989,7 +1053,12 @@ class MessageMixin(MixinProtocol):
         backward: int = 30,
         get_messages: bool = True,
         forward: int = 0,
-    ) -> list[Message]:
+        get_chat: bool = False,
+    ) -> (
+        list[Message]
+        | list[int | str]
+        | tuple[list[Message] | list[int | str], Chat | None]
+    ):
         """Fetch comments for a channel post."""
         response = await self.send(
             method=FetchCommentsProtocolMethod(
@@ -1001,22 +1070,52 @@ class MessageMixin(MixinProtocol):
                 forward_time=0,
                 from_time=-1 if from_ is None else from_,
                 item_type="REGULAR",
-                get_chat=False,
+                get_chat=get_chat,
                 get_messages=get_messages,
                 interactive=False,
-            )
+            ),
+            check_errors=True,
         )
         mapped_comments = GetChatHistoryResponse(payload=response.payload)
-        if not isinstance(mapped_comments.payload, GetChatHistoryMessagesResponse):
-            return []
+        chat = None
+        if mapped_comments.payload.chat is not None:
+            chat = self.bind_api_instance(
+                cast(Chat, translate_models(mapped_comments.payload.chat))
+            )
 
-        for comment in mapped_comments.payload.messages:
-            comment.chat_id = chat_id
-        comments = cast(
-            list[Message],
-            [translate_models(comment) for comment in mapped_comments.payload.messages],
-        )
-        return [self.bind_api_instance(comment) for comment in comments]
+        if get_messages:
+            if not isinstance(
+                mapped_comments.payload,
+                GetChatHistoryMessagesResponse,
+            ):
+                raise MapperApiError(
+                    "Server returned comment IDs when comments were requested"
+                )
+
+            for comment in mapped_comments.payload.messages:
+                comment.chat_id = chat_id
+            comments = cast(
+                list[Message],
+                [
+                    translate_models(comment)
+                    for comment in mapped_comments.payload.messages
+                ],
+            )
+            bound_comments = [self.bind_api_instance(comment) for comment in comments]
+            if get_chat:
+                return bound_comments, chat
+            return bound_comments
+
+        if not isinstance(
+            mapped_comments.payload,
+            GetChatHistoryMessagesIdsResponse,
+        ):
+            raise MapperApiError(
+                "Server returned comments when comment IDs were requested"
+            )
+        if get_chat:
+            return mapped_comments.payload.message_ids, chat
+        return mapped_comments.payload.message_ids
 
     async def edit_comment(
         self,
@@ -1075,7 +1174,8 @@ class MessageMixin(MixinProtocol):
                 post_id=post_id,
                 message_ids=message_ids,
                 for_me=for_me,
-            )
+            ),
+            check_errors=True,
         )
         return True
 

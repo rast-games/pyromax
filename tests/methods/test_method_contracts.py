@@ -102,6 +102,7 @@ class MethodContractTest(unittest.IsolatedAsyncioTestCase):
                     "backward": 30,
                     "get_messages": True,
                     "forward": 0,
+                    "get_chat": False,
                 },
             ),
             (
