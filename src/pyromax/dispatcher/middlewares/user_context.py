@@ -29,6 +29,7 @@ class UserContextMiddleware(BaseMiddleware):
         """
         resolved_update = data.get(ResolvedUpdate)
         if resolved_update is None:
+            data[EVENT_CONTEXT_KEY] = EventContext()
             return await handler(event, data)
         data[EVENT_CONTEXT_KEY] = self.resolve_event_context(event=resolved_update)
         return await handler(event, data)
@@ -37,7 +38,6 @@ class UserContextMiddleware(BaseMiddleware):
     def resolve_event_context(
         event: MaxObject,
     ) -> EventContext:
-
         """Resolve event context.
 
         :param event: Incoming event to process.

@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, TYPE_CHECKING, TypeVar
 
 from .Router import Router
+from .RawUpdateMode import RawUpdateMode, UpdateTranslationFailure
 from .event import (
     UpdateMaxEventObserver,
     UNHANDLED,
@@ -51,6 +52,7 @@ class Dispatcher(Router):
         name: str | None = None,
         concurrent_task_dispatch: bool = False,
         concurrent_task_count: int = 100,
+        raw_update_mode: RawUpdateMode = RawUpdateMode.TRANSLATED_ONLY,
         **kwargs: Any,
     ) -> None:
         """Initialize the dispatcher.
@@ -65,6 +67,11 @@ class Dispatcher(Router):
         :type disable_fsm: bool
         :param name: The name value.
         :type name: str | None
+        :param raw_update_mode: Select which protocol responses reach update outer
+            middlewares. In ``ALL_RESPONSES`` mode, translation failures and
+            ``ErrorResponse`` objects are dispatched as raw events without invoking
+            domain handlers.
+        :type raw_update_mode: RawUpdateMode
         :param kwargs: Keyword arguments forwarded to the wrapped callable.
         :type kwargs: Any
         """
@@ -72,6 +79,7 @@ class Dispatcher(Router):
 
         self._concurrent_task_dispatch = concurrent_task_dispatch
         self._concurrent_task_count = concurrent_task_count
+        self.raw_update_mode = RawUpdateMode(raw_update_mode)
 
         self.update = UpdateMaxEventObserver(
             router=self, event_name="UPDATE", type_of_update=MaxObject
@@ -114,7 +122,9 @@ class Dispatcher(Router):
         if not disable_fsm:
             self.update.outer_middleware(self.fsm)
 
-        self.__logger = logging.getLogger("MaxDispatcher")
+        self.__logger = logging.getLogger(
+            "MaxDispatcher" + f"_{self.name}" if self.name else ""
+        )
 
     async def _process_disconnect(
         self,
@@ -254,26 +264,33 @@ class Dispatcher(Router):
             async for update in updates:
                 if max_api.shutdown_requested:
                     break
+                resolved_update: MaxObject = update
+                translation_failure: UpdateTranslationFailure | None = None
                 if isinstance(update, ErrorResponse):
                     self.__logger.error("Failed to receive update: %s", update.error)
-                    continue
-
-                self.__logger.debug("Received update: %s", update)
-                try:
-                    resolved_update = update_translator(update)
-                except asyncio.CancelledError:
-                    raise
-                except Exception as e:
-                    self.__logger.exception(
-                        "Failed to process update: %s", update, exc_info=e
-                    )
-                    continue
+                    if self.raw_update_mode is RawUpdateMode.TRANSLATED_ONLY:
+                        continue
+                else:
+                    self.__logger.debug("Received update: %s", update)
+                    try:
+                        resolved_update = update_translator(update)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as e:
+                        self.__logger.exception(
+                            "Failed to translate update: %s", update, exc_info=e
+                        )
+                        if self.raw_update_mode is RawUpdateMode.TRANSLATED_ONLY:
+                            continue
+                        translation_failure = UpdateTranslationFailure(exception=e)
 
                 data: dict[type | TypeVar, Any] = {
                     type(max_api): max_api,
                     Update: update,
                     ResolvedUpdate: resolved_update,
                 }
+                if translation_failure is not None:
+                    data[UpdateTranslationFailure] = translation_failure
 
                 data.update(max_api.workflow_data)
 
@@ -290,9 +307,7 @@ class Dispatcher(Router):
                     await self._process_update(update, data, max_api)
         finally:
             max_api._remove_disconnect_listener(disconnect_listener)
-            max_api._remove_unsupported_version_listener(
-                unsupported_version_listener
-            )
+            max_api._remove_unsupported_version_listener(unsupported_version_listener)
             tasks = tuple(semaphore_calls)
             for task in tasks:
                 task.cancel()

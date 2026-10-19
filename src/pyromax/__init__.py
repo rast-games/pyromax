@@ -1,5 +1,10 @@
 from .core import MaxApi
-from .dispatcher import Router, Dispatcher
+from .dispatcher import (
+    Dispatcher,
+    RawUpdateMode,
+    Router,
+    UpdateTranslationFailure,
+)
 from .transport import (
     BaseTransport as BaseTransport,
     SocketTransport as SocketTransport,
@@ -37,7 +42,9 @@ __all__ = [
     "Dispatcher",
     "F",
     "MaxApi",
+    "RawUpdateMode",
     "Router",
+    "UpdateTranslationFailure",
     "VersionApi",
     "VersionCatalog",
 ]
