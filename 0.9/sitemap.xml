@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://docs.pyromax.org/0.9/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/authentication/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/authentication/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/authentication/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/changelog/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/changelog/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/quickstart/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/versioning/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/versioning/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/versioning/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/api/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/api/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/api/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/api/auth/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/api/auth/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/api/auth/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/api/comments/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/api/comments/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/api/comments/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/api/dispatcher/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/api/dispatcher/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/api/dispatcher/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/api/filters/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/api/filters/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/api/filters/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/api/fsm/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/api/fsm/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/api/fsm/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/api/infrastructure/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/api/infrastructure/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/api/infrastructure/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/api/maxapi/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/api/maxapi/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/api/maxapi/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/api/models/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/api/models/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/api/models/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/guide/architecture/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/guide/architecture/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/guide/architecture/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/guide/backends/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/guide/backends/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/guide/backends/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/guide/comments/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/guide/comments/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/guide/comments/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/guide/configuration/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/guide/configuration/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/guide/configuration/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/guide/filters/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/guide/filters/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/guide/filters/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/guide/fsm/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/guide/fsm/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/guide/fsm/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/guide/methods/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/guide/methods/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/guide/middlewares/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/guide/middlewares/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/guide/middlewares/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/guide/models/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/guide/models/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/guide/models/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/guide/resilience/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/guide/resilience/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/guide/resilience/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/guide/routing/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9/guide/routing/"/>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9ru/guide/routing/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/authentication/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/authentication/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9authentication/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/changelog/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9changelog/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/quickstart/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9quickstart/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/versioning/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/versioning/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9versioning/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/api/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9api/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/api/auth/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/api/auth/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9api/auth/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/api/comments/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/api/comments/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9api/comments/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/api/dispatcher/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/api/dispatcher/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9api/dispatcher/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/api/filters/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/api/filters/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9api/filters/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/api/fsm/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/api/fsm/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9api/fsm/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/api/infrastructure/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/api/infrastructure/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9api/infrastructure/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/api/maxapi/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/api/maxapi/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9api/maxapi/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/api/models/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/api/models/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9api/models/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/guide/architecture/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/guide/architecture/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9guide/architecture/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/guide/backends/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/guide/backends/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9guide/backends/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/guide/comments/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/guide/comments/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9guide/comments/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/guide/configuration/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/guide/configuration/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9guide/configuration/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/guide/filters/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/guide/filters/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9guide/filters/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/guide/fsm/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/guide/fsm/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9guide/fsm/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/guide/methods/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9guide/methods/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/guide/middlewares/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/guide/middlewares/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9guide/middlewares/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/guide/models/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/guide/models/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9guide/models/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/guide/resilience/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/guide/resilience/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9guide/resilience/"/>
+    </url>
+    <url>
+        <loc>https://docs.pyromax.org/0.9/ru/guide/routing/</loc>
+        <lastmod>2026-10-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ru" href="https://docs.pyromax.org/0.9/ru/guide/routing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.pyromax.org/0.9guide/routing/"/>
+    </url>
+</urlset>
