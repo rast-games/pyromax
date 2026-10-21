@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.9 — changes since 0.8.5
+
+### Channel comments
+
+- Added high-level operations to send, fetch, retrieve, edit, and delete channel-post comments.
+- Added comment reactions, subscriptions, counters, author blocking, bulk user-comment deletion, and enabling/disabling comments for a channel.
+- `fetch_comments(..., get_chat=True)` can return the bound `Chat` together with messages or IDs.
+- Added `CommentsInfo` and `CommentsInfoUpdate` domain models and bound `Chat.set_comments()`.
+
+### Messages
+
+- `send_message()`, `Message.answer()`, and `Message.reply()` accept `send_at` as an absolute `datetime`, relative `timedelta`, or Unix timestamp in seconds.
+- Scheduled history can be requested with `item_type="DELAYED"`.
+
+### Client versions and Android fingerprints
+
+- Added `VersionApi` / `VersionCatalog`, a bundled APK fingerprint catalog, and optional remote catalog merging.
+- Added `app_version`, `app_fingerprint`, `version_api` (`catalog` alias), and `strict_fingerprint_pair` configuration.
+- Added `MaxApi.app_version`, `get_available_app_versions()`, `set_app_version()`, and `set_random_app_version()`; live version changes may reconnect automatically.
+- Unknown Android versions can run without a fingerprint unless strict pairing is enabled.
+- Added automatic version rotation after an unsupported-client response, controlled by `autochange_app_version_if_current_unsupported`.
+
+### Lifecycle and resilience
+
+- Added `DisconnectEvent` and `UnsupportedClientVersionEvent` with `Router.disconnect` and `Router.unsupported_client_version` observers.
+- `MaxApi(dispatcher=...)` can preload lifecycle listeners before connection, so initialization-time disconnect/version events are observable. `Dispatcher.start_polling()` also installs and removes them automatically.
+- Added `reconnect`, `reconnect_delay`, and `relogin` directives.
+- Added independent configurable circuit breakers for transport and API failures, including cooldown, half-open probes, exponential recovery delay, and fail-fast/wait behavior.
+- Cancellation, request correlation IDs, retries, reconnect, and relogin paths were hardened against races.
+
+### Dispatcher and raw responses
+
+- Added `RawUpdateMode`. The default `TRANSLATED_ONLY` preserves previous behavior; `ALL_RESPONSES` lets update outer middleware observe protocol errors and translation failures.
+- Added `UpdateTranslationFailure` to the middleware data when translation fails.
+
+### Packaging and compatibility
+
+- Added CI workflows for tests, quality checks, package builds, and documentation.
+- Socket transport includes the required Russian trust certificate and the obsolete token-file utilities were removed.
+
 ## 0.8.5 — changes since 0.8
 
 ### Client lifecycle

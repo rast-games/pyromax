@@ -12,6 +12,8 @@
         - MsgPackDictEncodingConfig
         - EnvelopeProtocolConfig
         - EnvelopeMapperConfigV11
+        - CircuitBreakerConfig
+        - MappingCircuitBreakersConfig
         - WebEnvelopeMappingUserAgentConfigV11
         - DesktopEnvelopeMappingUserAgentConfigV11
         - AndroidEnvelopeMappingUserAgentConfigV11
@@ -60,6 +62,20 @@
 ## High-level методы
 
 ::: pyromax.methods.BaseMaxApiMethod
+
+## Версии приложения
+
+::: pyromax.versions
+
+## Режимы Dispatcher
+
+::: pyromax.dispatcher.RawUpdateMode
+
+::: pyromax.dispatcher.UpdateTranslationFailure
+
+## Circuit breaker
+
+::: pyromax.utils.circuit_breaker
 
 ## Декораторы реестров
 

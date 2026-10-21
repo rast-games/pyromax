@@ -1,6 +1,6 @@
 # Authentication
 
-`MaxApi` initializes transport, encoding, protocol, and mapper before authentication. In 0.8.5, the Web profile uses WebSocket, JSON, `EnvelopeProtocol`, and `EnvelopeV11`.
+`MaxApi` initializes transport, encoding, protocol, and mapper before authentication. In 0.9, the Web profile uses WebSocket, JSON, `EnvelopeProtocol`, and `EnvelopeV11`.
 
 ## Token authentication
 

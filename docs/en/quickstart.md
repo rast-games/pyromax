@@ -2,7 +2,7 @@
 
 ## Requirements and installation
 
-Pyromax 0.8.5 requires Python 3.11 or newer.
+Pyromax 0.9 requires Python 3.11 or newer.
 
 ```bash
 python -m pip install pyromax

@@ -1,5 +1,5 @@
 docs_dir: docs
-site_name: Pyromax 0.8.5 Documentation
+site_name: Pyromax 0.9 Documentation
 site_description: Asynchronous framework for MAX Messenger userbots
 site_url: https://docs.pyromax.org/
 repo_url: https://github.com/rast-games/pyromax
@@ -45,6 +45,8 @@ nav:
       - Architecture: guide/architecture.md
       - Backend layers and extension: guide/backends.md
       - Methods and mapper calls: guide/methods.md
+      - Channel comments: guide/comments.md
+      - Versions and resilience: guide/resilience.md
       - Routing and handlers: guide/routing.md
       - Filters: guide/filters.md
       - Middlewares and DI: guide/middlewares.md
@@ -58,6 +60,7 @@ nav:
       - Filters: api/filters.md
       - FSM: api/fsm.md
       - Models: api/models.md
+      - Comment methods: api/comments.md
       - Infrastructure: api/infrastructure.md
   # The page remains in the sources for maintainers, but is intentionally
   # hidden from the public navigation.
@@ -75,7 +78,7 @@ plugins:
         - locale: ru
           name: Русский
           build: true
-          site_name: Документация Pyromax 0.8.5
+          site_name: Документация Pyromax 0.9
           site_description: Асинхронный фреймворк для юзерботов MAX Messenger
           theme:
             palette:
@@ -105,6 +108,8 @@ plugins:
             Architecture: Архитектура
             Backend layers and extension: Слои backend и расширение
             Methods and mapper calls: Методы и вызовы маппера
+            Channel comments: Комментарии каналов
+            Versions and resilience: Версии и устойчивость
             Routing and handlers: Роутинг и обработчики
             Filters: Фильтры
             Middlewares and DI: Middleware и DI
@@ -114,6 +119,7 @@ plugins:
             Overview: Обзор
             Dispatcher and Router: Dispatcher и Router
             Models: Модели
+            Comment methods: Методы комментариев
             Infrastructure: Инфраструктура
   - mkdocstrings:
       default_handler: python
@@ -153,4 +159,4 @@ extra:
     default: latest
     alias: true
 
-copyright: Documentation for Pyromax 0.8.5
+copyright: Documentation for Pyromax 0.9

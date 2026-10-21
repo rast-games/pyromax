@@ -42,7 +42,7 @@ class AcmeEncoding(BaseEncoding[dict, bytes, bytes, dict]):
 
 Аналогичные декораторы: `register_transport`, `register_protocol`, `register_mapper`.
 
-!!! warning "Интеграция registry в 0.8.5"
+!!! warning "Интеграция registry в 0.9"
     Одной регистрации недостаточно для выбора backend через `MaxApi`. Текущий resolver сопоставляет известные config-классы со встроенными enum registry. Полный пользовательский стек должен добавить config models и расширить `from_config_to_registry()`, `from_registry_to_config()` и при необходимости `CONFIG_SETS`. Пока это version-coupled extension points, а не стабильный plugin API.
 
 ## Пользовательский mapper

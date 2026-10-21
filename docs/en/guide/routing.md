@@ -22,6 +22,7 @@ Every router exposes observers for:
 - `message_reaction`, `message_added_reaction`, and `message_deleted_reaction`;
 - `error`.
 - `message_read`, `typing`, `presence`, `message_delete`, and `chat_update` domain events.
+- `disconnect` and `unsupported_client_version` lifecycle events.
 
 Handlers are checked in registration order. The first matching handler normally consumes the event; `skip()` explicitly continues propagation to another matching handler.
 
@@ -42,6 +43,10 @@ async def optional_dependency(message: Message, service: "OptionalService") -> N
 Use this option only when the handler intentionally accepts missing dependencies. Despite its historical name, it does not cause the update to continue to the next handler.
 
 `Dispatcher(concurrent_task_dispatch=True, concurrent_task_count=100)` processes independent updates concurrently with a bounded task count. Sequential dispatch remains the default when ordering matters.
+
+Pass a dispatcher to `MaxApi(dispatcher=dispatcher)` when lifecycle handlers must observe disconnect or unsupported-version events raised during initialization. Polling installs the same listeners automatically for the rest of the client lifetime.
+
+`Dispatcher(raw_update_mode=RawUpdateMode.ALL_RESPONSES)` exposes protocol errors and translation failures to update outer middleware. See [versions and resilience](resilience.md#raw-protocol-responses).
 
 ## Connection loss
 

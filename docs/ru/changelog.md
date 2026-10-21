@@ -1,5 +1,46 @@
 # История изменений
 
+## 0.9 — изменения относительно 0.8.5
+
+### Комментарии каналов
+
+- Добавлены high-level операции отправки, загрузки, получения, изменения и удаления комментариев к постам каналов.
+- Добавлены реакции, подписки, счётчики, блокировка авторов, удаление комментариев пользователя и включение/выключение комментариев канала.
+
+[//]: # (- `fetch_comments&#40;..., get_chat=True&#41;` может вернуть bound-объект `Chat` вместе с сообщениями или ID.)
+- Добавлены доменные модели `CommentsInfo`, `CommentsInfoUpdate` и bound-метод `Chat.set_comments()`.
+
+### Сообщения
+
+- `send_message()`, `Message.answer()` и `Message.reply()` принимают `send_at`: абсолютный `datetime`, относительный `timedelta` или Unix timestamp в секундах.
+- Отложенную историю можно запросить через `item_type="DELAYED"`.
+
+### Версии клиента и Android fingerprints
+
+- Добавлены `VersionApi` / `VersionCatalog`, встроенный каталог APK fingerprints и объединение с удалённым каталогом.
+- Добавлены настройки `app_version`, `app_fingerprint`, `version_api` (alias `catalog`) и `strict_fingerprint_pair`.
+- Добавлены `MaxApi.app_version`, `get_available_app_versions()`, `set_app_version()` и `set_random_app_version()`; смена версии во время работы может автоматически переподключить клиент.
+- Неизвестная Android-версия может работать без fingerprint, если не включена строгая пара.
+- Добавлена автоматическая смена версии после ответа unsupported client; управляется `autochange_app_version_if_current_unsupported`.
+
+### Lifecycle и устойчивость
+
+- Добавлены `DisconnectEvent`, `UnsupportedClientVersionEvent` и observers `Router.disconnect`, `Router.unsupported_client_version`.
+- `MaxApi(dispatcher=...)` может загрузить lifecycle listeners до подключения, поэтому видны события во время инициализации. `Dispatcher.start_polling()` также автоматически устанавливает и снимает listeners.
+- Добавлены директивы `reconnect`, `reconnect_delay`, `relogin`.
+- Добавлены независимые circuit breakers для transport/API failures с cooldown, half-open probe, ростом recovery delay и режимом ожидания либо fail-fast.
+- Усилена защита cancellation, CID, retries, reconnect и relogin от race conditions.
+
+### Dispatcher и сырые ответы
+
+- Добавлен `RawUpdateMode`: стандартный `TRANSLATED_ONLY` сохраняет прежнее поведение, а `ALL_RESPONSES` передаёт protocol errors и ошибки перевода во внешние update middleware.
+- При ошибке перевода в middleware data добавляется `UpdateTranslationFailure`.
+
+### Поставка и совместимость
+
+- Добавлены CI workflows для tests, quality, package build и документации.
+- В socket transport добавлен необходимый российский trust certificate; устаревшие token-file utilities удалены.
+
 ## 0.8.5 — изменения относительно 0.8
 
 ### Жизненный цикл клиента

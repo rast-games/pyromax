@@ -42,7 +42,7 @@ class AcmeEncoding(BaseEncoding[dict, bytes, bytes, dict]):
 
 Equivalent decorators are `register_transport`, `register_protocol`, and `register_mapper`.
 
-!!! warning "Registry integration in 0.8.5"
+!!! warning "Registry integration in 0.9"
     Registration alone does not make a backend selectable by `MaxApi`. The current configuration resolver maps known config classes to the built-in registry enums. A full custom stack must also provide config models and extend `from_config_to_registry()`, `from_registry_to_config()`, and, when appropriate, `CONFIG_SETS`. These are currently version-coupled extension points rather than a stable third-party plugin API.
 
 ## Implementing a mapper

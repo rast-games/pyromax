@@ -22,6 +22,7 @@ dispatcher.include_router(admin)
 - `message_reaction`, `message_added_reaction`, `message_deleted_reaction`;
 - `error`.
 - доменные события `message_read`, `typing`, `presence`, `message_delete` и `chat_update`.
+- lifecycle-события `disconnect` и `unsupported_client_version`.
 
 Обработчики проверяются в порядке регистрации. Обычно первое совпадение поглощает событие, а `skip()` явно продолжает распространение до следующего подходящего обработчика.
 
@@ -42,6 +43,10 @@ async def optional_dependency(message: Message, service: "OptionalService") -> N
 Используйте этот параметр, только если handler намеренно допускает отсутствующие зависимости. Несмотря на историческое название, он не передаёт update следующему handler.
 
 `Dispatcher(concurrent_task_dispatch=True, concurrent_task_count=100)` обрабатывает независимые события параллельно с ограничением числа задач. Последовательная обработка остаётся режимом по умолчанию, когда важен порядок.
+
+Передайте dispatcher через `MaxApi(dispatcher=dispatcher)`, если lifecycle handlers должны видеть disconnect или unsupported-version во время инициализации. На время polling те же listeners устанавливаются автоматически.
+
+`Dispatcher(raw_update_mode=RawUpdateMode.ALL_RESPONSES)` передаёт protocol errors и ошибки translation во внешние update middleware. Подробнее: [версии и устойчивость](resilience.md#raw-protocol-responses).
 
 ## Потеря соединения
 

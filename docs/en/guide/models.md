@@ -17,9 +17,11 @@ async def handle(message: Message) -> None:
 
 Other helpers include `answer`, `forward`, `pin`, `edit`, `delete`, `unreact`, and `get_reactions`.
 
+`answer()` and `reply()` accept `send_at` for scheduled delivery: a `datetime`, relative `timedelta`, or Unix timestamp in seconds.
+
 ## Chat
 
-`Chat` can `answer`, fetch `history`, retrieve messages, invite/remove users, update settings, revoke its invite link, leave, or delete itself. `is_dialog()`, `is_group()`, and `is_channel()` help branch on chat type.
+`Chat` can `answer`, fetch `history`, retrieve messages, invite/remove users, update settings, enable channel comments, revoke its invite link, leave, or delete itself. `is_dialog()`, `is_group()`, and `is_channel()` help branch on chat type.
 
 ## Contact
 
