@@ -82,7 +82,7 @@ if TYPE_CHECKING:
 
 
 # @lru_cache
-def get_registry(
+def get_registry_for_v11(
     mapper: Mapper,
 ) -> dict[type[BaseMaxApiMethod[Any]], dict[str, Callable[..., Awaitable[Any]]]]:
     """Retrieve registry.

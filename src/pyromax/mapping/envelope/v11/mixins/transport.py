@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Callable, Awaitable
 from typing import Any, cast
 
 from .....protocol.envelope import Envelope
@@ -18,7 +19,7 @@ from ..payloads.responses import ErrorMessageResponse
 from ..translate.ErrorTranslate import translate_error_response
 from ..methods.build_ins import build_method, method_names
 from ..translate.high_level_methods_translate import (
-    get_registry as get_methods_registry,
+    get_registry_for_v11 as get_methods_registry,
 )
 
 
@@ -479,6 +480,13 @@ class TransportMixin(MixinProtocol):
         )
         return await method(cast(Mapper, self), *args, **kwargs)
 
+    def _get_highlevel_translate_mapping(
+        self,
+    ) -> dict[type[BaseMaxApiMethod[Any]], dict[str, Callable[..., Awaitable[Any]]]]:
+        from ..Mapper import Mapper
+
+        return get_methods_registry(cast(Mapper, self))
+
     async def call_method(
         self, method: type[BaseMaxApiMethod[Any]], *args: Any, **kwargs: Any
     ) -> Any:
@@ -498,7 +506,7 @@ class TransportMixin(MixinProtocol):
         """
         from ..Mapper import Mapper
 
-        methods_registry = get_methods_registry(cast(Mapper, self))
+        methods_registry = self._get_highlevel_translate_mapping()
         method_with_device_types = methods_registry.get(method)
         if method_with_device_types is None:
             raise MapperNotImplementedMethodError(
