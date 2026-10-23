@@ -67,7 +67,7 @@ class Message(BaseMaxObject):
         *,
         notify: bool = True,
         send_at: datetime | timedelta | int | None = None,
-    ) -> Any:
+    ) -> Message | None:
         """Answer.
 
         :param text: Message or textual content.
@@ -84,17 +84,26 @@ class Message(BaseMaxObject):
         :returns: The value returned by the wrapped callable or backend.
         :rtype: Any
         """
-        from ..methods import SendMessageMethod
 
-        return await self.max_api(
-            class_of_method=SendMessageMethod,
-            text=text,
-            chat_id=self.chat_id,
-            attaches=attaches,
-            link=link,
-            notify=notify,
-            send_at=send_at,
+        return await self.max_api.send_message(
+	        chat_id=self.chat_id,
+	        attaches=attaches,
+	        link=link,
+	        notify=notify,
+	        send_at=send_at
         )
+
+        # from ..methods import SendMessageMethod
+
+        # return await self.max_api(
+        #     class_of_method=SendMessageMethod,
+        #     text=text,
+        #     chat_id=self.chat_id,
+        #     attaches=attaches,
+        #     link=link,
+        #     notify=notify,
+        #     send_at=send_at,
+        # )
 
     async def reply(
         self,
@@ -103,7 +112,7 @@ class Message(BaseMaxObject):
         *,
         notify: bool = True,
         send_at: datetime | timedelta | int | None = None,
-    ) -> Any:
+    ) -> Message | None:
         """Reply.
 
         :param text: Message or textual content.

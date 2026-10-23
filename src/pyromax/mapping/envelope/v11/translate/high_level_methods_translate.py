@@ -80,7 +80,7 @@ if TYPE_CHECKING:
     from ..Mapper import Mapper
 
 
-@lru_cache
+# @lru_cache
 def get_registry(
     mapper: Mapper,
 ) -> dict[type[BaseMaxApiMethod[Any]], dict[str, Callable[..., Awaitable[Any]]]]:
