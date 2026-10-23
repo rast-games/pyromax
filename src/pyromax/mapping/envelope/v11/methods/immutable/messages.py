@@ -57,7 +57,7 @@ class SendMessageMethod(BaseMethod):
         """
         request.opcode = Opcode.SEND_MESSAGE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
 
         notify = self.args.get("notify")
         send_at = self.args.get("send_at")
@@ -124,7 +124,7 @@ class EditMessageMethod(BaseMethod):
         """
         request.opcode = Opcode.EDIT_MESSAGE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = EditMessageRequest(
             chat_id=self.args["chat_id"],
             message_id=self.args["message_id"],
@@ -161,7 +161,7 @@ class GetMessagesMethod(BaseMethod):
         """
         request.opcode = Opcode.GET_MESSAGES
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = GetMessagesRequest(
             message_ids=self.args["message_ids"],
             chat_id=self.args["chat_id"],
@@ -191,7 +191,7 @@ class GetChatHistoryMethod(BaseMethod):
         """
         request.opcode = Opcode.GET_CHAT_MESSAGES_PER_CHUNK
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = GetChatHistoryRequest(
             chat_id=self.args["chat_id"],
             from_=self.args["from_time"],
@@ -229,7 +229,7 @@ class DeleteMessageMethod(BaseMethod):
         """
         request.opcode = Opcode.DELETE_MESSAGE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = DeleteMessageRequest(
             chat_id=self.args["chat_id"],
             message_ids=self.args["message_ids"],
@@ -258,7 +258,7 @@ class PinMessageMethod(BaseMethod):
         """
         request.opcode = Opcode.CHAT_UPDATE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = PinMessageRequest(
             chat_id=self.args["chat_id"],
             notify_pin=self.args["notify_pin"],
@@ -278,7 +278,7 @@ class AddReactionMethod(BaseMethod):
         """
         request.opcode = Opcode.ADD_REACTION
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = AddReactionRequest(
             chat_id=self.args["chat_id"],
             message_id=self.args["message_id"],
@@ -310,7 +310,7 @@ class RemoveReactionMethod(BaseMethod):
         """
         request.opcode = Opcode.REMOVE_REACTION
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = RemoveReactionRequest(
             chat_id=self.args["chat_id"],
             message_id=self.args["message_id"],
@@ -331,7 +331,7 @@ class SubscribeCommentsMethod(BaseMethod):
     async def __call__(self, request: Envelope) -> Envelope:
         request.opcode = Opcode.SUBSCRIBE_COMMENTS
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = SubscribeCommentsRequest(
             chat_id=self.args["chat_id"],
             post_id=self.args["post_id"],
@@ -346,7 +346,7 @@ class GetCommentsInfoMethod(BaseMethod):
     async def __call__(self, request: Envelope) -> Envelope:
         request.opcode = Opcode.GET_COMMENTS_INFO
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = GetCommentsInfoRequest(
             chat_id=self.args["chat_id"],
             post_ids=self.args["post_ids"],
@@ -358,7 +358,7 @@ class DeleteUserCommentsMethod(BaseMethod):
     async def __call__(self, request: Envelope) -> Envelope:
         request.opcode = Opcode.DELETE_USER_COMMENTS
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = DeleteUserCommentsRequest(
             chat_id=self.args["chat_id"],
             post_id=self.args["post_id"],
@@ -381,7 +381,7 @@ class GetReactionsMethod(BaseMethod):
         """
         request.opcode = Opcode.GET_REACTIONS
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = GetReactionsRequest(
             chat_id=self.args["chat_id"],
             message_ids=self.args["message_ids"],
@@ -400,7 +400,7 @@ class ReadMessageMethod(BaseMethod):
         """
         request.opcode = Opcode.READ_MESSAGE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = ReadMessageRequest(
             type=cast(Literal["READ_MESSAGE", "READ_REACTION"], self.args["type"]),
             chat_id=self.args["chat_id"],
@@ -421,7 +421,7 @@ class VotePollMethod(BaseMethod):
         """
         request.opcode = Opcode.VOTE_POLL
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = VotePollRequest(
             chat_id=self.args["chat_id"],
             message_id=self.args["message_id"],

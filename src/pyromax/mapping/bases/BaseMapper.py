@@ -209,3 +209,7 @@ class BaseMapper(AsyncInitializerMixin, Generic[T_protocol, T_file]):
         :param kwargs: Keyword arguments forwarded to the wrapped callable.
         :type kwargs: Any
         """
+
+    @property
+    def VERSION(self) -> int:
+        return -1

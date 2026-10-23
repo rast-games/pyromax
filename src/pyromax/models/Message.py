@@ -86,6 +86,7 @@ class Message(BaseMaxObject):
         """
 
         return await self.max_api.send_message(
+            text=text,
 	        chat_id=self.chat_id,
 	        attaches=attaches,
 	        link=link,

@@ -23,7 +23,7 @@ class ChangeProfileMethod(BaseMethod):
         """
         request.opcode = Opcode.PROFILE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = ChangeProfileRequest(
             first_name=self.args["first_name"],
             last_name=self.args.get("last_name"),
@@ -44,7 +44,7 @@ class CreateFolderMethod(BaseMethod):
         """
         request.opcode = Opcode.FOLDERS_UPDATE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = CreateFolderRequest(
             id=self.args.get("id") or str(uuid4()),
             title=self.args["title"],
@@ -67,7 +67,7 @@ class GetFoldersMethod(BaseMethod):
         """
         request.opcode = Opcode.FOLDERS_GET
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = GetFoldersRequest(
             folder_sync=self.args["folder_sync"],
         ).model_dump(by_alias=True, exclude_none=True)
@@ -85,7 +85,7 @@ class UpdateFolderMethod(BaseMethod):
         """
         request.opcode = Opcode.FOLDERS_UPDATE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = UpdateFolderRequest(
             id=self.args["id"],
             title=self.args["title"],
@@ -107,7 +107,7 @@ class DeleteFoldersMethod(BaseMethod):
         """
         request.opcode = Opcode.FOLDERS_DELETE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = DeleteFoldersRequest(
             folder_ids=self.args["folder_ids"],
         ).model_dump(by_alias=True, exclude_none=True)
@@ -125,7 +125,7 @@ class CloseAllSessionsMethod(BaseMethod):
         """
         request.opcode = Opcode.SESSIONS_CLOSE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = {}
         return request
 
@@ -155,7 +155,7 @@ class ChangeProfileSettingsMethod(BaseMethod):
         """
         request.opcode = Opcode.CONFIG
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = ChangeProfileSettingsRequest(
             settings=ChangeProfileSettingsMappingModel(
                 user=self.args["user"],

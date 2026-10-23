@@ -1,13 +1,23 @@
 import abc
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Generic, TYPE_CHECKING
 
+from typing_extensions import TypeVar
 
 from ......protocol import Envelope, BaseMaxProtocolMethod
 from ....constants import Opcode, Cmd
 from ...constants import VERSION
+from ......exceptions import BaseMapperError
+
+if TYPE_CHECKING:
+    from ...Mapper import Mapper
+    from .....bases import BaseMapper
+
+    MapperType = TypeVar("MapperType", default=Mapper, bound=BaseMapper[Any, Any])
+else:
+    MapperType = TypeVar("MapperType")
 
 
-class BaseMethod(abc.ABC, BaseMaxProtocolMethod[Envelope]):
+class BaseMethod(abc.ABC, Generic[MapperType], BaseMaxProtocolMethod[Envelope]):
     # Transport failures do not contain an API response, so breaker recovery
     # cycles are enabled by default and can be disabled for a specific method.
     circuit_breaker_transport_retry_enabled: ClassVar[bool] = True
@@ -34,6 +44,28 @@ class BaseMethod(abc.ABC, BaseMaxProtocolMethod[Envelope]):
         :rtype: Envelope
         """
         pass
+
+    _mapper: MapperType | None = None
+
+    @property
+    def mapper(self) -> MapperType:
+        if self._mapper is None:
+            raise BaseMapperError("Immutable mapper method not bound to mapper")
+        return self._mapper
+
+    @mapper.setter
+    def mapper(self, mapper: MapperType) -> None:
+        if self._mapper is not None:
+            raise BaseMapperError("Immutable mapper method already bound to mapper")
+        self._mapper = mapper
+
+    @property
+    def is_bound(self) -> bool:
+        return True if self._mapper is not None else False
+
+    @property
+    def VERSION(self) -> int:
+        return self.mapper.VERSION
 
 
 __all__ = [

@@ -41,9 +41,7 @@ class TransportMixin(MixinProtocol):
         try:
             if self._lifecycle_manager is None:
                 raise RuntimeError("Lifecycle manager not initialized")
-            await self.protocol.connect(
-                await self._lifecycle_manager.get_generation()
-            )
+            await self.protocol.connect(await self._lifecycle_manager.get_generation())
         except ConnectProtocolError as e:
             self._logger.error("Connect failed", stack_info=True, exc_info=True)
             raise MapperConnectError("Connect failed") from e
@@ -130,6 +128,12 @@ class TransportMixin(MixinProtocol):
         :raises MapperTransportError: if sending was failed or if timeout is exceeded.
         # :raises MapperCancelledError: if cancelation passed.
         """
+
+        if not method.is_bound:
+            from ..Mapper import Mapper
+
+            method.mapper = cast(Mapper, self)
+
         if data is None:
             data = {}
         try:

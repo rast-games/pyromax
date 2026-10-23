@@ -20,7 +20,8 @@ from ...payloads.requests import (
     RemoveTwoFactorRequest,
     TelemetryRequest,
 )
-from .base import VERSION
+
+# from .base import VERSION
 
 
 class TrackLoginMethod(BaseMethod):
@@ -37,7 +38,7 @@ class TrackLoginMethod(BaseMethod):
         request.payload = TrackLoginMappingModel(
             track_id=self.args["track_id"],
         ).model_dump(by_alias=True, exclude_none=True)
-        request.ver = VERSION
+        request.ver = self.VERSION
 
         return request
 
@@ -55,7 +56,7 @@ class GetUserDataMethod(TrackLoginMethod):
         """
         request = await super().__call__(request)
         request.opcode = Opcode.GET_USER_DATA
-        request.ver = VERSION
+        request.ver = self.VERSION
         return request
 
 
@@ -74,7 +75,7 @@ class Resolve2FAMethod(BaseMethod):
             track_id=self.args["track_id"],
             password=self.args["password"],
         ).model_dump(by_alias=True, exclude_none=True)
-        request.ver = VERSION
+        request.ver = self.VERSION
         return request
 
 
@@ -94,7 +95,7 @@ class StartSMSAuthMethod(BaseMethod):
             phone=self.args["phone"],
             mode=self.args.get("mode"),
         ).model_dump(by_alias=True, exclude_none=True)
-        request.ver = VERSION
+        request.ver = self.VERSION
         return request
 
 
@@ -114,7 +115,7 @@ class VerifySMSCodeMethod(BaseMethod):
             token=self.args["temp_token"],
             verify_code=self.args["verify_code"],
         ).model_dump(by_alias=True, exclude_none=True)
-        request.ver = VERSION
+        request.ver = self.VERSION
         return request
 
 
@@ -132,7 +133,7 @@ class GetMetadataForLoginMethod(BaseMethod):
         request.opcode = Opcode.METADATA_FOR_LOGIN
         request.cmd = Cmd.REQUEST
         request.payload = None
-        request.ver = VERSION
+        request.ver = self.VERSION
         return request
 
 
@@ -151,7 +152,7 @@ class SendUserAgentMethod(BaseMethod):
         request.payload = user_agent.to_request().model_dump(
             by_alias=True, exclude_none=True
         )
-        request.ver = VERSION
+        request.ver = self.VERSION
         return request
 
 
@@ -169,7 +170,7 @@ class SendAuthTokenMethod(BaseMethod):
         request.payload = AuthMappingModel(**self.args).model_dump(
             by_alias=True, exclude_none=True
         )
-        request.ver = VERSION
+        request.ver = self.VERSION
         return request
 
 
@@ -189,7 +190,7 @@ class SendKeepAlivePingMethod(BaseMethod):
         request.payload = KeepAliveRequest(
             interactive=self.args.get("interactive", True),
         ).model_dump(by_alias=True, exclude_none=True)
-        request.ver = VERSION
+        request.ver = self.VERSION
         return request
 
 
@@ -204,7 +205,7 @@ class ConfirmRegistrationMethod(BaseMethod):
         """
         request.opcode = Opcode.CONFIRM_REGISTRATION
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = ConfirmRegistrationRequest(
             token=self.args["token"],
             first_name=self.args["first_name"],
@@ -224,7 +225,7 @@ class GetEmailCodeMethod(BaseMethod):
         """
         request.opcode = Opcode.SET_EMAIL
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = GetEmailCodeRequest(
             track_id=self.args["track_id"],
             email=self.args["email"],
@@ -243,7 +244,7 @@ class VerifyEmailMethod(BaseMethod):
         """
         request.opcode = Opcode.VERIFY_EMAIL
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = VerifyEmailRequest(
             track_id=self.args["track_id"],
             verify_code=self.args["verify_code"],
@@ -262,7 +263,7 @@ class SetHintMethod(BaseMethod):
         """
         request.opcode = Opcode.SET_HINT
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = SetHintRequest(
             track_id=self.args["track_id"],
             hint=self.args["hint"],
@@ -281,7 +282,7 @@ class SetPasswordMethod(BaseMethod):
         """
         request.opcode = Opcode.SET_PASSWORD
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = SetPasswordRequest(
             track_id=self.args["track_id"],
             password=self.args["password"],
@@ -300,7 +301,7 @@ class GetTrackIdFor2FAMethod(BaseMethod):
         """
         request.opcode = Opcode.GET_TRACKID_FOR2FA
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = GetTrackIdFor2FARequest().model_dump(
             by_alias=True, exclude_none=True
         )
@@ -318,7 +319,7 @@ class SetTwoFactorMethod(BaseMethod):
         """
         request.opcode = Opcode.SET_2_FACTOR
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = SetTwoFactorRequest(
             expected_capabilities=self.args["expected_capabilities"],
             track_id=self.args["track_id"],
@@ -353,7 +354,7 @@ class RemoveTwoFactorMethod(BaseMethod):
         """
         request.opcode = Opcode.SET_2_FACTOR
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = RemoveTwoFactorRequest(
             track_id=self.args["track_id"],
             expected_capabilities=self.args["expected_capabilities"],
@@ -373,7 +374,7 @@ class ApproveQrLoginMethod(BaseMethod):
         """
         request.opcode = Opcode.AUTH_QR_APPROVE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = ApproveQrLoginRequest(
             qr_link=self.args["qr_link"],
         ).model_dump(by_alias=True, exclude_none=True)
@@ -384,7 +385,7 @@ class SendTelemetryMethod(BaseMethod):
     async def __call__(self, request: Envelope) -> Envelope:
         request.opcode = Opcode.LOG
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = TelemetryRequest(
             events=self.args["events"],
         ).model_dump(by_alias=True, exclude_none=True)

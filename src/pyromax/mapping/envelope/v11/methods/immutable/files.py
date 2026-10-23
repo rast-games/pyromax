@@ -24,7 +24,7 @@ class GetUrlToUploadFileMethod(BaseMethod):
             uploader_type=self.args.get("uploader_type") or 0,
             type=self.args.get("upload_type") or 0,
         )
-        request.ver = VERSION
+        request.ver = self.VERSION
         return request
 
 
@@ -63,7 +63,7 @@ class GetFileLinkMethod(BaseMethod):
         request.opcode = self.args["opcode"]
         request.cmd = Cmd.REQUEST
         request.payload = self.args["file"].get_payload_to_get_link
-        request.ver = VERSION
+        request.ver = self.VERSION
         return request
 
 

@@ -37,7 +37,7 @@ class CreateChatMethod(BaseMethod):
         """
         request.opcode = Opcode.SEND_MESSAGE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = CreateChatRequest(
             notify=self.args.get("notify", True),
             message=CreateGroupMessageMappingModel(
@@ -70,7 +70,7 @@ class ChatMemberOperationMethod(BaseMethod):
         """
         request.opcode = Opcode.OPERATION_WITH_CHAT_MEMBER
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = ChatMemberOperationRequest(
             chat_id=self.args["chat_id"],
             user_ids=self.args["user_ids"],
@@ -92,7 +92,7 @@ class ChangeGroupSettingsMethod(BaseMethod):
         """
         request.opcode = Opcode.CHAT_UPDATE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = ChangeGroupSettingsRequest(
             chat_id=self.args["chat_id"],
             options=ChangeGroupSettingsMappingModel(
@@ -114,7 +114,7 @@ class SetChannelCommentsMethod(BaseMethod):
     async def __call__(self, request: Envelope) -> Envelope:
         request.opcode = Opcode.CHAT_UPDATE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = SetChannelCommentsRequest(
             chat_id=self.args["chat_id"],
             options=ChannelCommentsMappingModel(
@@ -128,7 +128,7 @@ class BlockCommentAuthorMethod(BaseMethod):
     async def __call__(self, request: Envelope) -> Envelope:
         request.opcode = Opcode.OPERATION_WITH_CHAT_MEMBER
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = BlockCommentAuthorRequest(
             chat_id=self.args["chat_id"],
             post_id=self.args["post_id"],
@@ -150,7 +150,7 @@ class ChangeGroupProfileMethod(BaseMethod):
         """
         request.opcode = Opcode.CHAT_UPDATE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = ChangeGroupProfileRequest(
             chat_id=self.args["chat_id"],
             theme=self.args.get("name"),
@@ -170,7 +170,7 @@ class JoinGroupMethod(BaseMethod):
         """
         request.opcode = Opcode.JOIN_GROUP
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = LinkGroupRequest(
             link=self.args["link"],
         ).model_dump(by_alias=True, exclude_none=True)
@@ -204,7 +204,7 @@ class RevokePrivateLinkMethod(BaseMethod):
         """
         request.opcode = Opcode.CHAT_UPDATE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = RevokePrivateLinkRequest(
             revoke_private_link=self.args.get("rework_invite_link", True),
             chat_id=self.args["chat_id"],
@@ -225,7 +225,7 @@ class GetChatInfoMethod(BaseMethod):
         """
         request.opcode = Opcode.GET_CHAT
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = GetChatInfoRequest(
             chat_ids=self.args["chat_ids"],
         ).model_dump(by_alias=True, exclude_none=True)
@@ -243,7 +243,7 @@ class LeaveChatMethod(BaseMethod):
         """
         request.opcode = Opcode.LEAVE_CHAT
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = LeaveChatRequest(
             chat_id=self.args["chat_id"],
         ).model_dump(by_alias=True, exclude_none=True)
@@ -263,7 +263,7 @@ class FetchChatsMethod(BaseMethod):
         """
         request.opcode = Opcode.FETCH_CHATS
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = FetchChatsRequest(
             marker=self.args.get("marker") or int(time.time() * 1000),
         ).model_dump(by_alias=True, exclude_none=True)
@@ -283,7 +283,7 @@ class FetchJoinRequestsMethod(BaseMethod):
         """
         request.opcode = Opcode.CHAT_MEMBERS
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = FetchJoinRequestsRequest(
             chat_id=self.args["chat_id"],
             count=self.args["count"],
@@ -303,7 +303,7 @@ class DeleteChatMethod(BaseMethod):
         """
         request.opcode = Opcode.DELETE_CHAT
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = DeleteChatRequest(
             chat_id=self.args["chat_id"],
             last_event_time=self.args["last_event_time"],
@@ -323,7 +323,7 @@ class AddAdminMethod(BaseMethod):
         """
         request.opcode = Opcode.OPERATION_WITH_CHAT_MEMBER
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = AddAdminRequest(
             chat_id=self.args["chat_id"],
             user_ids=self.args["user_ids"],

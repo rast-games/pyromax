@@ -28,7 +28,7 @@ class GetGeneralInfoAboutMemberMethod(BaseMethod):
         request.payload = GetContactRequest(
             contact_ids=self.args["contact_ids"],
         ).model_dump(by_alias=True, exclude_none=True)
-        request.ver = VERSION
+        request.ver = self.VERSION
 
         return request
 
@@ -46,7 +46,7 @@ class SearchByPhoneMethod(BaseMethod):
         """
         request.opcode = Opcode.CONTACT_INFO_BY_PHONE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = SearchByPhoneRequest(
             phone=self.args["phone"],
         ).model_dump(by_alias=True, exclude_none=True)
@@ -66,7 +66,7 @@ class GetSessionsMethod(BaseMethod):
         """
         request.opcode = Opcode.SESSIONS_INFO
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = {}
         return request
 
@@ -82,7 +82,7 @@ class ContactActionMethod(BaseMethod):
         """
         request.opcode = Opcode.CONTACT_UPDATE
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
         request.payload = ContactActionRequest(
             contact_id=self.args["contact_id"],
             action=self.args["action"],
@@ -101,7 +101,7 @@ class ImportContactsMethod(BaseMethod):
         """
         request.opcode = Opcode.SYNC
         request.cmd = Cmd.REQUEST
-        request.ver = VERSION
+        request.ver = self.VERSION
 
         contacts_list: list[ContactInfo] = []
         for c in self.args["contact_list"]:

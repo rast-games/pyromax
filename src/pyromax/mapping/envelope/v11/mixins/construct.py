@@ -356,3 +356,7 @@ class ConstructorMixin(
 
         obj.as_(self.max_api)
         return obj
+
+    @property
+    def VERSION(self) -> int:
+        return 11
