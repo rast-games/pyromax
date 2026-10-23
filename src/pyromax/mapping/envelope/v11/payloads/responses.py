@@ -97,12 +97,7 @@ class ConfirmRegistrationResponse(CamelCaseModel):
 
     user_token: int
     profile: ProfileMappingModel
-    token_type: Literal[
-        "START_AUTH",
-        "CHECK_CODE",
-        "REGISTER",
-        "RESEND",
-    ]
+    token_type: Literal["START_AUTH", "CHECK_CODE", "REGISTER", "RESEND", "LOGIN"]
     token: str
 
 

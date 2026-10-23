@@ -152,8 +152,7 @@ class AuthMixin(MixinProtocol):
 
                     detail = e.message or e.localized_message or error
                     message = (
-                        "MAX rejected the login token; "
-                        "re-authentication is required"
+                        "MAX rejected the login token; " "re-authentication is required"
                     )
                     if detail:
                         message = f"{message}: {detail}"
@@ -346,12 +345,12 @@ class AuthMixin(MixinProtocol):
         :returns: The resulting ConfirmRegistrationResponse value.
         :rtype: ConfirmRegistrationResponse
         """
-        response = await self.send(
+        response = await self.send_raw(
             method=ConfirmRegistrationMethod(
                 first_name=first_name,
                 last_name=last_name,
                 token=token,
-            )
+            ),
         )
 
         return ConfirmRegistrationResponse(**response.payload)
