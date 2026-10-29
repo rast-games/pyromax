@@ -533,6 +533,7 @@ class VideoMappingModel(BaseFileMappingModel, VideoAttachment):
     width: int | None = None
     preview_data: Any | None = None
     trumbnail: str | None = None
+    thumbhash: bytes | None = None
 
     @property
     def to_payload(self) -> list[dict[str, Any]]:
@@ -590,11 +591,15 @@ class VideoNoteMappingModel(VideoNoteAttachment, VideoMappingModel):
         :returns: The resulting collection.
         :rtype: list[dict[str, Any]]
         """
-        from .requests import VideoToPayloadRequest
+        from .requests import VideoNoteToPayloadRequest
 
         return [
-            VideoToPayloadRequest(
-                type=self.type or "AUDIO", video_id=self.video_id, token=self.token
+            VideoNoteToPayloadRequest(
+                type=self.type or "VIDEO",
+                video_id=self.video_id,
+                token=self.token,
+                duration=self.duration,
+                thumbhash=self.thumbhash,
             ).model_dump(by_alias=True),
         ]
 
@@ -603,6 +608,7 @@ class VoiceMappingModel(BaseFileMappingModel, VoiceAttachment):
     token: str
     audio_id: int
     wave: str | None = None
+    duration: int | None = None
 
     @property
     def to_payload(self) -> list[dict[str, Any]]:
@@ -611,11 +617,15 @@ class VoiceMappingModel(BaseFileMappingModel, VoiceAttachment):
         :returns: The resulting collection.
         :rtype: list[dict[str, Any]]
         """
-        from .requests import VideoToPayloadRequest
+        from .requests import VoiceToPayloadRequest
 
         return [
-            VideoToPayloadRequest(
-                type=self.type or "AUDIO", video_id=self.audio_id, token=self.token
+            VoiceToPayloadRequest(
+                type=self.type or "AUDIO",
+                video_id=self.audio_id,
+                token=self.token,
+                duration=self.duration,
+                wave=self.wave or (b"\x00" * 80),
             ).model_dump(by_alias=True),
         ]
 

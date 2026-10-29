@@ -462,11 +462,20 @@ class LifecycleManager:
             # the same event-loop iteration.  Give the request consumer a turn
             # to surface that specific error before this generic transport
             # observer cancels the connection task.
-            await asyncio.sleep(0)
+            try:
+                await asyncio.sleep(0)
+            except asyncio.CancelledError:
+                try:
+                    self._lifecycle_queue.put_nowait(error_state)
+                except asyncio.QueueFull:
+                    pass
+                raise
+
             if not self.mapper._authorized.is_set():
                 raise MapperLifecycleError("_observe_error") from error_state.exception
             elif self.mapper._authorized.is_set():
                 try:
+
                     self._lifecycle_queue.put_nowait(error_state)
                 except asyncio.QueueFull:
                     pass
@@ -513,11 +522,7 @@ class LifecycleManager:
                     raise domain_error
 
             cancelled_error = next(
-                (
-                    exc
-                    for exc in exceptions
-                    if isinstance(exc, asyncio.CancelledError)
-                ),
+                (exc for exc in exceptions if isinstance(exc, asyncio.CancelledError)),
                 None,
             )
             if cancelled_error is not None:
@@ -537,9 +542,7 @@ class LifecycleManager:
         """Yield leaf exceptions from a possibly nested exception group."""
         if isinstance(exception, BaseExceptionGroup):
             for nested_exception in exception.exceptions:
-                yield from LifecycleManager._flatten_exception_group(
-                    nested_exception
-                )
+                yield from LifecycleManager._flatten_exception_group(nested_exception)
             return
         yield exception
 

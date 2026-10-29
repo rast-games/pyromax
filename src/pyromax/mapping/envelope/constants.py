@@ -68,6 +68,7 @@ class Opcode(MappingConstants):
     TRACK_LOGIN = 289
     AUTH_QR_APPROVE = 290
     GET_USER_DATA = 291
+    AUDIO_GET_SOURCES = 301
     VOTE_POLL = 304
 
 

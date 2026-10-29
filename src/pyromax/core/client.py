@@ -219,7 +219,6 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
             encoding=encoding,
             mapper=mapper,
         )
-
         self.session = SessionInfo(
             phone=self.extra_config.mapper.phone,
             device_id=self.extra_config.mapper.user_agent_config.device_id,
@@ -576,9 +575,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
 
     def _add_unsupported_version_listener(
         self,
-        listener: Callable[
-            [UnsupportedClientVersionEvent, MaxApi], Awaitable[Any]
-        ],
+        listener: Callable[[UnsupportedClientVersionEvent, MaxApi], Awaitable[Any]],
     ) -> None:
         """Subscribe an internal listener to unsupported-version events."""
         if listener not in self._unsupported_version_listeners:
@@ -586,9 +583,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
 
     def _remove_unsupported_version_listener(
         self,
-        listener: Callable[
-            [UnsupportedClientVersionEvent, MaxApi], Awaitable[Any]
-        ],
+        listener: Callable[[UnsupportedClientVersionEvent, MaxApi], Awaitable[Any]],
     ) -> None:
         """Unsubscribe an internal unsupported-version listener."""
         if listener in self._unsupported_version_listeners:

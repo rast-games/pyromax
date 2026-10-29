@@ -7,6 +7,8 @@ from ..telemetry import TelemetryManager
 if TYPE_CHECKING:
     import asyncio
     from collections.abc import Coroutine, Callable, Mapping
+
+    from ..methods.immutable import BaseMethod
     from ..payloads.models import BaseUserAgentMappingModel
     from .....protocol import EnvelopeProtocol, Envelope
     from .....core import MaxApi
@@ -44,9 +46,9 @@ class MixinProtocol(Protocol):
     _keepalive_ping_interval: int
     keep_alive_interactive: bool
     _keepalive_task: asyncio.Task[Any] | None
-    send: Callable[..., Coroutine[Any, Any, Envelope]]
-    send_raw: Callable[..., Coroutine[Any, Any, Envelope]]
-    send_raw_with_running_wait: Callable[..., Coroutine[Any, Any, Envelope]]
+    # send: Callable[..., Coroutine[Any, Any, Envelope]]
+    # send_raw: Callable[..., Coroutine[Any, Any, Envelope]]
+    # send_raw_with_running_wait: Callable[..., Coroutine[Any, Any, Envelope]]
     _logger: logging.Logger
     _keepalive: Callable[..., Coroutine[Any, Any, Any]]
     _lifecycle_manager: LifecycleManager | None
@@ -101,3 +103,29 @@ class MixinProtocol(Protocol):
         :rtype: T_USER
         """
         ...
+
+    async def send(
+        self,
+        method: BaseMethod,
+        data: dict[Any, Any] | None = None,
+        return_exception: bool = False,
+        check_errors: bool = False,
+        max_retries: int = 3,
+        timeout: int | float = 30,
+        wait_auth: bool = True,
+    ) -> Envelope: ...
+
+    async def send_raw(
+        self,
+        method: BaseMethod,
+        data: dict[Any, Any] | None = None,
+        check_errors: bool = False,
+        timeout: int | float = 30,
+    ) -> Envelope: ...
+
+    async def send_raw_with_running_wait(
+        self,
+        method: BaseMethod,
+        data: dict[Any, Any] | None = None,
+        timeout: int | float = 30,
+    ) -> Envelope: ...

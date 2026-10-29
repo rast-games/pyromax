@@ -39,6 +39,7 @@ from .MapperErrors import (
     MapperNeedReloginLifecycleError,
     NeedReloginMapperError,
     AuthInputRequired,
+    AttachmentUploadError,
 )
 from .RoutingErrors import AlreadyCancelledError, RoutingError, RequestWasCancelledError
 from .ProtocolErrors import (
@@ -102,6 +103,7 @@ __all__ = [
     "MapperRestartCycleError",
     "MapperNeedReloginLifecycleError",
     "NeedReloginMapperError",
+    "AttachmentUploadError",
     "AuthInputRequired",
     "VersionAlreadyExistsError",
     "VersionNotFoundError",

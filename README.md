@@ -393,7 +393,7 @@ async def lyric(msg: Message):
 * ✅ Formatting API
 * ✅ Redis Storage
 * ✅ Memory Storage
-* ✅ Memory Storage
+* ✅ MongoDB Storage
 * ✅ покрытие MAX API
 * ✅ Документация
 

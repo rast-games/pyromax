@@ -1,7 +1,8 @@
-from .base import BaseMethod, Envelope, Cmd, VERSION
+from .base import BaseMethod, Envelope, Cmd, Opcode, VERSION
 from ...payloads.requests import (
     CreateCellForFileRequest,
     CreateCellForProfilePhotoRequest,
+    GetAudioSourceRequest,
 )
 
 
@@ -67,8 +68,27 @@ class GetFileLinkMethod(BaseMethod):
         return request
 
 
+class GetAudioSourcesMethod(BaseMethod):
+    """Build the audioGetSources request missing from PyroMAX 0.9."""
+
+    circuit_breaker_retry_safe = True
+
+    async def __call__(self, request: Envelope) -> Envelope:
+        request.opcode = Opcode.AUDIO_GET_SOURCES
+        request.cmd = Cmd.REQUEST
+        request.payload = GetAudioSourceRequest(
+            audio_id=self.args["audio_id"],
+            message_id=self.args["message_id"],
+            chat_id=self.args["chat_id"],
+            token=self.args.get("token"),
+        ).model_dump(exclude_none=True, by_alias=True)
+        request.ver = self.VERSION
+        return request
+
+
 __all__ = [
     "GetUrlToUploadFileMethod",
     "GetFileLinkMethod",
     "CreateCellForProfilePhotoMethod",
+    "GetAudioSourcesMethod",
 ]

@@ -610,44 +610,15 @@ class ExtraConfig(BaseConfig):
             else:
                 app_fingerprint = version_api.versions.get(app_version)
                 if app_fingerprint is None:
+                    self._logger.warning(
+                        "Not found app fingerprint for selected app version"
+                    )
                     return
 
         self.app_fingerprint = app_fingerprint
         self.mapper.user_agent_config = user_agent_config.model_copy(
             update={"build_number": app_fingerprint.build_number}
         )
-
-    @model_validator(mode="before")
-    @classmethod
-    def validate_transport(self, data: Any) -> Any:
-        if isinstance(data, dict):
-            extra_config_device_type = data.get("device_type", DeviceType.Web)
-        elif isinstance(data, BaseModel):
-            extra_config_device_type = data.model_dump().get(
-                "device_type", DeviceType.Web
-            )
-        else:
-            extra_config_device_type = DeviceType.Web
-
-        if isinstance(data, dict):
-            if "mapper" in data and "transport" not in data:
-                mapper = data["mapper"]
-                if isinstance(mapper, dict):
-                    device_type = mapper.get("device_type", extra_config_device_type)
-                elif isinstance(mapper, BaseModel):
-                    device_type = mapper.model_dump().get(
-                        "device_type", extra_config_device_type
-                    )
-                else:
-                    return data
-                data["transport"] = (
-                    WebSocketTransportConfig()
-                    if device_type == DeviceType.Web
-                    else SocketTransportConfig()
-                )
-            return data
-        else:
-            return data
 
     def config_rebuild(
         self,
@@ -709,7 +680,6 @@ class ExtraConfig(BaseConfig):
             or from_registry_to_config(MapperRegistry, config_mask[3])
             or default_mapper_config
         )
-
         user_preset = (
             from_config_to_registry(transport_config),
             from_config_to_registry(encoding_config),

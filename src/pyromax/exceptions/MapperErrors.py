@@ -80,3 +80,7 @@ class MapperTransportNotSupportedForMethodError(MapperNotImplementedError):
 
 class ReactionMapperError(MapperApiError):
     """Raised when the operations with reactions fails."""
+
+
+class AttachmentUploadError(MapperApiError):
+    """Raised when an attachment upload fails."""

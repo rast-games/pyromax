@@ -33,6 +33,7 @@ class ErrorCode(MappingConstants):
     CODE_ATTEMPT_LIMIT = "error.code.attempt.limit"
     AUTH_REQUEST_FORBIDDEN = "auth.request.forbidden"
     ATTACHMENT_NOT_READY = "attachment.not.ready"
+    VIDEO_NOT_READY = "errors.process.attachment.video.not.ready"
     PROTOCOL_PAYLOAD = "proto.payload"
     NOT_FOUND = "not.found"
     UNKNOWN_REACTION = "error.message.like.unknown.reaction"

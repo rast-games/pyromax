@@ -368,6 +368,13 @@ class CreateCellForProfilePhotoRequest(CreateCellForFileRequest):
     profile: bool = False
 
 
+class GetAudioSourceRequest(CamelCaseModel):
+    chat_id: int
+    message_id: str | int
+    audio_id: int
+    token: str | None = None
+
+
 class ChangeProfileRequest(CamelCaseModel):
     first_name: str
     last_name: str | None = None
@@ -418,6 +425,22 @@ class PhotoToPayloadRequest(AnyFileRequest):
 class VideoToPayloadRequest(AnyFileRequest):
     video_id: int
     token: str
+
+
+class VideoNoteToPayloadRequest(VideoToPayloadRequest):
+    video_id: int = Field(exclude=True)
+    duration: int | None = None
+    thumbhash: bytes | None = None
+
+
+class VoiceToPayloadRequest(AnyFileRequest):
+    token: str
+    video_id: int = Field(exclude=True)
+    wave: bytes | None = None
+    duration: int | None = None
+
+
+# class Voice
 
 
 class PollToPayloadRequest(AnyFileRequest):
