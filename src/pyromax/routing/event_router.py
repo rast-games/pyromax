@@ -31,12 +31,13 @@ class EventRouter(Generic[request, response]):
     def __init__(self) -> None:
         """Initialize the event router."""
         self.correlator = Correlator()
-        self.__pending: dict[tuple[request, int], Future[Any]] = {}
+        self.__pending: dict[request, Future[Any]] = {}
         # self.__updates: list[response] = []
         self.__updates: asyncio.Queue[Any] = asyncio.Queue()
         # self.__have_updates: Event = Event()
 
         self.__cancelled: bool = False
+        self._cancel_lock = asyncio.Lock()
 
         self.__pop_updates_calls: list[Task[Any]] = []
 
@@ -57,7 +58,7 @@ class EventRouter(Generic[request, response]):
         """
         await self.__updates.put(resp)
 
-    def create_record(self, req: request, gen: int) -> Future[response]:
+    def create_record(self, req: request) -> Future[response]:
         """Create a record for the given request
 
         :raises AlreadyCancelledError: If try create record in cancelled event router.
@@ -74,13 +75,13 @@ class EventRouter(Generic[request, response]):
 
         awaitable = self._create_awaitable()
 
-        key = (req, gen)
+        key = req
 
         self.__pending[key] = awaitable
 
         return awaitable
 
-    async def resolve_response(self, resp: response, gen: int) -> bool:
+    async def resolve_response(self, resp: response) -> bool:
         """Resolve response.
 
         :param resp: response instance to process.
@@ -90,9 +91,9 @@ class EventRouter(Generic[request, response]):
         :returns: True when the requested condition is satisfied; otherwise False.
         :rtype: bool
         """
-        key = self.this_response_is_expecting(resp, gen)
+        key = self.this_response_is_expecting(resp)
         if key is not False:
-            awaitable = self.__pending.pop(cast(tuple[request, int], key), None)  # type: ignore[redundant-cast]
+            awaitable = self.__pending.pop(cast(request, key), None)  # type: ignore[redundant-cast]
 
             if awaitable is None:
                 return False
@@ -106,15 +107,26 @@ class EventRouter(Generic[request, response]):
         await self.add_to_updates(resp)
         return False
 
-    def cancel_request(self, req: request, gen: int) -> None:
+    async def cancel_request(self, req: request) -> None:
         """Cancel request.
 
         :param req: request instance to process.
         :type req: request
-        :param gen: The gen value.
-        :type gen: int
         """
-        self.__pending.pop((req, gen), None)
+        async with self._cancel_lock:
+            awaitable = self.__pending.pop(req, None)
+            if awaitable is None:
+                return None
+            try:
+                awaitable.cancel()
+                await awaitable
+            except asyncio.CancelledError:
+                task = asyncio.current_task()
+
+                if task is not None and task.cancelling():
+                    raise
+            except asyncio.InvalidStateError:
+                pass
 
     async def cancel_all(
         self,
@@ -122,45 +134,44 @@ class EventRouter(Generic[request, response]):
         # update_calls_exc: Exception | None = None,
     ) -> None:
         """Cancel all."""
-        self.__cancelled = True
-        pending_values: Iterable[Future[Any]] = self.__pending.values()
-        if pending_exc is None:
-            for future_like in tuple(pending_values):
-                with suppress(asyncio.InvalidStateError):
-                    future_like.set_exception(
-                        RequestWasCancelledError("Cancelled from cancel_all")
-                    )
-        else:
-            with suppress(asyncio.InvalidStateError):
+        async with self._cancel_lock:
+            self.__cancelled = True
+            pending_values: Iterable[Future[Any]] = self.__pending.values()
+            if pending_exc is None:
                 for future_like in tuple(pending_values):
-                    future_like.set_exception(pending_exc)
+                    with suppress(asyncio.InvalidStateError):
+                        future_like.set_exception(
+                            RequestWasCancelledError("Cancelled from cancel_all")
+                        )
+            else:
+                for future_like in tuple(pending_values):
+                    with suppress(asyncio.InvalidStateError):
+                        future_like.set_exception(pending_exc)
 
-        with suppress(asyncio.CancelledError, asyncio.InvalidStateError, Exception):
-            await asyncio.gather(
-                *tuple(self.__pending.values()), return_exceptions=True
-            )
+            with suppress(asyncio.CancelledError, asyncio.InvalidStateError, Exception):
+                await asyncio.gather(
+                    *tuple(self.__pending.values()), return_exceptions=True
+                )
 
-        self.__pending.clear()
+            self.__pending.clear()
 
-        # if update_calls_exc is None:
-        for pop_updates_task in self.__pop_updates_calls:
-            with suppress(asyncio.CancelledError, asyncio.InvalidStateError):
-                pop_updates_task.cancel()
-        # else:
-        #     for pop_updates_task in self.__pop_updates_calls:
-        #         with suppress(asyncio.InvalidStateError):
-        #             pop_updates_task.set_exception(update_calls_exc)
+            # if update_calls_exc is None:
+            for pop_updates_task in self.__pop_updates_calls:
+                with suppress(asyncio.CancelledError, asyncio.InvalidStateError):
+                    pop_updates_task.cancel()
+            # else:
+            #     for pop_updates_task in self.__pop_updates_calls:
+            #         with suppress(asyncio.InvalidStateError):
+            #             pop_updates_task.set_exception(update_calls_exc)
 
-        with suppress(asyncio.CancelledError, Exception):
-            await asyncio.gather(
-                *tuple(self.__pop_updates_calls), return_exceptions=True
-            )
+            with suppress(asyncio.CancelledError, Exception):
+                await asyncio.gather(
+                    *tuple(self.__pop_updates_calls), return_exceptions=True
+                )
 
-        self.__pop_updates_calls.clear()
+            self.__pop_updates_calls.clear()
 
-    def this_response_is_expecting(
-        self, entry: response, entry_gen: int
-    ) -> tuple[request, int] | Literal[False]:
+    def this_response_is_expecting(self, entry: response) -> request | Literal[False]:
         """This response is expecting.
 
         :param entry: response instance to process.
@@ -171,8 +182,8 @@ class EventRouter(Generic[request, response]):
         :rtype: tuple[request, int] | Literal[False]
         """
         for key in tuple(self.__pending):
-            req, gen = key
-            if req.is_my_response(entry) and gen == entry_gen:
+            req = key
+            if req.is_my_response(entry):
                 return key
         return False
 
@@ -200,6 +211,9 @@ class EventRouter(Generic[request, response]):
         :returns: The resulting collection.
         :rtype: list[response]
         """
+        if self.__cancelled:
+            raise AlreadyCancelledError("pop_all_updates cancelled")
+
         pop_updates_task = asyncio.create_task(self._pop_all_updates())
         self.__pop_updates_calls.append(pop_updates_task)
         try:

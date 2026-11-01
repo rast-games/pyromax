@@ -50,8 +50,16 @@ class MapperTransportError(BaseMapperError):
     """Raised when a send fails."""
 
 
-class MapperConnectError(BaseMapperError):
+class MapperConnectionError(BaseMapperError):
+    pass
+
+
+class MapperConnectError(MapperConnectionError):
     """Raised when connect fails."""
+
+
+class MapperCloseError(MapperConnectionError):
+    """Raised when close fails."""
 
 
 class MapperLifecycleError(BaseMapperError):
@@ -59,6 +67,10 @@ class MapperLifecycleError(BaseMapperError):
 
 
 class MapperRestartCycleError(MapperLifecycleError):
+    pass
+
+
+class StopLifecycleError(MapperLifecycleError):
     pass
 
 

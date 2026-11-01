@@ -3,7 +3,7 @@ import asyncio
 import logging
 from typing import Any, TYPE_CHECKING
 
-from websockets import Origin
+from websockets import Origin, ConnectionClosed, ConcurrencyError
 from websockets.asyncio.client import ClientConnection, connect
 
 from .bases import StreamTransport
@@ -11,8 +11,9 @@ from .registry import register_transport
 from ..encoding import BaseEncoding
 from ..exceptions import (
     ConnectTransportError,
-    ConnectionTransportError,
+    ReceivingTransportError,
     SendingTransportError,
+    CloseTransportError,
 )
 from ..utils import hide_func_call
 
@@ -55,6 +56,7 @@ class WebSocketTransport(StreamTransport[BaseEncoding[Any, Any, Any, Any]]):
         self.extra_config = extra_config
         transport_config = self.extra_config.transport
         from ..config import WebSocketTransportConfig
+
         if not isinstance(transport_config, WebSocketTransportConfig):
             raise TypeError(
                 "transport config must be an instance of WebSocketTransportConfig for this transport"
@@ -66,7 +68,6 @@ class WebSocketTransport(StreamTransport[BaseEncoding[Any, Any, Any, Any]]):
         self.origin = Origin(self.transport_config.origin)
         self.user_agent_header = self.transport_config.user_agent_header
         self.max_size = transport_config.max_size
-
 
         self.ws: ClientConnection | None = None
         self.__logger = logging.getLogger("WebSocketTransport")
@@ -83,12 +84,17 @@ class WebSocketTransport(StreamTransport[BaseEncoding[Any, Any, Any, Any]]):
         :param url: Resource URL.
         :type url: str
         """
-        hide_func_call(type(self).__init__, self, encoding=encoding, extra_config=extra_config,)
+        hide_func_call(
+            type(self).__init__,
+            self,
+            encoding=encoding,
+            extra_config=extra_config,
+        )
         self.__logger.info("Initializing WebSocket Transport")
 
-        self.__logger.info("WebSocket was initialized")
-        await self.connect()
-        self.__logger.info("WebSocket connected to %s", self.url)
+        # self.__logger.info("WebSocket was initialized")
+        # await self.connect()
+        # self.__logger.info("WebSocket connected to %s", self.url)
 
     async def connect(self, **kwargs: Any) -> None:
         """Connect.
@@ -122,10 +128,18 @@ class WebSocketTransport(StreamTransport[BaseEncoding[Any, Any, Any, Any]]):
                     # just a for tests
                 )
         except asyncio.TimeoutError as e:
-            self.__logger.warning("Websocket url=%s connection handshake timed out", self.url)
-            raise ConnectTransportError("Websocket connection handshake timed out") from e
+            self.__logger.warning(
+                "Websocket url=%s connection handshake timed out", self.url
+            )
+            raise ConnectTransportError(
+                "Websocket connection handshake timed out"
+            ) from e
         except Exception as e:
-            self.__logger.error("Handler unknown exception while connecting to websocket url=%s: %s",self.url, e)
+            self.__logger.error(
+                "Handler unknown exception while connecting to websocket url=%s: %s",
+                self.url,
+                e,
+            )
             raise ConnectTransportError("Websocket connection unknown exception") from e
         self.__logger.info("WebSocket connected to %s", self.url)
 
@@ -133,8 +147,14 @@ class WebSocketTransport(StreamTransport[BaseEncoding[Any, Any, Any, Any]]):
         """Close."""
         if self.ws is not None:
             ws = self.ws
-            await ws.close()
-            await ws.wait_closed()
+            try:
+                await ws.close()
+                await ws.wait_closed()
+            except Exception as e:
+                self.__logger.error(
+                    "Handle unknown error while transport closing=%s", e, exc_info=True
+                )
+                raise CloseTransportError(f"Socket transport closing error: {e}") from e
             self.ws = None
             self.__logger.info("Websocket closed")
         else:
@@ -152,24 +172,47 @@ class WebSocketTransport(StreamTransport[BaseEncoding[Any, Any, Any, Any]]):
             raise TypeError("data must be str or bytes")
 
         if self.ws is None:
-            raise SendingTransportError("You try to send before initialization connection")
+            raise SendingTransportError(
+                "You try to send before initialization connection"
+            )
 
         if not self.connected:
-            raise SendingTransportError("You try to send before initialization connection")
+            raise SendingTransportError(
+                "You try to send before initialization connection"
+            )
 
         self.__logger.debug("Sending data: %s", data)
-        await self.ws.send(data)
+        try:
+            await self.ws.send(data)
+        except ConnectionClosed as e:
+            raise SendingTransportError(
+                e.rcvd.reason if e.rcvd else "Connection closed while sending"
+            ) from e
+        except TypeError as e:
+            raise SendingTransportError("data doesn't have a supported type") from e
 
     async def recv(self) -> Any:
         """Recv.
 
         :returns: The value returned by backend.
         :rtype: Any
-        :raises ConnectionTransportError: If you try to recv before initialization connection.
+        :raises ReceivingTransportError: If you try to recv before initialization connection.
         """
         if self.ws is None or not self.connected:
-            raise ConnectionTransportError("You try to recv before initialization connection")
-        response = await self.ws.recv()
+            raise ReceivingTransportError(
+                "You try to recv before initialization connection"
+            )
+        try:
+            response = await self.ws.recv()
+        except ConnectionClosed as e:
+            raise ReceivingTransportError(
+                e.rcvd.reason if e.rcvd else "Connection closed"
+            ) from e
+        except ConcurrencyError as e:
+            raise ReceivingTransportError(
+                "Receiving was called from another place"
+            ) from e
+
         return response
 
     # @property

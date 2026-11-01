@@ -1,7 +1,7 @@
 import time
 from typing import cast, Literal
 
-from .base import BaseMethod, Envelope, Cmd, Opcode, VERSION
+from .base import BaseMethod, Envelope, Cmd, Opcode
 from ...payloads.requests import (
     CreateChatRequest,
     ChatMemberOperationRequest,

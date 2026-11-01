@@ -14,6 +14,8 @@ from .....exceptions import (
     MapperNotImplementedMethodError,
     MapperTransportNotSupportedForMethodError,
     RequestWasCancelledError,
+    CloseProtocolError,
+    MapperCloseError,
 )
 from ..payloads.responses import ErrorMessageResponse
 from ..translate.ErrorTranslate import translate_error_response
@@ -39,27 +41,32 @@ class TransportMixin(MixinProtocol):
 
         :raises RuntimeError: If lifecycle manager not initialized.
         """
-        try:
-            if self._lifecycle_manager is None:
-                raise RuntimeError("Lifecycle manager not initialized")
-            await self.protocol.connect(await self._lifecycle_manager.get_generation())
-        except ConnectProtocolError as e:
-            self._logger.error("Connect failed", stack_info=True, exc_info=True)
-            raise MapperConnectError("Connect failed") from e
-        self._logger.debug("protocol connected")
         if self._keepalive_task is not None:
-            self._logger.debug("have another keepalive task, cancel it")
+            self._logger.debug("Have another keepalive task, cancel it")
             try:
                 self._keepalive_task.cancel()
                 await self._keepalive_task
             except asyncio.CancelledError:
-                self._logger.debug(
-                    "self.mapper.connect() -> self._keepalive_task.cancel() -> CancelledError"
+                self._logger.debug("Keepalive task was cancelled")
+            except Exception:
+                self._logger.exception(
+                    "Previous keepalive task failed before reconnect"
                 )
-            self._logger.debug("keepalive task cancelled")
-        self._logger.debug("start keepalive task")
+            self._logger.debug("Keepalive task cancelled")
+
+        try:
+            if self._lifecycle_manager is None:
+                raise RuntimeError("Lifecycle manager not initialized")
+            await self.protocol.connect()
+            self._protocol_connected.set()
+        except ConnectProtocolError as e:
+            self._logger.error("Connect failed", stack_info=True, exc_info=True)
+            raise MapperConnectError("Connect failed") from e
+        self._logger.debug("Protocol connected")
+
+        self._logger.debug("Start keepalive task")
         self._keepalive_task = asyncio.create_task(self._keepalive())
-        self._logger.debug("keepalive task started")
+        self._logger.debug("Keepalive task started")
         self._mapper_connected.set()
 
     async def close(
@@ -72,9 +79,7 @@ class TransportMixin(MixinProtocol):
 
         self._mapper_connected.clear()
         self._authorized.clear()
-        await self.protocol.close(
-            pending_requests_exc,
-        )
+
         keepalive_task: asyncio.Task[Any] | None = self._keepalive_task
         self._keepalive_task = None
         if keepalive_task is not None:
@@ -82,7 +87,18 @@ class TransportMixin(MixinProtocol):
                 keepalive_task.cancel()
                 await asyncio.wait_for(keepalive_task, timeout=5)
             except (asyncio.CancelledError, asyncio.TimeoutError):
-                self._logger.debug("keepalive task already cancelled")
+                self._logger.debug("Keepalive task already cancelled")
+            except Exception:
+                self._logger.exception("Keepalive task failed during shutdown")
+
+        try:
+            await self.protocol.close(
+                pending_requests_exc,
+            )
+        except CloseProtocolError as e:
+            raise MapperCloseError("Error while closing protocol") from e
+        finally:
+            self._protocol_connected.clear()
 
     def log(self, level: int, msg: str) -> None:
         """CRITICAL = 50
@@ -143,19 +159,17 @@ class TransportMixin(MixinProtocol):
                 method=method,
                 data=data,
             )
-        # except AlreadyCancelledError as e:
-        #     raise MapperCancelledError("try a send after close") from e
         except SendingProtocolError as e:
             self._logger.exception(
-                "send protocol error",
+                "Send protocol error",
                 exc_info=True,
                 stack_info=True,
             )
-            raise MapperTransportError("send failed") from e
+            raise MapperTransportError("Send failed") from e
         try:
             response = await asyncio.wait_for(response_future, timeout=timeout)
         except asyncio.TimeoutError as e:
-            raise MapperTransportError("send timeout") from e
+            raise MapperTransportError("Send timeout") from e
         except RequestWasCancelledError as e:
             self._logger.exception(
                 "Send was cancelled, by EventRouter: %s",
@@ -163,7 +177,7 @@ class TransportMixin(MixinProtocol):
                 stack_info=True,
                 exc_info=True,
             )
-            raise MapperTransportError("send was cancelled") from e
+            raise MapperTransportError("Send was cancelled") from e
         except Exception as e:
             self._logger.error(
                 "Handled unknown exception, while raw sending=%s",
@@ -172,20 +186,14 @@ class TransportMixin(MixinProtocol):
                 stack_info=True,
             )
             raise
-        # except asyncio.CancelledError:
-        #     # if asyncio.current_task().cancelling():
-        #     #     raise
-        #     self._logger.error(
-        #         "response future was cancelled (Mapper.send_raw)",
-        #         stack_info=True,
-        #     )
-        #     raise MapperCancelledError("try response was cancelled while wait it")
-        if check_errors and response.payload.get("error"):
+
+        if check_errors:
             error = ErrorMessageResponse(**response.payload)
-            raise translate_error_response(
-                error,
-                app_version=getattr(self.user_agent, "app_version", None),
-            )
+            if error.error is not None:
+                raise translate_error_response(
+                    error,
+                    app_version=getattr(self.user_agent, "app_version", None),
+                )
         return response
 
     async def send_raw_with_running_wait(
@@ -374,7 +382,7 @@ class TransportMixin(MixinProtocol):
                     await self._authorized.wait()
                 if self._lifecycle_manager is None:
                     raise RuntimeError("Lifecycle manager not initialized")
-                gen = await self._lifecycle_manager.get_generation()
+                gen = self._lifecycle_manager.get_generation()
                 storage["gen"] = gen
                 response = await self.send_raw(
                     method=method,
@@ -504,8 +512,6 @@ class TransportMixin(MixinProtocol):
         :raises MapperApiError: If try call method on not initialized mapper(without user agent).
         :raises MapperTransportNotSupportedForMethodError: If method not supported for this transport.
         """
-        from ..Mapper import Mapper
-
         methods_registry = self._get_highlevel_translate_mapping()
         method_with_device_types = methods_registry.get(method)
         if method_with_device_types is None:

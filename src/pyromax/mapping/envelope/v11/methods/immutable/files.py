@@ -1,4 +1,4 @@
-from .base import BaseMethod, Envelope, Cmd, Opcode, VERSION
+from .base import BaseMethod, Envelope, Cmd, Opcode
 from ...payloads.requests import (
     CreateCellForFileRequest,
     CreateCellForProfilePhotoRequest,

@@ -9,6 +9,14 @@ class ConnectTransportError(BaseTransportError):
     """Raised when if connect fails"""
 
 
+class ReceivingTransportError(BaseTransportError):
+    """Raised when receive fails"""
+
+
+class CloseTransportError(BaseTransportError):
+    """Raised when close fails"""
+
+
 class ConnectionTransportError(BaseTransportError):
     """Raised when connect fails"""
 

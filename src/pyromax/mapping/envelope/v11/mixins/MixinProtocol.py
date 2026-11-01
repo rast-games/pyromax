@@ -36,7 +36,7 @@ class MixinProtocol(Protocol):
     fingerprint_generator: FingerprintGenerator
     # TOKEN_NAME: str
     max_api: MaxApi
-    logged: bool
+    # logged: bool
     user_agent: BaseUserAgentMappingModel | None
     _resolve_two_factor: Callable[..., Coroutine[Any, Any, Any]]
     sms_auth: bool

@@ -40,7 +40,7 @@ class Mapper(FullMixin):
                     await self._mapper_connected.wait()
                     if self._lifecycle_manager is None:
                         raise RuntimeError("Lifecycle manager not set")
-                    gen = await self._lifecycle_manager.get_generation()
+                    gen = self._lifecycle_manager.get_generation()
                     updates = await self.protocol.get_updates()
                 except GetUpdatesProtocolError as e:
                     if self.max_api.shutdown_requested:
@@ -54,7 +54,7 @@ class Mapper(FullMixin):
                         lifecycle_manager = cast(
                             LifecycleManager, self._lifecycle_manager
                         )
-                        gen = await lifecycle_manager.get_generation()
+                        gen = lifecycle_manager.get_generation()
                     if self._lifecycle_manager is None:
                         raise RuntimeError("lifecycle manager not set")
                     self._logger.error("get_updates failed: %s", e)

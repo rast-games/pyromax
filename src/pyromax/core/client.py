@@ -644,7 +644,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger = getattr(self, "_logger", None)
+            logger = self._logger
             if logger is not None:
                 logger.exception("Graceful shutdown failed")
 

@@ -12,7 +12,6 @@ from pyromax.config import (
 from pyromax.core.client import MaxApi
 from pyromax.exceptions import (
     MapperApiError,
-    MapperLifecycleError,
     MapperRestartCycleError,
     MapperTransportError,
     UnsupportedClientVersionMapperError,
@@ -76,14 +75,11 @@ class UnsupportedClientVersionTest(unittest.IsolatedAsyncioTestCase):
             app_version="26.25.0",
         )
 
-        async def observe() -> None:
-            await asyncio.Event().wait()
-
         async def connect() -> None:
             raise error
 
         with self.assertRaises(UnsupportedClientVersionMapperError) as raised:
-            await manager._observe_task(observe, connect)
+            await manager._observe_task(connect())
 
         self.assertIs(raised.exception, error)
 
@@ -95,25 +91,17 @@ class UnsupportedClientVersionTest(unittest.IsolatedAsyncioTestCase):
             "Unsupported client version",
             app_version="26.25.0",
         )
-        both_started = asyncio.Event()
-        started = 0
-
-        async def fail_together(exception: Exception) -> None:
-            nonlocal started
-            started += 1
-            if started == 2:
-                both_started.set()
-            await both_started.wait()
-            raise exception
-
-        async def observe() -> None:
-            await fail_together(RuntimeError("socket closed"))
-
         async def connect() -> None:
-            await fail_together(error)
+            manager.notify_about_exception(
+                RuntimeError("socket closed"),
+                generation=0,
+                source="reader",
+            )
+            await asyncio.sleep(0)
+            raise error
 
         with self.assertRaises(UnsupportedClientVersionMapperError) as raised:
-            await manager._observe_task(observe, connect)
+            await manager._observe_task(connect())
 
         self.assertIs(raised.exception, error)
 
@@ -124,7 +112,7 @@ class UnsupportedClientVersionTest(unittest.IsolatedAsyncioTestCase):
             "Unsupported client version",
             app_version="26.25.0",
         )
-        await manager._next_generation()
+        manager._next_generation()
 
         async def connect() -> None:
             manager.notify_about_exception(
@@ -136,64 +124,29 @@ class UnsupportedClientVersionTest(unittest.IsolatedAsyncioTestCase):
             raise error
 
         with self.assertRaises(UnsupportedClientVersionMapperError) as raised:
-            await manager._observe_task(manager._observe_auth_error, connect)
+            await manager._observe_task(connect())
 
         self.assertIs(raised.exception, error)
 
-    async def test_establish_connection_propagates_version_error_before_close(
-        self,
-    ) -> None:
+    async def test_observer_propagates_version_error_without_extra_close(self) -> None:
         error = UnsupportedClientVersionMapperError(
             "Unsupported client version",
             app_version="26.25.0",
         )
-        response_ready: asyncio.Future[None] = (
-            asyncio.get_running_loop().create_future()
-        )
-        login_started = asyncio.Event()
-
-        async def login(**_kwargs: object) -> None:
-            login_started.set()
-            await response_ready
-            raise error
-
-        async def slow_close(_exception: Exception | None = None) -> None:
-            await asyncio.sleep(1)
-
-        mapper = SimpleNamespace(
-            _authorized=asyncio.Event(),
-            _protocol_connected=asyncio.Event(),
-            logged=False,
-            token=None,
-            user_agent=object(),
-            connect=AsyncMock(),
-            login=login,
-            close=AsyncMock(side_effect=slow_close),
-        )
+        mapper = SimpleNamespace(close=AsyncMock())
         manager = LifecycleManager(mapper)  # type: ignore[arg-type]
-        await manager._next_generation()
 
-        async def establish() -> None:
-            await manager._establish_connection(
-                Mock(),
-                close_firstly=False,
-            )
-
-        async def deliver_response_and_close_transport() -> None:
-            await login_started.wait()
-            response_ready.set_result(None)
+        async def authorize() -> None:
             manager.notify_about_exception(
                 RuntimeError("socket closed"),
-                generation=1,
+                generation=0,
                 source="reader",
             )
+            await asyncio.sleep(0)
+            raise error
 
-        delivery = asyncio.create_task(deliver_response_and_close_transport())
-        try:
-            with self.assertRaises(UnsupportedClientVersionMapperError) as raised:
-                await manager._observe_task(manager._observe_auth_error, establish)
-        finally:
-            await delivery
+        with self.assertRaises(UnsupportedClientVersionMapperError) as raised:
+            await manager._observe_task(authorize())
 
         self.assertIs(raised.exception, error)
         mapper.close.assert_not_awaited()
@@ -201,9 +154,9 @@ class UnsupportedClientVersionTest(unittest.IsolatedAsyncioTestCase):
     async def test_auth_observer_ignores_previous_attempt_failure(self) -> None:
         mapper = SimpleNamespace(_authorized=asyncio.Event())
         manager = LifecycleManager(mapper)  # type: ignore[arg-type]
-        previous_generation = await manager._next_generation()
-        current_generation = await manager._next_generation()
-        observer = asyncio.create_task(manager._observe_auth_error())
+        previous_generation = manager._next_generation()
+        current_generation = manager._next_generation()
+        observer = asyncio.create_task(manager._observe_error())
 
         manager.notify_about_exception(
             RuntimeError("stale socket failure"),
@@ -220,25 +173,38 @@ class UnsupportedClientVersionTest(unittest.IsolatedAsyncioTestCase):
             source="reader",
         )
 
-        with self.assertRaises(MapperLifecycleError) as raised:
+        with self.assertRaises(RuntimeError) as raised:
             await observer
 
-        self.assertIs(raised.exception.__cause__, current_error)
+        self.assertIs(raised.exception, current_error)
 
     async def test_authorize_allocates_generation_for_every_attempt(self) -> None:
-        mapper = SimpleNamespace(_authorized=asyncio.Event())
-        manager = LifecycleManager(mapper)  # type: ignore[arg-type]
+        manager: LifecycleManager
         observed_generations: list[int] = []
 
-        async def observe_attempt(**_kwargs: object) -> None:
-            observed_generations.append(await manager.get_generation())
-            if len(observed_generations) == 1:
-                raise MapperRestartCycleError("failed attempt")
+        class Mapper:
+            logged = True
+            _telemetry = None
 
-        with patch.object(manager, "_observe_task", side_effect=observe_attempt):
-            with self.assertRaises(MapperRestartCycleError):
-                await manager._authorize(None, Mock())
-            await manager._authorize(None, Mock())
+            async def close(self, _exception: Exception | None = None) -> None:
+                return None
+
+            async def connect(self) -> None:
+                observed_generations.append(manager.get_generation())
+
+            async def _send_user_agent(self) -> None:
+                return None
+
+            async def _send_auth_token(self) -> None:
+                if len(observed_generations) == 1:
+                    raise MapperRestartCycleError("failed attempt")
+
+        mapper = Mapper()
+        manager = LifecycleManager(mapper)  # type: ignore[arg-type]
+
+        with self.assertRaises(MapperRestartCycleError):
+            await manager._authorize()
+        await manager._authorize()
 
         self.assertEqual(observed_generations, [1, 2])
 
@@ -273,13 +239,10 @@ class UnsupportedClientVersionTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(raised.exception.message, "Unsupported client version")
         self.assertEqual(raised.exception.app_version, "26.25.0")
-        self.assertFalse(
-            hasattr(UnsupportedClientVersionMapperError, "error_code")
-        )
+        self.assertFalse(hasattr(UnsupportedClientVersionMapperError, "error_code"))
 
-    async def test_lifecycle_emits_event_rotates_version_and_reconnects(self) -> None:
+    async def test_handler_emits_event_and_rotates_version(self) -> None:
         version_events: list[UnsupportedClientVersionEvent] = []
-        disconnect_events = []
         error = UnsupportedClientVersionMapperError(
             "Unsupported client version",
             app_version="26.25.0",
@@ -301,36 +264,25 @@ class UnsupportedClientVersionTest(unittest.IsolatedAsyncioTestCase):
                 self.app_version = "26.35.1"
                 return self.app_version
 
-            async def _emit_disconnect(self, event: object) -> None:
-                disconnect_events.append(event)
-
-        mapper = SimpleNamespace(
+        target = SimpleNamespace(
             max_api=Api(),
+            _unsupported_app_versions=set(),
+            _logger=logging.getLogger("UnsupportedClientVersionTest"),
             extra_config=SimpleNamespace(
-                reconnect=True,
-                reconnect_delay=1.0,
-                relogin=True,
                 autochange_app_version_if_current_unsupported=True,
             ),
-            close=AsyncMock(),
-        )
-        manager = LifecycleManager(mapper)  # type: ignore[arg-type]
-        manager._authorize = AsyncMock(  # type: ignore[method-assign]
-            side_effect=[error, None]
         )
 
-        with patch(
-            "pyromax.mapping.envelope.v11.LifecycleManager.asyncio.sleep",
-            new=AsyncMock(),
-        ):
-            await manager._authorize_cycle(None, Mock())
+        await ConstructorMixin._handle_unsupported_version(  # type: ignore[arg-type]
+            target,
+            error,
+        )
 
-        self.assertEqual(manager._authorize.await_count, 2)
         self.assertEqual(len(version_events), 1)
         self.assertIs(version_events[0].exception, error)
         self.assertEqual(version_events[0].app_version, "26.25.0")
-        self.assertEqual(len(disconnect_events), 1)
-        self.assertIs(disconnect_events[0].exception, error)
+        self.assertEqual(target.max_api.app_version, "26.35.1")
+        self.assertEqual(target._unsupported_app_versions, {"26.25.0"})
 
     async def test_version_handler_choice_disables_automatic_rotation(self) -> None:
         error = UnsupportedClientVersionMapperError(
@@ -353,11 +305,19 @@ class UnsupportedClientVersionTest(unittest.IsolatedAsyncioTestCase):
             set_random_app_version = AsyncMock()
 
         api = Api()
-        manager = LifecycleManager(  # type: ignore[arg-type]
-            SimpleNamespace(max_api=api)
+        target = SimpleNamespace(
+            max_api=api,
+            _unsupported_app_versions=set(),
+            _logger=logging.getLogger("UnsupportedClientVersionTest"),
+            extra_config=SimpleNamespace(
+                autochange_app_version_if_current_unsupported=True,
+            ),
         )
 
-        await manager._handle_unsupported_version(error)
+        await ConstructorMixin._handle_unsupported_version(  # type: ignore[arg-type]
+            target,
+            error,
+        )
 
         api.set_random_app_version.assert_not_awaited()
 

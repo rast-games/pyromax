@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import cast, Literal
 
-from .base import BaseMethod, Envelope, Cmd, Opcode, VERSION
+from .base import BaseMethod, Envelope, Cmd, Opcode
 from ...payloads.requests import (
     SendMessageRequest,
     GetMessagesRequest,

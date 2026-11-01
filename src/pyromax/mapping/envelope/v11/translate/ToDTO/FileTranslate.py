@@ -133,7 +133,7 @@ class BaseFileMapping(
                         )
                     await self._parse_response(response=response)
         except aiohttp.ClientError as e:
-            raise AttachmentUploadError(f"failed to upload data to url") from e
+            raise AttachmentUploadError("failed to upload data to url") from e
 
     @property
     def headers(self) -> dict[str, str] | None:
@@ -319,8 +319,8 @@ class VideoMapping(
         quality = kwargs.get("quality", "MP4_720")
         method = GetFileLinkMethod(opcode=Opcode.GET_VIDEO, file=file)
         method.mapper = mapper
-        response_future = await mapper.protocol.send(method=method)
-        response_envelope = await response_future
+        response_future = await mapper.send(method=method)
+        response_envelope = response_future
         response = response_envelope.payload
         url = response.get(quality)
         if url is None:
@@ -482,9 +482,9 @@ class VoiceMapping(
             chat_id=file.chat_id,
         )
         method.mapper = mapper
-        response_future = await mapper.protocol.send(method=method)
+        response_future = await mapper.send(method=method)
 
-        response = await response_future
+        response = response_future
 
         url = cls._extract_audio_url(response.payload)
         if url is not None:
@@ -553,11 +553,12 @@ class FileMapping(
         :returns: The resulting str | None value.
         :rtype: str | None
         """
-        response_future = await mapper.protocol.send(
+        response_future = await mapper.send(
             method=GetFileLinkMethod(opcode=Opcode.GET_FILE, file=file)
         )
 
-        response_envelope = await response_future
+        response_envelope = response_future
+
         response = response_envelope.payload
         url = response.get("url")
 

@@ -63,7 +63,7 @@ from .....exceptions import (
     UnsupportedClientVersionMapperError,
 )
 from ..constants import DEFAULT_BACKOFF_CONFIG, ErrorCode
-from ..LifecycleManager import LifecycleManager
+from ..LifecycleManager import LifecycleManager, OnlyUserAgentAuthContainer
 
 if TYPE_CHECKING:
     from .....core import MaxApi
@@ -76,15 +76,24 @@ class AuthMixin(MixinProtocol):
     user_agent: BaseUserAgentMappingModel | None
     token: str | None
 
+    @property
+    def logged(self) -> bool:
+        return bool(self.token or self.max_api.token)
+
     async def _send_user_agent(
         self,
-        user_agent: BaseUserAgentMappingModel,
+        user_agent: BaseUserAgentMappingModel | None = None,
     ) -> None:
         """Send user agent.
 
         :param user_agent: BaseUserAgentMappingModel instance to process.
         :type user_agent: BaseUserAgentMappingModel
         """
+        if user_agent is None:
+            user_agent = self.user_agent
+        if user_agent is None:
+            raise RuntimeError("User agent is not initialized")
+
         response = await self.send_raw(
             method=SendUserAgentMethod(
                 user_agent=user_agent,
@@ -95,24 +104,12 @@ class AuthMixin(MixinProtocol):
 
     async def _send_auth_token(
         self,
-        token: str,
+        token: str | None = None,
     ) -> None:
         """Send auth token.
 
         :param token: Authentication token.
         :type token: str
-        :param chats_count: The chats count value.
-        :type chats_count: int
-        :param interactive: The interactive value.
-        :type interactive: bool
-        :param presence_sync: The presence sync value.
-        :type presence_sync: int
-        :param chats_sync: The chats sync value.
-        :type chats_sync: int
-        :param contacts_sync: The contacts sync value.
-        :type contacts_sync: int
-        :param drafts_sync: The drafts sync value.
-        :type drafts_sync: int
         :raises RuntimeError: If you try a send auth token, but not bound MaxApi instance to mapper.
         :raises NeedReloginMapperError: If MAX rejects the stored login token.
         """
@@ -120,6 +117,10 @@ class AuthMixin(MixinProtocol):
 
         if self.max_api.session is None:
             raise RuntimeError("You try send auth token, without session.")
+        if token is None:
+            token = self.token
+        if token is None:
+            raise RuntimeError("You try send auth token without a token.")
         sync = self.extra_config.sync.resolve(self.max_api.session.sync)
 
         try:
@@ -140,7 +141,7 @@ class AuthMixin(MixinProtocol):
             match error:
                 case ErrorCode.LOGIN_TOKEN | ErrorCode.LOGIN_CREDENTIALS:
                     self._logger.error("Login error. Please log in again.")
-                    self.logged = False
+                    # self.logged = False
                     if self.extra_config.relogin:
                         if self.max_api.session_storage is not None:
                             self._logger.debug("deleting current session")
@@ -158,9 +159,9 @@ class AuthMixin(MixinProtocol):
                         message = f"{message}: {detail}"
                     raise NeedReloginMapperError(message) from e
 
-            raise e
+            raise
 
-        self._logger.debug("recv auth token response")
+        self._logger.debug("Recv auth token response")
 
         auth_model = AuthResponse(**response.payload)
         sync = auth_model.update_sync_state(self.max_api.session.sync)
@@ -201,6 +202,8 @@ class AuthMixin(MixinProtocol):
             )
 
             self.max_api.names = self.max_api.me.contact.names
+
+        self._authorized.set()
 
     async def request_code(
         self,
@@ -299,7 +302,7 @@ class AuthMixin(MixinProtocol):
         :rtype: TrackLoginResponse
         :raises RuntimeError: If track login failed.
         """
-        response = await self.send_raw_with_running_wait(
+        response = await self.send_raw(
             method=TrackLoginMethod(track_id=track_id),
             # return_exception=True
         )
@@ -319,7 +322,7 @@ class AuthMixin(MixinProtocol):
         :returns: The resulting ChoiceLoginVariantResponse value.
         :rtype: ChoiceLoginVariantResponse
         """
-        response = await self.send_raw_with_running_wait(
+        response = await self.send_raw(
             method=GetUserDataMethod(track_id=track_id),
         )
         payload = response.payload
@@ -685,21 +688,27 @@ class AuthMixin(MixinProtocol):
         from ..LifecycleManager import LifecycleManager
         from ..Mapper import Mapper
 
+        self_ = cast(Mapper, self)
+
         self._lifecycle_manager = LifecycleManager(
-            mapper=cast(Mapper, self),
+            mapper=self_,
             connect_timeout=connect_timeout,
-            need_login=max_api.token is None,
+            auth_container=OnlyUserAgentAuthContainer(self_),
         )
+        lifecycle_manager = self._lifecycle_manager
 
-        self.protocol.set_generation_getter(self._lifecycle_manager.get_generation)
-        self.protocol.set_exceptions_callback(
-            self._lifecycle_manager.notify_about_exception
-        )
+        def notify_exception_wrapper(exception: Exception, source: str) -> None:
+            lifecycle_manager.notify_about_exception(
+                exception,
+                lifecycle_manager.get_generation(),
+                source,
+            )
 
-        self._lifecycle_manager.start(
-            only_send_user_agent=True,
-        )
-        await self._protocol_connected.wait()
+        self.protocol.set_exceptions_callback(notify_exception_wrapper)
+        self._lifecycle_manager_inited.set()
+
+        await lifecycle_manager.start()
+        await lifecycle_manager.wait_until_connected()
 
     async def end_auth_flow(self, token: str | None) -> None:
         if token is not None:
@@ -710,15 +719,16 @@ class AuthMixin(MixinProtocol):
         if lifecycle_manager is not None:
             await lifecycle_manager.stop()
         self._lifecycle_manager = None
+        self._lifecycle_manager_inited.clear()
         # self.user_agent = None
-        self.protocol.set_generation_getter(None)
+        # self.protocol.set_generation_getter(None)
         self.protocol.set_exceptions_callback(None)
 
     async def login(
         self,
         login_backoff: Backoff | None = None,
-        registration_config: RegistrationConfig | None = None,
-        use_mobile_fingerprint: bool = True,
+        # registration_config: RegistrationConfig | None = None,
+        # use_mobile_fingerprint: bool = True,
     ) -> SuccessLoginResponse | None:
         """Login.
 
@@ -737,14 +747,14 @@ class AuthMixin(MixinProtocol):
 
         if token is None:
 
-            self._logger.info("haven`t token. Start login...")
+            self._logger.info("Haven`t token. Start login...")
             if self.user_agent is None:
                 raise RuntimeError("user agent is not initialized.")
             user = await self._login(
                 user_agent=self.user_agent,
                 login_backoff=login_backoff,
-                registration_config=registration_config,
-                use_mobile_fingerprint=use_mobile_fingerprint,
+                registration_config=self.mapper_config.registration_config,
+                use_mobile_fingerprint=self.mapper_config.use_mobile_fingerprint,
             )
 
             self._logger.info("get token from login...")
@@ -757,25 +767,9 @@ class AuthMixin(MixinProtocol):
 
             if self.max_api.session_id is None:
                 self.max_api.session_id = str(uuid.uuid4())
-            # session = SessionInfo(
-            #     token=token,
-            #     device_id=self.mapper_config.user_agent_config.device_id,
-            #     phone=self.mapper_config.phone or "",
-            #     session_id=self.max_api.session_id,
-            #     user_agent_config=self.mapper_config.user_agent_config.to_string(),
-            #     **self.mapper_config.user_agent_config.session_info_params,
-            # )
 
             self.max_api.token = token
 
-            # self.max_api.session = session
-
-            # await self.max_api.session_storage.save_session(
-            #     session, self.max_api.session_key
-            # )
-
-            # await write_token(token=token, name_of_token=self.TOKEN_NAME)
-            # self._logger.info("was write token in tokens.json successfully.")
             return user
         else:
             self._logger.info("already has token, login skipped.")
@@ -807,9 +801,7 @@ class AuthMixin(MixinProtocol):
         if login_backoff is None:
             login_backoff = Backoff(config=DEFAULT_BACKOFF_CONFIG)
         try:
-            await self._send_user_agent(
-                user_agent=user_agent,
-            )
+            await self._send_user_agent()
 
             choice: ChoiceLoginVariantResponse = await self._call_build_in_method(
                 method_name="LOGIN",
@@ -871,7 +863,7 @@ class AuthMixin(MixinProtocol):
         :returns: The resulting SuccessLoginResponse value.
         :rtype: SuccessLoginResponse
         """
-        response = await self.send_raw_with_running_wait(
+        response = await self.send_raw(
             method=Resolve2FAMethod(
                 password=password,
                 track_id=track_id,
@@ -882,12 +874,10 @@ class AuthMixin(MixinProtocol):
 
     async def _send_only_user_agent(
         self,
-        user_agent: BaseUserAgentMappingModel,
+        user_agent: BaseUserAgentMappingModel | None = None,
     ) -> None:
         try:
-            await self._send_user_agent(
-                user_agent=user_agent,
-            )
+            await self._send_user_agent(user_agent=user_agent)
         except CircuitBreakerOpenError:
             raise
         except BaseMapperError as e:
@@ -931,13 +921,9 @@ class AuthMixin(MixinProtocol):
         """
         try:
             if send_user_agent:
-                await self._send_user_agent(
-                    user_agent=user_agent,
-                )
+                await self._send_user_agent()
 
-            await self._send_auth_token(
-                token=token,
-            )
+            await self._send_auth_token()
             self._authorized.set()
             if self._telemetry is not None:
                 await self._telemetry.start()

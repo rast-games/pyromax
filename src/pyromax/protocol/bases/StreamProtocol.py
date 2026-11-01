@@ -1,15 +1,16 @@
 from abc import abstractmethod
 from typing import Generic
 
-from .base import BaseMaxProtocol, T, R, TRANSPORT_TYPE
+from .base import BaseMaxProtocol, RequestType, ResponseType, TRANSPORT_TYPE
 
 
 class StreamMaxProtocol(
-    BaseMaxProtocol[T, R, TRANSPORT_TYPE], Generic[T, R, TRANSPORT_TYPE]
+    BaseMaxProtocol[RequestType, ResponseType, TRANSPORT_TYPE],
+    Generic[RequestType, ResponseType, TRANSPORT_TYPE],
 ):
 
     @abstractmethod
-    async def connect(self, gen: int) -> None:
+    async def connect(self) -> None:
         """Connect the protocol transport and start its response reader.
 
         :raises ConnectProtocolError: If the transport cannot be connected.

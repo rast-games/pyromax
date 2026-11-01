@@ -65,7 +65,9 @@ class BaseMethod(abc.ABC, Generic[MapperType], BaseMaxProtocolMethod[Envelope]):
 
     @property
     def VERSION(self) -> int:
-        return self.mapper.VERSION
+        if self._mapper is None:
+            return VERSION
+        return self._mapper.VERSION
 
 
 __all__ = [

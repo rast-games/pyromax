@@ -48,10 +48,32 @@ class ModelAndEnvelopeTest(unittest.IsolatedAsyncioTestCase):
             request.is_my_response(object())  # type: ignore[arg-type]
 
     def test_extra_config_selects_transport_from_mapper_device(self) -> None:
-        web = ExtraConfig(mapper={"device_type": DeviceType.Web})
-        android = ExtraConfig(mapper={"device_type": DeviceType.Android})
+        web = ExtraConfig(mapper={"device_type": DeviceType.Web}).config_rebuild(
+            None, None, None, None
+        )
+        android = ExtraConfig(
+            mapper={"device_type": DeviceType.Android}
+        ).config_rebuild(None, None, None, None)
         self.assertIsInstance(web.transport, WebSocketTransportConfig)
         self.assertIsInstance(android.transport, SocketTransportConfig)
+
+    def test_default_transport_tracks_device_override_until_rebuild(self) -> None:
+        config = ExtraConfig()
+        config.mapper.device_type = DeviceType.Android
+
+        rebuilt = config.config_rebuild(None, None, None, None)
+
+        self.assertIsInstance(rebuilt.transport, SocketTransportConfig)
+
+    def test_explicit_transport_survives_device_rebuild(self) -> None:
+        config = ExtraConfig(
+            mapper={"device_type": DeviceType.Android},
+            transport=WebSocketTransportConfig(),
+        )
+
+        rebuilt = config.config_rebuild(None, None, None, None)
+
+        self.assertIsInstance(rebuilt.transport, WebSocketTransportConfig)
 
     def test_extra_config_reconnect_defaults_and_overrides(self) -> None:
         defaults = ExtraConfig()

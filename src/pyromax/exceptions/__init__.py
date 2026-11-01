@@ -16,6 +16,8 @@ from .TransportError import (
     ConnectTransportError,
     ConnectionTransportError,
     SendingTransportError,
+    ReceivingTransportError,
+    CloseTransportError,
     # SocketTransportError,
     # SocketTransportConnectionError,
     # SocketTransportSendError,
@@ -40,6 +42,8 @@ from .MapperErrors import (
     NeedReloginMapperError,
     AuthInputRequired,
     AttachmentUploadError,
+    StopLifecycleError,
+    MapperCloseError,
 )
 from .RoutingErrors import AlreadyCancelledError, RoutingError, RequestWasCancelledError
 from .ProtocolErrors import (
@@ -68,6 +72,8 @@ __all__ = [
     "BaseTransportError",
     "SendingTransportError",
     "ConnectTransportError",
+    "CloseTransportError",
+    "ReceivingTransportError",
     "ConnectionTransportError",
     "RequestWasCancelledError",
     # "SocketTransportError",
@@ -81,7 +87,9 @@ __all__ = [
     "MapperCancelledError",
     "MapperTransportError",
     "MapperConnectError",
+    "MapperCloseError",
     "MapperLifecycleError",
+    "StopLifecycleError",
     "AlreadyFailedError",
     "AlreadyCancelledError",
     "ReactionMapperError",

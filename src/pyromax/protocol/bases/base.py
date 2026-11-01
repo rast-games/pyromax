@@ -14,13 +14,15 @@ if TYPE_CHECKING:
     from ...encoding import BaseEncoding
     from ...config import ExtraConfig
 
-T = TypeVar("T", bound=Request[Any], contravariant=True)
-R = TypeVar("R", bound=Response, covariant=True)
+RequestType = TypeVar("RequestType", bound=Request[Any], contravariant=True)
+ResponseType = TypeVar("ResponseType", bound=Response, covariant=True)
 
 TRANSPORT_TYPE = TypeVar("TRANSPORT_TYPE", bound="BaseTransport[Any]", default=Any)
 
 
-class BaseMaxProtocol(AsyncInitializerMixin, Generic[T, R, TRANSPORT_TYPE]):
+class BaseMaxProtocol(
+    AsyncInitializerMixin, Generic[RequestType, ResponseType, TRANSPORT_TYPE]
+):
 
     @abstractmethod
     async def _async_init(
@@ -44,8 +46,8 @@ class BaseMaxProtocol(AsyncInitializerMixin, Generic[T, R, TRANSPORT_TYPE]):
 
     @abstractmethod
     async def send(
-        self, method: BaseMaxProtocolMethod[T], data: Any | None = None
-    ) -> Awaitable[R]:
+        self, method: BaseMaxProtocolMethod[RequestType], data: Any | None = None
+    ) -> Awaitable[ResponseType]:
         """Send.
 
         :param method: BaseMaxProtocolMethod[T] instance to process.

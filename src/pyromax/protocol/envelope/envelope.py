@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from asyncio import Future
-from collections.abc import Iterable, Callable, Awaitable
+from collections.abc import Callable, Iterable
 from typing import Any, cast, TYPE_CHECKING
 
 from ..bases import StreamMaxProtocol, BaseMaxProtocolMethod, Response, Request
@@ -12,10 +12,13 @@ from ...exceptions import (
     AlreadyCancelledError,
     SendingProtocolError,
     ConnectProtocolError,
-    BaseTransportError,
     GetUpdatesProtocolError,
     BaseProtocolError,
     RoutingError,
+    ConnectTransportError,
+    CloseTransportError,
+    CloseProtocolError,
+    SendingTransportError,
 )
 
 from pydantic import BaseModel
@@ -100,37 +103,29 @@ class EnvelopeProtocol(
         """
         if not isinstance(transport, StreamTransport):
             raise TypeError("transport must be StreamTransport")
-        self.event_router_lock = asyncio.Lock()
-        self.exceptions_callback: Callable[[Exception, int, str], Any] | None = None
+
+        self.event_router: EventRouter[Envelope, Envelope] | None
+
         self._network_lock = asyncio.Lock()
-        self.event_router: EventRouter[Envelope, Envelope] | None = None
-        self.__logger = logging.getLogger("EnvelopeProtocol")
-        self.__transport = transport
+
+        self._exceptions_callback: Callable[[Exception, str], Any] | None = None
+
+        self._logger = logging.getLogger("EnvelopeProtocol")
+
+        self._transport = transport
         self._reader_task: asyncio.Task[Any] | None = None
-        # self._ping_interval = ping_interval
-        self._generation_getter: Callable[..., Awaitable[int]] | None = None
-        self._current_generation: int | None = None
+
         self._encoding = encoding
 
-    def set_generation_getter(
-        self, generation_getter: Callable[..., Awaitable[int]] | None
-    ) -> None:
-        """Set generation getter.
-
-        :param generation_getter: Callable to invoke.
-        :type generation_getter: Callable[..., Awaitable[int]]
-        """
-        self._generation_getter = generation_getter
-
     def set_exceptions_callback(
-        self, exceptions_callback: Callable[[Exception, int, str], Any] | None
+        self, exceptions_callback: Callable[[Exception, str], Any] | None
     ) -> None:
         """Set exceptions callback.
 
         :param exceptions_callback: Callable to invoke.
         :type exceptions_callback: Callable[[Exception, int, str], Any]
         """
-        self.exceptions_callback = exceptions_callback
+        self._exceptions_callback = exceptions_callback
 
     async def _async_init(
         self,
@@ -138,7 +133,6 @@ class EnvelopeProtocol(
         encoding: BaseEncoding[Any, Any, Any, Any],
         extra_config: ExtraConfig,
         *args: Any,
-        # ping_interval: int = 30,
         **kwargs: Any,
     ) -> None:
         """Async init.
@@ -152,7 +146,6 @@ class EnvelopeProtocol(
         if not isinstance(transport, StreamTransport):
             raise TypeError("transport must be StreamTransport")
 
-        # await asyncio.to_thread(self.__init__, transport=transport, ping_interval=ping_interval, exceptions_callback=exceptions_callback, generation_getter=generation_getter) # type: ignore[misc]
         # Reinitialize instance state after async construction.
         # We intentionally reuse __init__ to keep IDE/type-checkers
         # aware of attribute initialization.
@@ -164,9 +157,8 @@ class EnvelopeProtocol(
             extra_config=extra_config,
         )
 
-        # await self.set_event_router(EventRouter[Envelope, Envelope]())
         self.event_router = EventRouter[Envelope, Envelope]()
-        self.__logger.info("protocol connected")
+        self._logger.info("protocol connected")
 
     @property
     def transport(self) -> StreamTransport[BaseEncoding[Any, Any, Any, Any]]:
@@ -175,29 +167,19 @@ class EnvelopeProtocol(
         :returns: The using transport.
         :rtype: StreamTransport
         """
-        return self.__transport
+        return self._transport
 
-    # async def get_event_router(self) -> EventRouter[Envelope, Envelope] | None:
-    #     """Retrieve event router.
-    #
-    #     :returns: The envelope populated with the request opcode and payload.
-    #     :rtype: EventRouter[Envelope, Envelope] | None
-    #     """
-    #     async with self.event_router_lock:
-    #         return self.event_router
-    #
-    # async def set_event_router(
-    #     self, event_router: EventRouter[Envelope, Envelope] | None
-    # ) -> None:
-    #     """Set event router.
-    #
-    #     :param event_router: EventRouter[Envelope, Envelope] instance to process.
-    #     :type event_router: EventRouter[Envelope, Envelope] | None
-    #     """
-    #     async with self.event_router_lock:
-    #         self.event_router = event_router
+    async def _close_after_connect_failure(self) -> None:
+        """Clean up a partial connection without masking its original error."""
+        try:
+            await self._close()
+        except CloseProtocolError as close_error:
+            self._logger.warning(
+                "Cleanup after connection failure also failed: %s",
+                close_error,
+            )
 
-    async def connect(self, current_gen: int) -> None:
+    async def connect(self) -> None:
         """Connect the protocol transport and start its response reader.
 
         :raises ConnectProtocolError: If the transport cannot be connected.
@@ -207,77 +189,64 @@ class EnvelopeProtocol(
         :type current_gen: int
         """
         async with self._network_lock:
-            self._current_generation = current_gen
-            self.__logger.info(f"Protocol generation updated, current: {current_gen}")
-
-            await self._close()
-            # reader_task = self._reader_task
-            # self._reader_task = None
-            # if reader_task:
-            #     self.__logger.info("Find another reader, closing it...")
-            #     try:
-            #         reader_task.cancel()
-            #         await asyncio.wait_for(reader_task, timeout=5)
-            #     except asyncio.CancelledError:
-            #         self.__logger.debug("reader already cancelled in another place")
-            #     except asyncio.TimeoutError:
-            #         self.__logger.warning("reader task got stop stop timeout(in connect)")
-            #     except Exception as e:
-            #         self.__logger.error("reader task ended with exception=%s", e)
-            #         await self._close()
-            #         raise ConnectProtocolError(
-            #             "reader task ended with exception"
-            #         ) from e
 
             try:
-                await asyncio.wait_for(self.__transport.connect(), timeout=30)
+                await self._close()
+            except CloseProtocolError as e:
+                self._logger.warning("Closing protocol error while connect: %s", e)
+                raise ConnectProtocolError("Closing error") from e
+
+            try:
+                await asyncio.wait_for(self._transport.connect(), timeout=30)
+
+            except ConnectTransportError as e:
+                await self._close_after_connect_failure()
+                self._logger.error(
+                    "Transport got connection error while connecting=%s",
+                    e,
+                    exc_info=True,
+                )
+                raise ConnectProtocolError("Transport connection error") from e
             except asyncio.TimeoutError as e:
-                self.__logger.error("connection timeout")
-                await self._close()
-                raise ConnectProtocolError("timeout to connect") from e
+                self._logger.error("Connection timeout")
+                await self._close_after_connect_failure()
+                raise ConnectProtocolError("Timeout to connect") from e
             except Exception as e:
-                await self._close()
-                raise ConnectProtocolError("connect error") from e
+                await self._close_after_connect_failure()
+                raise ConnectProtocolError("Connect error") from e
 
             try:
-                # router = await self.get_event_router()
                 router = self.event_router
                 if router:
-                    # await self.set_event_router(None)
                     self.event_router = None
                     await router.cancel_all()
 
-                # await self.set_event_router(EventRouter())
                 self.event_router = EventRouter()
-                reader_task = asyncio.create_task(self.receive_reader(gen=current_gen))
+                reader_task = asyncio.create_task(self.receive_reader())
 
-                def reader_done_callback_wrapper(
-                    t: asyncio.Task[Any], gen: int = current_gen
-                ) -> None:
-                    """Wrap additional args in wrapper.
-
-                    :param t: asyncio.Task[Any] instance to process.
-                    :type t: asyncio.Task[Any]
-                    :param gen: The gen value.
-                    :type gen: int
-                    """
-                    self._reader_done(t, gen)
-
-                reader_task.add_done_callback(reader_done_callback_wrapper)
+                reader_task.add_done_callback(self._reader_done)
                 self._reader_task = reader_task
-                self.__logger.info("Background tasks started")
+                self._logger.info("Background tasks started")
 
-            except Exception as e:
-                self.__logger.error("start background tasks error")
-                await self._close()
-                raise ConnectProtocolError("start background tasks error") from e
+            except Exception as start_error:
+                self._logger.error("Start background tasks error")
+                try:
+                    await self._close()
+                except CloseProtocolError as close_error:
+                    self._logger.warning(
+                        "Closing protocol error while connect: %s", close_error
+                    )
+                    raise ConnectProtocolError("Closing error") from close_error
+                raise ConnectProtocolError(
+                    "Start background tasks error"
+                ) from start_error
 
     async def _close(
         self,
         pending_requests_exc: Exception | None = None,
     ) -> None:
         """Close."""
-        self.__logger.info("closing protocol")
+        self._logger.info("Closing protocol")
         reader_task = self._reader_task
         self._reader_task = None
         if reader_task:
@@ -285,27 +254,31 @@ class EnvelopeProtocol(
                 reader_task.cancel()
                 await asyncio.wait_for(reader_task, timeout=5)
             except asyncio.CancelledError:
-                self.__logger.debug("reader already cancelled(in close)")
+                self._logger.debug("Reader already cancelled(in close)")
             except asyncio.TimeoutError:
-                self.__logger.warning("reader task got stop stop timeout(in close)")
+                self._logger.warning("Reader task got stop stop timeout(in close)")
             except Exception as e:
-                self.__logger.error("reader ended with exception: %s", e, exc_info=True)
-        # event_router = await self.get_event_router()
+                self._logger.error("Reader ended with exception: %s", e, exc_info=True)
+
         event_router = self.event_router
         if event_router:
-            # await self.set_event_router(None)
             self.event_router = None
             await event_router.cancel_all(pending_requests_exc)
 
-        self.__logger.info("terminated reader task")
+        self._logger.info("Terminated reader task")
         try:
-            await asyncio.wait_for(self.__transport.close(), timeout=30)
-            self.__logger.info("transport closed")
-            self.__logger.info("protocol closed")
-        except asyncio.TimeoutError:
-            self.__logger.warning("transport close timeout")
-        except Exception:
-            self.__logger.warning("transport close failed")
+            await asyncio.wait_for(self._transport.close(), timeout=30)
+            self._logger.info("Transport closed")
+            self._logger.info("Protocol closed")
+        except asyncio.TimeoutError as e:
+            self._logger.warning("Transport close timeout")
+            raise CloseProtocolError("Transport close timeout") from e
+        except CloseTransportError as e:
+            self._logger.warning("Transport close error=%s", e, exc_info=True)
+            raise CloseProtocolError("Transport close error") from e
+        except Exception as e:
+            self._logger.warning("Transport close failed")
+            raise CloseProtocolError("Transport close failed") from e
 
     async def close(
         self,
@@ -337,53 +310,52 @@ class EnvelopeProtocol(
             data = {}
 
         if not isinstance(data, dict):
-            raise TypeError("data must be dict instance")
+            raise TypeError("Data must be dict instance")
         envelope = await self.from_request(request_data=data)
         try:
             request = await method(request=envelope)
         except Exception as e:
-            self.__logger.exception(
-                "failed to create envelope, method: %s", method.__class__.__name__
+            self._logger.exception(
+                "Failed to create envelope, method: %s", method.__class__.__name__
             )
-            raise SendingProtocolError("failed to create envelope") from e
-        # event_router = await self.get_event_router()
+            raise SendingProtocolError("Failed to create envelope") from e
+
         event_router = self.event_router
         if not event_router:
-            raise SendingProtocolError("no event router while send")
-        gen = self._current_generation
-        if gen is None:
-            raise SendingProtocolError("protocol not connected")
+            raise SendingProtocolError("No event router while send")
         try:
-            record = event_router.create_record(request, gen=gen)
+            record = event_router.create_record(request)
         except AlreadyCancelledError:
-            raise SendingProtocolError("event router already cancelled")
+            raise SendingProtocolError("Event router already cancelled")
 
         try:
             encoded_frame = self._encoding.encode(request.model_dump(by_alias=True))
-            await self.__transport.send(encoded_frame)
-        except BaseTransportError as e:
-            self.__logger.error("transport sending error: %s", e, exc_info=True)
+            await self._transport.send(encoded_frame)
+        except SendingTransportError as e:
+            self._logger.error("Transport sending error: %s", e, exc_info=True)
             try:
-                if self.exceptions_callback is not None:
-                    self.exceptions_callback(e, gen, "send")
+                if self._exceptions_callback is not None:
+                    self._exceptions_callback(e, "EnvelopeProtocol.send")
             except Exception:
-                self.__logger.exception("exceptions_callback failed")
-            event_router.cancel_request(request, gen=gen)
-            raise SendingProtocolError("transport sending error") from e
+                self._logger.exception(
+                    "Exceptions_callback failed=%s", e, exc_info=True
+                )
+            await event_router.cancel_request(request)
+            raise SendingProtocolError("Transport sending error") from e
         except Exception as e:
-            self.__logger.error("sending error: %s", e, exc_info=True)
+            self._logger.error("Sending error=%s", e, exc_info=True)
             try:
-                if self.exceptions_callback is not None:
-                    self.exceptions_callback(e, gen, "send")
+                if self._exceptions_callback is not None:
+                    self._exceptions_callback(e, "EnvelopeProtocol.send")
             except Exception:
-                self.__logger.exception("exceptions_callback failed")
-            event_router.cancel_request(request, gen=gen)
-            raise SendingProtocolError("sending error") from e
-        self.__logger.debug("send request: %s", envelope.model_dump(by_alias=True))
+                self._logger.exception("Exceptions_callback failed")
+            await event_router.cancel_request(request)
+            raise SendingProtocolError("Sending error") from e
+        self._logger.debug("Send request: %s", envelope.model_dump(by_alias=True))
 
         return record
 
-    def _reader_done(self, task: asyncio.Task[Any], gen: int | None) -> None:
+    def _reader_done(self, task: asyncio.Task[Any]) -> None:
         """Reader done.
 
         :param task: asyncio.Task[Any] instance to process.
@@ -393,15 +365,15 @@ class EnvelopeProtocol(
         """
         from ...utils import debug_tasks
 
-        self.__logger.debug("%s", debug_tasks())
+        self._logger.debug("%s", debug_tasks())
 
         try:
             exc = task.exception()
         except asyncio.CancelledError:
-            self.__logger.warning("Reader task cancelled outer")
+            self._logger.warning("Reader task cancelled outer")
             return
         except Exception as e:
-            self.__logger.exception(
+            self._logger.exception(
                 "Failed to inspect reader task, get exception operation ended with unknown exception=%s",
                 e,
                 exc_info=e,
@@ -412,46 +384,47 @@ class EnvelopeProtocol(
 
         if exc is not None:
             try:
-                if gen is not None and self.exceptions_callback is not None:
-                    self.__logger.debug("sending exception into exceptions callback")
-                    self.exceptions_callback(cast(Exception, exc), gen, "reader")
+                if self._exceptions_callback is not None:
+                    self._logger.debug("Sending exception into exceptions callback")
+                    self._exceptions_callback(
+                        cast(Exception, exc), "EnvelopeProtocol.receive_reader"
+                    )
             except Exception:
-                self.__logger.exception(
+                self._logger.exception(
                     "Exception occurred while sending reader exception into exceptions callback"
                 )
 
-                self.__logger.error(
+                self._logger.error(
                     "Reader unhandled exception",
                     exc_info=(type(exc), exc, exc.__traceback__),
                 )
 
-    async def receive_reader(self, gen: int) -> None:
+    async def receive_reader(self) -> None:
         """Receive reader.
 
-        :param gen: The gen value.
-        :type gen: int
         :raises RuntimeError: If no event router while receive.
         """
-        # event_router = await self.get_event_router()
         event_router = self.event_router
         if event_router is None:
-            raise RuntimeError("no event router while receive")
+            raise RuntimeError("No event router while receive")
         while True:
-            raw_data = await self.__transport.recv()
+            raw_data = await self._transport.recv()
             response = self._encoding.decode(raw_data)
 
             # from random import random
             #
             # rnd = random()
             #
-            # if rnd > 0.5:
+            # if rnd > 0.5 and response["seq"] > 3:
             #     print("raise")
             #     print(f"raise {str(response)[0:100]}...")
+            #     from ...exceptions import BaseTransportError
+            #
             #     raise BaseTransportError("test")
 
             response = self.from_response(response)
-            self.__logger.debug("fetched response %s", response)
-            response_resolved = await event_router.resolve_response(response, gen=gen)
+            self._logger.debug("fetched response %s", response)
+            response_resolved = await event_router.resolve_response(response)
             if response_resolved:
                 # Let the request coroutine consume a delivered response before
                 # reading again.  Some API errors are immediately followed by a
@@ -469,13 +442,12 @@ class EnvelopeProtocol(
         :rtype: Iterable[Envelope]
         """
         try:
-            # event_router = await self.get_event_router()
             event_router = self.event_router
             if event_router is None:
-                raise GetUpdatesProtocolError("no event router while receive")
+                raise GetUpdatesProtocolError("No event router while receive")
             updates = await event_router.pop_all_updates()
         except (AlreadyCancelledError, RoutingError) as e:
-            self.__logger.error(
+            self._logger.error(
                 "get_all_updates end with exception=%s", e, exc_info=True
             )
             raise GetUpdatesProtocolError(

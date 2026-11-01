@@ -1,6 +1,6 @@
 from typing import cast
 
-from .base import BaseMethod, Envelope, Cmd, Opcode, VERSION
+from .base import BaseMethod, Envelope, Cmd, Opcode
 
 from ...payloads.requests import (
     GetContactRequest,

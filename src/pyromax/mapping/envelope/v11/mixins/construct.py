@@ -5,6 +5,7 @@ import logging
 import threading
 import time
 from typing import TYPE_CHECKING, Any, _ProtocolMeta, TypeVar
+from collections.abc import Callable, Awaitable, Mapping
 
 from typing import cast
 
@@ -17,7 +18,13 @@ from ..LifecycleManager import LifecycleManager
 from ..telemetry import TelemetryManager
 from .....utils import CircuitBreaker, FingerprintGenerator, hide_func_call
 from .....interaction import AuthInteractor
-from .....exceptions import RestartMapperError
+from .....exceptions import (
+    RestartMapperError,
+    MapperApiError,
+    UnsupportedClientVersionMapperError,
+)
+from .....models import UnsupportedClientVersionEvent, DisconnectEvent
+
 from .MixinProtocol import MixinProtocol
 
 if TYPE_CHECKING:
@@ -31,6 +38,10 @@ T = TypeVar("T", bound="BaseMaxObject")
 
 class AsyncInitializerMixinProtocol(AsyncConstructorMeta, _ProtocolMeta):
     pass
+
+
+ApiErrorType = TypeVar("ApiErrorType", bound=MapperApiError)
+HandlerApiErrorsType = Callable[[ApiErrorType], Awaitable[Any]]
 
 
 class ConstructorMixin(
@@ -127,7 +138,7 @@ class ConstructorMixin(
                 app_version: extra_config.app_fingerprint,
             }
         self.fingerprint_generator = FingerprintGenerator(fingerprint_overrides)
-        self.logged: bool = False
+        # self.logged: bool = False
         self.calls_seed: int | None = None
         self._previous_cid = 0
         self._cid_lock = threading.Lock()
@@ -150,6 +161,8 @@ class ConstructorMixin(
         self._logger = self.mapper_config.mapper_logger or logging.getLogger(
             "MapperV11"
         )
+
+        self._unsupported_app_versions: set[str] = set()
 
         # self.user_agent: BaseUserAgentMappingModel | None = None
 
@@ -266,11 +279,11 @@ class ConstructorMixin(
         self._lifecycle_manager = LifecycleManager(
             mapper=cast(Mapper, self),
             connect_timeout=self.connect_timeout,
-            need_login=self.max_api.token is None,
         )
 
         if self._lifecycle_manager is None:
             raise RuntimeError("Cannot create a new lifecycle manager")
+        lifecycle_manager = self._lifecycle_manager
 
         if self.use_telemetry:
             if self.max_api is None:
@@ -280,18 +293,16 @@ class ConstructorMixin(
                 mapper=cast(Mapper, self),
             )
 
-        self.protocol.set_generation_getter(self._lifecycle_manager.get_generation)
-        self.protocol.set_exceptions_callback(
-            self._lifecycle_manager.notify_about_exception
-        )
+        def notify_exception_wrapper(exception: Exception, source: str) -> None:
+            lifecycle_manager.notify_about_exception(
+                exception, lifecycle_manager.get_generation(), source
+            )
+
+        self.protocol.set_exceptions_callback(notify_exception_wrapper)
         self._lifecycle_manager_inited.set()
 
-        self._lifecycle_manager.start(
-            registration_config=self.mapper_config.registration_config,
-            use_mobile_fingerprint=self.mapper_config.use_mobile_fingerprint,
-        )
-
-        await self._lifecycle_manager.wait_until_connected()
+        await lifecycle_manager.start()
+        await lifecycle_manager.wait_until_connected()
 
         self._logger.info("Mapper initialized")
 
@@ -303,7 +314,7 @@ class ConstructorMixin(
         self._protocol_connected.clear()
         self._lifecycle_manager_inited.clear()
         self._telemetry = None
-        self.protocol.set_generation_getter(None)
+        # self.protocol.set_generation_getter(None)
         self.protocol.set_exceptions_callback(None)
 
     async def wait_until_ready(self) -> None:
@@ -341,6 +352,98 @@ class ConstructorMixin(
         await lifecycle_manager.request_reconnect(
             RestartMapperError(f"Application version changed to {app_version}")
         )
+
+    async def _handle_unsupported_version(
+        self, exception: UnsupportedClientVersionMapperError
+    ) -> None:
+        """Notify handlers and select a replacement when none was chosen."""
+        max_api = self.max_api
+        rejected_version = exception.app_version or max_api.app_version
+        if rejected_version is not None:
+            self._unsupported_app_versions.add(rejected_version)
+
+        available_versions = await max_api.get_available_app_versions()
+        await max_api._emit_unsupported_version(
+            UnsupportedClientVersionEvent(
+                exception=exception,
+                app_version=rejected_version,
+                available_versions=available_versions,
+            )
+        )
+
+        if (
+            max_api.app_version == rejected_version
+            and self.extra_config.autochange_app_version_if_current_unsupported
+        ):
+            selected_version = await max_api.set_random_app_version(
+                reconnect=False,
+                exclude=tuple(self._unsupported_app_versions),
+            )
+            self._logger.warning(
+                "Application version %s is unsupported; selected %s",
+                rejected_version,
+                selected_version,
+            )
+
+    def _register_api_error_handler(
+        self,
+        error_type: type[ApiErrorType],
+        handler: HandlerApiErrorsType[ApiErrorType],
+    ) -> tuple[type[MapperApiError], HandlerApiErrorsType[Any]]:
+        """Validate the error-handler type relationship at registration time.
+
+        Ensures that the handler accepts the error type associated with its key.
+        The concrete type is then erased to allow heterogeneous handlers
+        to coexist in ROUTING_API_ERRORS_MAP.
+
+        :param error_type: API error class used as the routing key.
+        :param handler: Async handler accepting an instance of the specified error type.
+        :return: Error class and its handler with generalized type annotations.
+        """
+
+        return error_type, handler
+
+    @property
+    def ROUTING_API_ERRORS_MAP(
+        self,
+    ) -> Mapping[type[MapperApiError], HandlerApiErrorsType[Any]]:
+
+        return dict(
+            [
+                self._register_api_error_handler(
+                    UnsupportedClientVersionMapperError,
+                    self._handle_unsupported_version,
+                ),
+            ]
+        )
+
+    async def _propagate_api_error(self, error: MapperApiError) -> None:
+        handler = self.ROUTING_API_ERRORS_MAP.get(type(error))
+
+        if handler is None:
+            return None
+
+        await handler(error)
+
+        return None
+
+    async def _handle_disconnect(self, exception: Exception) -> bool:
+
+        reconnect = self.extra_config.reconnect
+        delay = self.extra_config.reconnect_delay
+        await self.max_api._emit_disconnect(
+            DisconnectEvent(
+                exception=exception,
+                reconnect=reconnect,
+                delay=delay,
+            )
+        )
+
+        if not reconnect:
+            return False
+
+        await asyncio.sleep(delay)
+        return True
 
     def bind_api_instance(self, obj: T) -> T:
         """Bind api instance.

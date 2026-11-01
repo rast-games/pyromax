@@ -2,7 +2,7 @@ import asyncio
 import logging
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
 from pyromax.config import (
     CircuitBreakerConfig,
@@ -334,14 +334,11 @@ class CircuitBreakerTest(unittest.IsolatedAsyncioTestCase):
         manager = LifecycleManager(SimpleNamespace())  # type: ignore[arg-type]
         error = CircuitBreakerOpenError(1, circuit="transport")
 
-        async def observe() -> None:
-            await asyncio.Event().wait()
-
         async def connect() -> None:
             raise error
 
         with self.assertRaises(CircuitBreakerOpenError) as raised:
-            await manager._observe_task(observe, connect)
+            await manager._observe_task(connect())
 
         self.assertIs(raised.exception, error)
 
@@ -353,18 +350,9 @@ class CircuitBreakerTest(unittest.IsolatedAsyncioTestCase):
         )
         manager = LifecycleManager(mapper)  # type: ignore[arg-type]
         error = CircuitBreakerOpenError(1, circuit="transport")
-        manager._authorize = AsyncMock(  # type: ignore[method-assign]
-            side_effect=[error, None]
-        )
-        manager._handle_disconnect = AsyncMock()  # type: ignore[method-assign]
-        backoff = Mock()
+        await manager._wait_for_circuit_breaker(error)
 
-        await manager._authorize_cycle(None, backoff)
-
-        self.assertEqual(manager._authorize.await_count, 2)
         breaker.wait_until_available.assert_awaited_once_with()
-        manager._handle_disconnect.assert_not_awaited()
-        backoff.reset.assert_called_once_with()
 
     async def test_keepalive_survives_fail_fast_circuit_error(self) -> None:
         error = CircuitBreakerOpenError(1, circuit="transport")
