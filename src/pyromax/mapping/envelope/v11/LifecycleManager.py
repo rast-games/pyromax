@@ -3,7 +3,7 @@ from __future__ import annotations
 import abc
 import asyncio
 import logging
-from collections.abc import Coroutine, Generator
+from collections.abc import Coroutine, Generator, Callable
 from contextlib import suppress
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -117,6 +117,21 @@ class LifecycleManager:
         self._running: bool = False
         self._ready = asyncio.Event()
 
+    def make_error_reporter(self) -> Callable[[Exception, str], None]:
+        generation = self.get_generation()
+
+        def report(exception: Exception, source: str) -> None:
+            if generation != self.get_generation():
+                return
+
+            self.notify_about_exception(
+                exception,
+                generation=generation,
+                source=source,
+            )
+
+        return report
+
     async def start(self) -> None:
         """Idempotently start lifecycle management."""
 
@@ -180,13 +195,13 @@ class LifecycleManager:
         self._ready.clear()
         task = self._manage_lifecycle_task
         self._manage_lifecycle_task = None
-
-        if task is not None and task is not asyncio.current_task():
-            with suppress(asyncio.CancelledError):
-                task.cancel()
-                await task
-
-        await self._mapper.close(StopLifecycleError("Lifecycle was stopped"))
+        try:
+            if task is not None and task is not asyncio.current_task():
+                with suppress(asyncio.CancelledError):
+                    task.cancel()
+                    await task
+        finally:
+            await self._mapper.close(StopLifecycleError("Lifecycle was stopped"))
 
     async def _connect(self) -> None:
         self._next_generation()

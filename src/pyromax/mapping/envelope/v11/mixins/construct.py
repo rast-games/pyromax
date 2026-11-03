@@ -293,12 +293,7 @@ class ConstructorMixin(
                 mapper=cast(Mapper, self),
             )
 
-        def notify_exception_wrapper(exception: Exception, source: str) -> None:
-            lifecycle_manager.notify_about_exception(
-                exception, lifecycle_manager.get_generation(), source
-            )
-
-        self.protocol.set_exceptions_callback(notify_exception_wrapper)
+        self.protocol.set_error_reporter_factory(lifecycle_manager.make_error_reporter)
         self._lifecycle_manager_inited.set()
 
         await lifecycle_manager.start()
@@ -315,7 +310,7 @@ class ConstructorMixin(
         self._lifecycle_manager_inited.clear()
         self._telemetry = None
         # self.protocol.set_generation_getter(None)
-        self.protocol.set_exceptions_callback(None)
+        self.protocol.set_error_reporter_factory(None)
 
     async def wait_until_ready(self) -> None:
         """Wait until the current connection is authorized."""

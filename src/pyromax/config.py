@@ -600,7 +600,7 @@ class ExtraConfig(BaseConfig):
         if not fingerprint_requested:
             return
 
-        app_version = cast(str, getattr(user_agent_config, "app_version"))
+        app_version = user_agent_config.app_version
         app_fingerprint = self.app_fingerprint
         if app_fingerprint is None:
             version_api = self.resolved_version_api or VersionApi()

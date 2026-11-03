@@ -108,7 +108,9 @@ class EnvelopeProtocol(
 
         self._network_lock = asyncio.Lock()
 
-        self._exceptions_callback: Callable[[Exception, str], Any] | None = None
+        self._exceptions_reporter_factory: (
+            Callable[[], Callable[[Exception, str], Any]] | None
+        ) = None
 
         self._logger = logging.getLogger("EnvelopeProtocol")
 
@@ -117,15 +119,21 @@ class EnvelopeProtocol(
 
         self._encoding = encoding
 
-    def set_exceptions_callback(
-        self, exceptions_callback: Callable[[Exception, str], Any] | None
+    def set_error_reporter_factory(
+        self,
+        exceptions_reporter_factory: (
+            Callable[[], Callable[[Exception, str], Any]] | None
+        ),
     ) -> None:
-        """Set exceptions callback.
+        """Set exceptions callback."""
+        self._exceptions_reporter_factory = exceptions_reporter_factory
 
-        :param exceptions_callback: Callable to invoke.
-        :type exceptions_callback: Callable[[Exception, int, str], Any]
-        """
-        self._exceptions_callback = exceptions_callback
+    @property
+    def _error_reporter(self) -> Callable[[Exception, str], None] | None:
+        error_reporter = None
+        if self._exceptions_reporter_factory is not None:
+            error_reporter = self._exceptions_reporter_factory()
+        return error_reporter
 
     async def _async_init(
         self,
@@ -196,6 +204,8 @@ class EnvelopeProtocol(
                 self._logger.warning("Closing protocol error while connect: %s", e)
                 raise ConnectProtocolError("Closing error") from e
 
+            error_reporter = self._error_reporter
+
             try:
                 await asyncio.wait_for(self._transport.connect(), timeout=30)
 
@@ -224,7 +234,9 @@ class EnvelopeProtocol(
                 self.event_router = EventRouter()
                 reader_task = asyncio.create_task(self.receive_reader())
 
-                reader_task.add_done_callback(self._reader_done)
+                reader_task.add_done_callback(
+                    lambda task: self._reader_done(task, error_reporter)
+                )
                 self._reader_task = reader_task
                 self._logger.info("Background tasks started")
 
@@ -309,6 +321,8 @@ class EnvelopeProtocol(
         if data is None:
             data = {}
 
+        error_reporter = self._error_reporter
+
         if not isinstance(data, dict):
             raise TypeError("Data must be dict instance")
         envelope = await self.from_request(request_data=data)
@@ -334,8 +348,8 @@ class EnvelopeProtocol(
         except SendingTransportError as e:
             self._logger.error("Transport sending error: %s", e, exc_info=True)
             try:
-                if self._exceptions_callback is not None:
-                    self._exceptions_callback(e, "EnvelopeProtocol.send")
+                if error_reporter is not None:
+                    error_reporter(e, "EnvelopeProtocol.send")
             except Exception:
                 self._logger.exception(
                     "Exceptions_callback failed=%s", e, exc_info=True
@@ -345,8 +359,8 @@ class EnvelopeProtocol(
         except Exception as e:
             self._logger.error("Sending error=%s", e, exc_info=True)
             try:
-                if self._exceptions_callback is not None:
-                    self._exceptions_callback(e, "EnvelopeProtocol.send")
+                if error_reporter is not None:
+                    error_reporter(e, "EnvelopeProtocol.send")
             except Exception:
                 self._logger.exception("Exceptions_callback failed")
             await event_router.cancel_request(request)
@@ -355,7 +369,11 @@ class EnvelopeProtocol(
 
         return record
 
-    def _reader_done(self, task: asyncio.Task[Any]) -> None:
+    def _reader_done(
+        self,
+        task: asyncio.Task[Any],
+        error_reporter: Callable[[Exception, str], Any] | None,
+    ) -> None:
         """Reader done.
 
         :param task: asyncio.Task[Any] instance to process.
@@ -384,9 +402,9 @@ class EnvelopeProtocol(
 
         if exc is not None:
             try:
-                if self._exceptions_callback is not None:
+                if error_reporter is not None:
                     self._logger.debug("Sending exception into exceptions callback")
-                    self._exceptions_callback(
+                    error_reporter(
                         cast(Exception, exc), "EnvelopeProtocol.receive_reader"
                     )
             except Exception:
