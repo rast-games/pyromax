@@ -65,15 +65,25 @@ class EventRouter(Generic[request, response]):
 
         :param req: request instance to process.
         :type req: request
-        :param gen: The gen value.
-        :type gen: int
         :returns: The resulting Future[response] value.
         :rtype: Future[response]
         """
         if self.__cancelled:
             raise AlreadyCancelledError("already canceled")
 
+        if req in self.__pending:
+            raise RoutingError("Request already registered")
+
+        def on_done(done: Future[response]) -> None:
+            if not done.cancelled():
+                return
+
+            if self.__pending.get(req) is done:
+                self.__pending.pop(req, None)
+
         awaitable = self._create_awaitable()
+
+        awaitable.add_done_callback(on_done)
 
         key = req
 
@@ -86,25 +96,28 @@ class EventRouter(Generic[request, response]):
 
         :param resp: response instance to process.
         :type resp: response
-        :param gen: The gen value.
-        :type gen: int
         :returns: True when the requested condition is satisfied; otherwise False.
         :rtype: bool
         """
-        key = self.this_response_is_expecting(resp)
-        if key is not False:
-            awaitable = self.__pending.pop(cast(request, key), None)  # type: ignore[redundant-cast]
-
-            if awaitable is None:
-                return False
-            if not awaitable.done():
-                try:
-                    awaitable.set_result(resp)
-                    return True
-                except asyncio.InvalidStateError:
-                    return False
+        if resp.is_update():
+            await self.add_to_updates(resp)
             return False
-        await self.add_to_updates(resp)
+
+        key = self.this_response_is_expecting(resp)
+
+        if key is False:
+            return False
+
+        awaitable = self.__pending.pop(cast(request, key), None)  # type: ignore[redundant-cast]
+
+        if awaitable is None:
+            return False
+        if not awaitable.done():
+            try:
+                awaitable.set_result(resp)
+                return True
+            except asyncio.InvalidStateError:
+                return False
         return False
 
     async def cancel_request(self, req: request) -> None:
@@ -176,8 +189,6 @@ class EventRouter(Generic[request, response]):
 
         :param entry: response instance to process.
         :type entry: response
-        :param entry_gen: The entry gen value.
-        :type entry_gen: int
         :returns: The resulting tuple[request, int] | Literal[False] value.
         :rtype: tuple[request, int] | Literal[False]
         """

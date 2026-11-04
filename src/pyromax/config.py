@@ -175,7 +175,7 @@ class BaseProtocolConfig(BaseConfig):
 
 
 class EnvelopeProtocolConfig(BaseProtocolConfig):
-    pass
+    sending_timeout: int = 10
 
 
 class BaseEnvelopeMappingUserAgentConfigV11(BaseConfig):
@@ -414,6 +414,12 @@ CONFIG_SETS: dict[
             ProtocolRegistry.EnvelopeProtocol,
             MapperRegistry.EnvelopeV11Mapper,
         ),
+        # (
+        #     TransportRegistry.SocketTransport,
+        #     EncodingRegistry.MsgPackDictEncoding,
+        #     ProtocolRegistry.EnvelopeProtocol,
+        #     MapperRegistry.EnvelopeV11Mapper,
+        # ),
     ),
     DeviceType.Desktop: (
         (

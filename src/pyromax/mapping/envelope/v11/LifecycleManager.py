@@ -448,6 +448,14 @@ class LifecycleManager:
         :param source: The source value.
         :type source: str
         """
+        if generation != self.get_generation():
+            self._logger.debug(
+                "Ignoring stale error: source=%s, generation=%s",
+                source,
+                generation,
+            )
+            return
+
         try:
             while True:
                 try:

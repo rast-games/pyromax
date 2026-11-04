@@ -4,6 +4,7 @@ import logging
 from asyncio import Future
 from collections.abc import Callable, Iterable
 from typing import Any, cast, TYPE_CHECKING
+from enum import IntEnum
 
 from ..bases import StreamMaxProtocol, BaseMaxProtocolMethod, Response, Request
 from ...encoding import BaseEncoding
@@ -29,6 +30,15 @@ from ...utils import hide_func_call
 
 if TYPE_CHECKING:
     from ...config import ExtraConfig
+
+
+class EnvelopeCmd(IntEnum):
+    REQUEST = 0
+    RESPONSE = 1
+    ERROR = 3
+
+
+KNOWN_CMDS = frozenset(cmd.value for cmd in EnvelopeCmd)
 
 
 class Envelope(BaseModel, Request["Envelope"], Response):
@@ -76,9 +86,16 @@ class Envelope(BaseModel, Request["Envelope"], Response):
             raise TypeError("response must be Response instance")
         return (
             response.seq == self.seq
-            and response.cmd != self.cmd
+            and response.cmd
+            in (
+                EnvelopeCmd.RESPONSE,
+                EnvelopeCmd.ERROR,
+            )
             and response.opcode == self.opcode
         )
+
+    def is_update(self) -> bool:
+        return self.cmd == EnvelopeCmd.REQUEST
 
 
 @register_protocol("EnvelopeProtocol")
@@ -108,9 +125,18 @@ class EnvelopeProtocol(
 
         self._network_lock = asyncio.Lock()
 
-        self._exceptions_reporter_factory: (
-            Callable[[], Callable[[Exception, str], Any]] | None
-        ) = None
+        from ...config import EnvelopeProtocolConfig
+
+        protocol_config = extra_config.protocol
+
+        if not isinstance(protocol_config, EnvelopeProtocolConfig):
+            raise TypeError(
+                "EnvelopeProtocol can work only with EnvelopeProtocolConfig"
+            )
+
+        self._protocol_config = protocol_config
+
+        self._sending_timeout = self._protocol_config.sending_timeout
 
         self._logger = logging.getLogger("EnvelopeProtocol")
 
@@ -118,6 +144,13 @@ class EnvelopeProtocol(
         self._reader_task: asyncio.Task[Any] | None = None
 
         self._encoding = encoding
+
+        self._connection_id: object | None = None
+        self._connection_reporter: Callable[[Exception, str], None] | None = None
+
+        self._exceptions_reporter_factory: (
+            Callable[[], Callable[[Exception, str], Any]] | None
+        ) = None
 
     def set_error_reporter_factory(
         self,
@@ -192,9 +225,6 @@ class EnvelopeProtocol(
 
         :raises ConnectProtocolError: If the transport cannot be connected.
 
-
-        :param current_gen: The current gen value.
-        :type current_gen: int
         """
         async with self._network_lock:
 
@@ -203,8 +233,6 @@ class EnvelopeProtocol(
             except CloseProtocolError as e:
                 self._logger.warning("Closing protocol error while connect: %s", e)
                 raise ConnectProtocolError("Closing error") from e
-
-            error_reporter = self._error_reporter
 
             try:
                 await asyncio.wait_for(self._transport.connect(), timeout=30)
@@ -232,6 +260,8 @@ class EnvelopeProtocol(
                     await router.cancel_all()
 
                 self.event_router = EventRouter()
+                self._connection_id = object()
+                error_reporter = self._connection_reporter = self._error_reporter
                 reader_task = asyncio.create_task(self.receive_reader())
 
                 reader_task.add_done_callback(
@@ -258,6 +288,9 @@ class EnvelopeProtocol(
         pending_requests_exc: Exception | None = None,
     ) -> None:
         """Close."""
+        self._connection_id = None
+        self._connection_reporter = None
+
         self._logger.info("Closing protocol")
         reader_task = self._reader_task
         self._reader_task = None
@@ -321,7 +354,15 @@ class EnvelopeProtocol(
         if data is None:
             data = {}
 
-        error_reporter = self._error_reporter
+        connection_id = self._connection_id
+
+        if connection_id is None:
+            raise SendingProtocolError("Protocol not connected")
+
+        error_reporter = self._connection_reporter
+        event_router = self.event_router
+        if not event_router:
+            raise SendingProtocolError("No event router while send")
 
         if not isinstance(data, dict):
             raise TypeError("Data must be dict instance")
@@ -334,38 +375,55 @@ class EnvelopeProtocol(
             )
             raise SendingProtocolError("Failed to create envelope") from e
 
-        event_router = self.event_router
-        if not event_router:
-            raise SendingProtocolError("No event router while send")
-        try:
-            record = event_router.create_record(request)
-        except AlreadyCancelledError:
-            raise SendingProtocolError("Event router already cancelled")
-
-        try:
-            encoded_frame = self._encoding.encode(request.model_dump(by_alias=True))
-            await self._transport.send(encoded_frame)
-        except SendingTransportError as e:
-            self._logger.error("Transport sending error: %s", e, exc_info=True)
-            try:
-                if error_reporter is not None:
-                    error_reporter(e, "EnvelopeProtocol.send")
-            except Exception:
-                self._logger.exception(
-                    "Exceptions_callback failed=%s", e, exc_info=True
+        async with self._network_lock:
+            if connection_id is not self._connection_id:
+                raise SendingProtocolError(
+                    "Connection changed during request preparation"
                 )
-            await event_router.cancel_request(request)
-            raise SendingProtocolError("Transport sending error") from e
-        except Exception as e:
-            self._logger.error("Sending error=%s", e, exc_info=True)
+
             try:
-                if error_reporter is not None:
-                    error_reporter(e, "EnvelopeProtocol.send")
-            except Exception:
-                self._logger.exception("Exceptions_callback failed")
-            await event_router.cancel_request(request)
-            raise SendingProtocolError("Sending error") from e
-        self._logger.debug("Send request: %s", envelope.model_dump(by_alias=True))
+                record = event_router.create_record(request)
+            except AlreadyCancelledError:
+                raise SendingProtocolError("Event router already cancelled")
+            except RoutingError as e:
+                raise SendingProtocolError("Routing error") from e
+
+            try:
+                encoded_frame = self._encoding.encode(request.model_dump(by_alias=True))
+                await asyncio.wait_for(
+                    self._transport.send(encoded_frame), timeout=self._sending_timeout
+                )
+            except asyncio.CancelledError:
+                await event_router.cancel_request(request)
+                raise
+            except TimeoutError:
+                self._logger.error(
+                    "Transport sending timeout for envelope: %s", request
+                )
+                await event_router.cancel_request(request)
+                raise SendingProtocolError("Transport sending timeout")
+
+            except SendingTransportError as e:
+                self._logger.error("Transport sending error: %s", e, exc_info=True)
+                try:
+                    if error_reporter is not None:
+                        error_reporter(e, "EnvelopeProtocol.send")
+                except Exception:
+                    self._logger.exception(
+                        "Exceptions_callback failed=%s", e, exc_info=True
+                    )
+                await event_router.cancel_request(request)
+                raise SendingProtocolError("Transport sending error") from e
+            except Exception as e:
+                self._logger.error("Sending error=%s", e, exc_info=True)
+                try:
+                    if error_reporter is not None:
+                        error_reporter(e, "EnvelopeProtocol.send")
+                except Exception:
+                    self._logger.exception("Exceptions_callback failed")
+                await event_router.cancel_request(request)
+                raise SendingProtocolError("Sending error") from e
+            self._logger.debug("Send request: %s", envelope.model_dump(by_alias=True))
 
         return record
 
@@ -433,7 +491,7 @@ class EnvelopeProtocol(
             #
             # rnd = random()
             #
-            # if rnd > 0.5 and response["seq"] > 3:
+            # if rnd > 0.5:
             #     print("raise")
             #     print(f"raise {str(response)[0:100]}...")
             #     from ...exceptions import BaseTransportError
@@ -441,6 +499,10 @@ class EnvelopeProtocol(
             #     raise BaseTransportError("test")
 
             response = self.from_response(response)
+
+            if response.cmd not in KNOWN_CMDS:
+                self._logger.debug("Unknown cmd type=%s", response.cmd)
+
             self._logger.debug("fetched response %s", response)
             response_resolved = await event_router.resolve_response(response)
             if response_resolved:

@@ -6,11 +6,14 @@ from pyromax.models.Message import Message
 from pyromax.models.Session import SessionInfo, SyncOverrides, SyncState
 from pyromax.models.enum import DeviceType
 from pyromax.protocol.envelope.envelope import Envelope
+from pyromax.protocol.envelope.envelope import EnvelopeCmd
 
 
 class ModelAndEnvelopeTest(unittest.IsolatedAsyncioTestCase):
     def test_context_controller_binding(self) -> None:
-        message = Message(message_id=1, chat_id=2, time=3, type=None, text="x", cid=None)
+        message = Message(
+            message_id=1, chat_id=2, time=3, type=None, text="x", cid=None
+        )
         self.assertIsNone(message.bot)
         with self.assertRaisesRegex(RuntimeError, "has not been bound"):
             _ = message.max_api
@@ -20,7 +23,10 @@ class ModelAndEnvelopeTest(unittest.IsolatedAsyncioTestCase):
 
     def test_session_serialization_and_string_sync_compatibility(self) -> None:
         info = SessionInfo(
-            session_id="id", token="token", device_id="dev", phone="7999",
+            session_id="id",
+            token="token",
+            device_id="dev",
+            phone="7999",
             sync='{"chats_sync": 8, "contacts_sync": 9}',  # type: ignore[arg-type]
         )
         restored = SessionInfo.from_string(info.to_string())
@@ -28,8 +34,14 @@ class ModelAndEnvelopeTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(restored.sync.chats_sync, 8)
 
     def test_sync_overrides_preserve_unspecified_values(self) -> None:
-        saved = SyncState(chats_sync=1, contacts_sync=2, drafts_sync=3,
-                          presence_sync=4, chats_count=5, config_hash="hash")
+        saved = SyncState(
+            chats_sync=1,
+            contacts_sync=2,
+            drafts_sync=3,
+            presence_sync=4,
+            chats_count=5,
+            config_hash="hash",
+        )
         resolved = SyncOverrides(chats_sync=10, chats_count=0).resolve(saved)
         self.assertEqual(resolved.chats_sync, 10)
         self.assertEqual(resolved.contacts_sync, 2)
@@ -37,13 +49,21 @@ class ModelAndEnvelopeTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resolved.config_hash, "hash")
 
     def test_envelope_identity_hash_and_response_matching(self) -> None:
-        request = Envelope(seq=1, cmd=10, opcode=2, payload={"request": True})
-        same_identity = Envelope(seq=1, cmd=10, opcode=2, payload={"different": True})
-        response = Envelope(seq=1, cmd=11, opcode=2, payload={})
+        request = Envelope(
+            seq=1, cmd=EnvelopeCmd.REQUEST, opcode=2, payload={"request": True}
+        )
+        same_identity = Envelope(
+            seq=1, cmd=EnvelopeCmd.REQUEST, opcode=2, payload={"different": True}
+        )
+        response = Envelope(seq=1, cmd=EnvelopeCmd.RESPONSE, opcode=2, payload={})
         self.assertEqual(request, same_identity)
         self.assertEqual(hash(request), hash(same_identity))
         self.assertTrue(request.is_my_response(response))
-        self.assertFalse(request.is_my_response(Envelope(seq=2, cmd=11, opcode=2, payload={})))
+        self.assertFalse(
+            request.is_my_response(
+                Envelope(seq=2, cmd=EnvelopeCmd.RESPONSE, opcode=2, payload={})
+            )
+        )
         with self.assertRaises(TypeError):
             request.is_my_response(object())  # type: ignore[arg-type]
 

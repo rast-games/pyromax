@@ -5,7 +5,8 @@ from typing import Generic, TypeVar
 
 
 class Response(ABC):
-    pass
+    def is_update(self) -> bool:
+        return False
 
 
 class ErrorResponse(Response):

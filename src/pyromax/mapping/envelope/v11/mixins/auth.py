@@ -697,14 +697,16 @@ class AuthMixin(MixinProtocol):
         )
         lifecycle_manager = self._lifecycle_manager
 
-        def notify_exception_wrapper(exception: Exception, source: str) -> None:
-            lifecycle_manager.notify_about_exception(
-                exception,
-                lifecycle_manager.get_generation(),
-                source,
-            )
+        # def notify_exception_wrapper(exception: Exception, source: str) -> None:
+        #     lifecycle_manager.notify_about_exception(
+        #         exception,
+        #         lifecycle_manager.get_generation(),
+        #         source,
+        #     )
 
-        self.protocol.set_error_reporter_factory(notify_exception_wrapper)
+        self.protocol.set_error_reporter_factory(
+            self._lifecycle_manager.make_error_reporter
+        )
         self._lifecycle_manager_inited.set()
 
         await lifecycle_manager.start()
