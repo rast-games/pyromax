@@ -1,6 +1,6 @@
 [project]
 name = "pyromax"
-version = "0.9"
+version = "0.9.2"
 authors = [
   { name="rast-games", email="jggtrrrdg@gmail.com" },
 ]
