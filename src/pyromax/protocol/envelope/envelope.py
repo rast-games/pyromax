@@ -20,6 +20,7 @@ from ...exceptions import (
     CloseTransportError,
     CloseProtocolError,
     SendingTransportError,
+    SequenceExhaustedError,
 )
 
 from pydantic import BaseModel
@@ -198,7 +199,9 @@ class EnvelopeProtocol(
             extra_config=extra_config,
         )
 
-        self.event_router = EventRouter[Envelope, Envelope]()
+        self.event_router = EventRouter[Envelope, Envelope](
+            self._protocol_config.max_seq
+        )
         self._logger.info("protocol connected")
 
     @property
@@ -259,7 +262,7 @@ class EnvelopeProtocol(
                     self.event_router = None
                     await router.cancel_all()
 
-                self.event_router = EventRouter()
+                self.event_router = EventRouter(self._protocol_config.max_seq)
                 self._connection_id = object()
                 error_reporter = self._connection_reporter = self._error_reporter
                 reader_task = asyncio.create_task(self.receive_reader())
@@ -366,7 +369,21 @@ class EnvelopeProtocol(
 
         if not isinstance(data, dict):
             raise TypeError("Data must be dict instance")
-        envelope = await self.from_request(request_data=data)
+        try:
+
+            envelope = await self.from_request(request_data=data)
+        except SequenceExhaustedError as e:
+            self._logger.info("Session exhausted")
+            try:
+                if error_reporter is not None:
+                    error_reporter(
+                        e,
+                        "EnvelopeProtocol.EventRouter.correlator.next_counter",
+                    )
+            except Exception:
+                self._logger.exception("Exceptions callback failed")
+
+            raise SendingProtocolError("Session exhausted") from e
         try:
             request = await method(request=envelope)
         except Exception as e:

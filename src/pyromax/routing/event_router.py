@@ -28,9 +28,9 @@ else:
 class EventRouter(Generic[request, response]):
     """Event vs Response"""
 
-    def __init__(self) -> None:
+    def __init__(self, reset_lim: float | int) -> None:
         """Initialize the event router."""
-        self.correlator = Correlator()
+        self.correlator = Correlator(reset_lim=reset_lim)
         self.__pending: dict[request, Future[Any]] = {}
         # self.__updates: list[response] = []
         self.__updates: asyncio.Queue[Any] = asyncio.Queue()
@@ -85,9 +85,7 @@ class EventRouter(Generic[request, response]):
 
         awaitable.add_done_callback(on_done)
 
-        key = req
-
-        self.__pending[key] = awaitable
+        self.__pending[req] = awaitable
 
         return awaitable
 

@@ -45,7 +45,12 @@ from .MapperErrors import (
     StopLifecycleError,
     MapperCloseError,
 )
-from .RoutingErrors import AlreadyCancelledError, RoutingError, RequestWasCancelledError
+from .RoutingErrors import (
+    AlreadyCancelledError,
+    RoutingError,
+    RequestWasCancelledError,
+    SequenceExhaustedError,
+)
 from .ProtocolErrors import (
     BaseProtocolError,
     ReceiveProtocolError,
@@ -115,4 +120,5 @@ __all__ = [
     "AuthInputRequired",
     "VersionAlreadyExistsError",
     "VersionNotFoundError",
+    "SequenceExhaustedError",
 ]

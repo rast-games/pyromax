@@ -176,6 +176,7 @@ class BaseProtocolConfig(BaseConfig):
 
 class EnvelopeProtocolConfig(BaseProtocolConfig):
     sending_timeout: int = 10
+    max_seq: int | float = 65_535
 
 
 class BaseEnvelopeMappingUserAgentConfigV11(BaseConfig):

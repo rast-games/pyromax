@@ -11,3 +11,7 @@ class AlreadyCancelledError(RoutingError):
 
 class RequestWasCancelledError(RoutingError):
     """Exception for default cancelling request."""
+
+
+class SequenceExhaustedError(RoutingError):
+    """Raised when a sequence is exhausted."""
