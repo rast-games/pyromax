@@ -8,7 +8,7 @@ from pyromax.routing.event_router import EventRouter
 
 class EventRouterTest(unittest.IsolatedAsyncioTestCase):
     async def test_matching_response_resolves_only_its_request(self) -> None:
-        router = EventRouter[Envelope, Envelope]()
+        router = EventRouter[Envelope, Envelope](reset_lim=float("inf"))
         request = Envelope(seq=1, cmd=0, opcode=10, payload={})
         future = router.create_record(request)
         response = Envelope(seq=1, cmd=1, opcode=10, payload={"ok": True})
@@ -17,7 +17,7 @@ class EventRouterTest(unittest.IsolatedAsyncioTestCase):
         self.assertIs(await future, response)
 
     async def test_unmatched_responses_are_batched_as_updates(self) -> None:
-        router = EventRouter[Envelope, Envelope]()
+        router = EventRouter[Envelope, Envelope](reset_lim=float("inf"))
         first = Envelope(seq=1, cmd=1, opcode=1, payload={})
         second = Envelope(seq=2, cmd=1, opcode=2, payload={})
         await router.add_to_updates(first)
@@ -25,14 +25,12 @@ class EventRouterTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await router.pop_all_updates(), [first, second])
 
     async def test_cancel_request_removes_pending_record(self) -> None:
-        router = EventRouter[Envelope, Envelope]()
+        router = EventRouter[Envelope, Envelope](reset_lim=float("inf"))
         request = Envelope(seq=1, cmd=0, opcode=1, payload={})
         future = router.create_record(request)
         await router.cancel_request(request)
         self.assertFalse(
-            await router.resolve_response(
-                Envelope(seq=1, cmd=1, opcode=1, payload={})
-            )
+            await router.resolve_response(Envelope(seq=1, cmd=1, opcode=1, payload={}))
         )
         self.assertTrue(future.cancelled())
 
@@ -40,7 +38,7 @@ class EventRouterTest(unittest.IsolatedAsyncioTestCase):
         await router.cancel_request(request)
 
     async def test_cancel_all_fails_waiters_and_prevents_new_records(self) -> None:
-        router = EventRouter[Envelope, Envelope]()
+        router = EventRouter[Envelope, Envelope](reset_lim=float("inf"))
         request = Envelope(seq=1, cmd=0, opcode=1, payload={})
         future = router.create_record(request)
         update_waiter = asyncio.create_task(router.pop_all_updates())
@@ -53,12 +51,12 @@ class EventRouterTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(AlreadyCancelledError):
             await update_waiter
         with self.assertRaises(AlreadyCancelledError):
-            router.create_record(request)
+            await router.create_record(request)
         with self.assertRaises(AlreadyCancelledError):
             await router.pop_all_updates()
 
     async def test_cancel_all_skips_already_done_waiters(self) -> None:
-        router = EventRouter[Envelope, Envelope]()
+        router = EventRouter[Envelope, Envelope](reset_lim=float("inf"))
         cancelled_request = Envelope(seq=1, cmd=0, opcode=1, payload={})
         pending_request = Envelope(seq=2, cmd=0, opcode=1, payload={})
         cancelled = router.create_record(cancelled_request)
