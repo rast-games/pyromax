@@ -1,5 +1,9 @@
 import enum
+import hashlib
 import unittest
+
+import lz4.block
+import msgpack
 
 from pyromax.encoding.JsonEncoding import JsonEncoding
 from pyromax.encoding.MsgPack import MsgPackDictEncoding
@@ -61,6 +65,41 @@ class EncodingTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "payload length does not match"):
             self.msgpack.decode(packet[:-1])
 
-    def test_safe_decompress_rejects_unknown_flag(self) -> None:
-        self.assertIsNone(self.msgpack._safe_decompress(b"data", flags=0x80))
+    def test_decode_accepts_high_lz4_compression_factor(self) -> None:
+        payload = {
+            "messages": [
+                {
+                    "id": index,
+                    "text": "A" * 7700,
+                    "nonce": hashlib.sha256(str(index).encode()).digest()[:13],
+                }
+                for index in range(100)
+            ]
+        }
+        packed_payload = msgpack.packb(payload, use_bin_type=True)
+        compressed_payload = lz4.block.compress(packed_payload, store_size=False)
+        flags = 146
+        packed_length = (flags << 24) | len(compressed_payload)
+        packet = self.msgpack.HEADER_STRUCT.pack(11, 1, 7, 49, packed_length)
+        packet += compressed_payload
+
+        self.assertGreater(len(packed_payload) / len(compressed_payload), 0x7F)
+        decoded = self.msgpack.decode(packet)
+
+        self.assertEqual(decoded["seq"], 7)
+        self.assertEqual(decoded["opcode"], 49)
+        self.assertEqual(decoded["payload"], payload)
+
+    def test_safe_decompress_preserves_uncompressed_payload(self) -> None:
         self.assertEqual(self.msgpack._safe_decompress(b"data", flags=0), b"data")
+
+    def test_lz4_decompression_respects_output_limit(self) -> None:
+        compressed = lz4.block.compress(b"A" * 1024, store_size=False)
+
+        self.assertIsNone(
+            self.msgpack._decompress_lz4(
+                compressed,
+                max_output=512,
+                start_uncompressed_size=4096,
+            )
+        )

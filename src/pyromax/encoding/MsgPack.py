@@ -147,7 +147,12 @@ class MsgPackDictEncoding(DictAndBytesEncoding):
         coefficient: int = 2,
         max_retries: int = 6,
     ) -> bytes | None:
-        uncompressed_size = start_uncompressed_size
+        if max_output < 1 or max_retries < 1:
+            return None
+
+        # ``uncompressed_size`` controls the allocation made by python-lz4.
+        # Never let retries allocate beyond the configured output limit.
+        uncompressed_size = min(max(start_uncompressed_size, 1), max_output)
         for _ in range(max_retries):
             try:
                 uncompressed_data = lz4.block.decompress(
@@ -159,9 +164,14 @@ class MsgPackDictEncoding(DictAndBytesEncoding):
 
                 return cast(bytes, uncompressed_data)
             except lz4.block.LZ4BlockError:
-                uncompressed_size *= coefficient
-        else:
-            return None
+                if uncompressed_size >= max_output:
+                    return None
+
+                next_size = uncompressed_size * coefficient
+                if next_size <= uncompressed_size:
+                    return None
+                uncompressed_size = min(next_size, max_output)
+        return None
 
     def _safe_decompress(
         self,
@@ -196,16 +206,19 @@ class MsgPackDictEncoding(DictAndBytesEncoding):
             except ValueError:
                 self._logger.debug("Zstd payload decompression failed", exc_info=True)
                 return None
-        elif flags > 0x7F:
-            return None
         elif flags == 0:
             payload_bytes = data
-        elif flags > 0:
+        elif 0 < flags < 0xFF:
             try:
+                # For LZ4 the flag is the server-provided compression factor.
+                # It may use the full byte range up to 0xFE; 0xFF is reserved
+                # for Zstd.  Starting near the expected output size also lets
+                # highly compressible payloads exceed the old 32x retry limit.
+                expected_size = start_uncompressed_size * flags
                 payload_bytes = self._decompress_lz4(
                     data,
                     max_output=max_output,
-                    start_uncompressed_size=start_uncompressed_size,
+                    start_uncompressed_size=min(expected_size, max_output),
                     coefficient=coefficient,
                     max_retries=max_retries,
                 )
