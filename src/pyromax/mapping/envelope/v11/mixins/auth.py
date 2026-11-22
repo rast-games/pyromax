@@ -93,7 +93,6 @@ class AuthMixin(MixinProtocol):
             user_agent = self.user_agent
         if user_agent is None:
             raise RuntimeError("User agent is not initialized")
-
         response = await self.send_raw(
             method=SendUserAgentMethod(
                 user_agent=user_agent,

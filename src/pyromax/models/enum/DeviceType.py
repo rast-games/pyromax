@@ -1,7 +1,11 @@
 from enum import StrEnum
 
 
-class DeviceType(StrEnum):
+class BaseDeviceType(StrEnum):
+    pass
+
+
+class DeviceType(BaseDeviceType):
     Web = "WEB"
     Desktop = "DESKTOP"
     Android = "ANDROID"

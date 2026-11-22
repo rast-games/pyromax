@@ -484,7 +484,7 @@ class TransportMixin(MixinProtocol):
         from ..Mapper import Mapper
 
         method = build_method(
-            method_name=method_name, transport=self.protocol.transport
+            method_name=method_name, device_type=self.mapper_config.device_type
         )
         return await method(cast(Mapper, self), *args, **kwargs)
 

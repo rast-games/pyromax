@@ -42,8 +42,10 @@ class EncodingTest(unittest.TestCase):
         }
         packet = self.msgpack.encode(request.copy())
 
-        self.assertEqual(len(packet) - self.msgpack.HEADER_SIZE,
-                         self.msgpack.unpack_header_to_get_payload_length(packet))
+        self.assertEqual(
+            len(packet) - self.msgpack.HEADER_SIZE,
+            self.msgpack.unpack_header_to_get_payload_length(packet),
+        )
         decoded = self.msgpack.decode(packet)
         self.assertEqual(decoded["seq"], 42)
         self.assertEqual(decoded["opcode"], 1)
@@ -89,6 +91,26 @@ class EncodingTest(unittest.TestCase):
         self.assertEqual(decoded["seq"], 7)
         self.assertEqual(decoded["opcode"], 49)
         self.assertEqual(decoded["payload"], payload)
+
+    # def test_decode_unwraps_max_numeric_extensions(self) -> None:
+    #     payload = {
+    #         "expiresAt": msgpack.ExtType(1, b"\xd3\x00\x00\x01\xa2\x03\xea\xbb["),
+    #         "pollingInterval": msgpack.ExtType(1, b"\xd1\x13\x88"),
+    #         "ttl": msgpack.ExtType(1, b"\xd2\x00\x01\xd4\xb8"),
+    #         "unknown": msgpack.ExtType(42, b"opaque"),
+    #     }
+    #     packed_payload = msgpack.packb(payload, use_bin_type=True)
+    #     packet = (
+    #         self.msgpack.HEADER_STRUCT.pack(11, 1, 1, 288, len(packed_payload))
+    #         + packed_payload
+    #     )
+    #
+    #     decoded = self.msgpack.decode(packet)
+    #
+    #     self.assertEqual(decoded["payload"]["expiresAt"], 1795362044763)
+    #     self.assertEqual(decoded["payload"]["pollingInterval"], 5000)
+    #     self.assertEqual(decoded["payload"]["ttl"], 119992)
+    #     self.assertEqual(decoded["payload"]["unknown"], msgpack.ExtType(42, b"opaque"))
 
     def test_safe_decompress_preserves_uncompressed_payload(self) -> None:
         self.assertEqual(self.msgpack._safe_decompress(b"data", flags=0), b"data")

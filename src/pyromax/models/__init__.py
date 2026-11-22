@@ -45,7 +45,7 @@ from .enum import TwoFactorAction
 from .enum import PollFlags
 from .enum import PrivacyAccess
 from .enum import TransportRegistry, EncodingRegistry, ProtocolRegistry, MapperRegistry
-from .enum import DeviceType
+from .enum import DeviceType, BaseDeviceType
 
 __all__ = [
     "BaseMaxObject",
@@ -102,6 +102,7 @@ __all__ = [
     "ProtocolRegistry",
     "MapperRegistry",
     "DeviceType",
+    "BaseDeviceType",
     "DisconnectEvent",
     "UnsupportedClientVersionEvent",
     "MessageDeleteEvent",

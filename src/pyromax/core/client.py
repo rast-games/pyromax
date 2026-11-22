@@ -43,6 +43,7 @@ if TYPE_CHECKING:
         ProtocolRegistry,
         MapperRegistry,
         DeviceType,
+        BaseDeviceType,
         SessionInfo,
         SessionKey,
     )
@@ -76,7 +77,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
 
     async def _async_init(
         self,
-        device_type: DeviceType | None = None,  # default "WEB"
+        device_type: DeviceType | BaseDeviceType | None = None,  # default "WEB"
         password: str | None = None,
         auth_callbacks: AuthCallbacks | None = None,
         auth_interactor: AuthInteractor | None = None,
@@ -219,6 +220,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
             encoding=encoding,
             mapper=mapper,
         )
+
         self.session = SessionInfo(
             phone=self.extra_config.mapper.phone,
             device_id=self.extra_config.mapper.user_agent_config.device_id,
@@ -302,27 +304,12 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
             self._session_updates_task = asyncio.create_task(self._update_session())
             self._shutdown_worker_task = asyncio.create_task(self._shutdown_worker())
 
-            transport = cast(
-                TransportRegistry,
-                from_config_to_registry(type(self.extra_config.transport)),
-            )
-            encoding = cast(
-                EncodingRegistry,
-                from_config_to_registry(type(self.extra_config.encoding)),
-            )
-            protocol = cast(
-                ProtocolRegistry,
-                from_config_to_registry(type(self.extra_config.protocol)),
-            )
-            mapper = cast(
-                MapperRegistry, from_config_to_registry(type(self.extra_config.mapper))
-            )
+            transport, encoding, protocol, mapper = self.extra_config.current_preset
 
             if workflow_data is None:
                 workflow_data = {}
 
             logger = logging.getLogger("MaxApi")
-
             if transport not in TRANSPORTS:
                 raise RuntimeError(f"transport {transport} is not supported")
 
@@ -335,20 +322,22 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
             logger.info("Start initialization...")
 
             max_encoding: BaseEncoding[Any, Any, Any, Any] = from_registry(
-                ENCODINGS, encoding
+                self.extra_config.encoding_registry, encoding
             )(self.extra_config)
 
             logger.info("Initializing transport...")
 
-            max_transport = await from_registry(TRANSPORTS, transport)(
-                max_encoding, self.extra_config
-            )
+            max_transport = await from_registry(
+                self.extra_config.transport_registry, transport
+            )(max_encoding, self.extra_config)
             self.transport = max_transport
             logger.info("Transport initialized.")
 
             logger.info("Initializing protocol...")
 
-            protocol_res: Any = await from_registry(PROTOCOLS, protocol)(
+            protocol_res: Any = await from_registry(
+                self.extra_config.protocol_registry, protocol
+            )(
                 transport=max_transport,
                 encoding=max_encoding,
                 extra_config=self.extra_config,
@@ -358,7 +347,7 @@ class MaxApi(AsyncInitializerMixin, FullMixin, metaclass=AsyncConstructorProtoco
             logger.info("Protocol initialized.")
 
             logger.info("Initializing mapper...")
-            map_class = from_registry(MAPPERS, mapper)
+            map_class = from_registry(self.extra_config.mapper_registry, mapper)
             max_mapper = await map_class(
                 self,
                 protocol=max_protocol,

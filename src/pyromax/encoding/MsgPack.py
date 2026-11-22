@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 import json
 import logging
 import struct
 from enum import Enum
 from io import BytesIO
-from typing import Any, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import lz4.block  # type: ignore[import-untyped]
 import msgpack  # type: ignore[import-untyped]
@@ -16,6 +17,21 @@ if TYPE_CHECKING:
     from ..config import ExtraConfig
 
 import zstandard
+
+
+def _decode_msgpack_ext(code: int, data: bytes) -> Any:
+    """Decode MAX-specific MessagePack extension values."""
+    if code == 1:
+        # MAX wraps numeric values such as timestamps and intervals in an
+        # extension whose payload is another complete MessagePack value.
+        return msgpack.unpackb(
+            data,
+            raw=False,
+            strict_map_key=False,
+            ext_hook=_decode_msgpack_ext,
+        )
+
+    return msgpack.ExtType(code, data)
 
 
 @register_encoding("MsgPackDictEncoding")
@@ -112,7 +128,10 @@ class MsgPackDictEncoding(DictAndBytesEncoding):
         if len(payload_uncompressed) > 0:
             try:
                 decoded_payload = msgpack.unpackb(
-                    payload_uncompressed, strict_map_key=False
+                    payload_uncompressed,
+                    raw=False,
+                    strict_map_key=False,
+                    ext_hook=_decode_msgpack_ext,
                 )
             except Exception as e:
                 logging.error(f"unpack error: {e}")
