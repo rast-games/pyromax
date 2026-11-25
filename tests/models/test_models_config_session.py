@@ -85,6 +85,14 @@ class ModelAndEnvelopeTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsInstance(rebuilt.transport, SocketTransportConfig)
 
+    def test_default_transport_tracks_device_override_after_rebuild(self) -> None:
+        config = ExtraConfig().config_rebuild(None, None, None, None)
+        config.mapper.device_type = DeviceType.Android
+
+        rebuilt = config.config_rebuild(None, None, None, None)
+
+        self.assertIsInstance(rebuilt.transport, SocketTransportConfig)
+
     def test_explicit_transport_survives_device_rebuild(self) -> None:
         config = ExtraConfig(
             mapper={"device_type": DeviceType.Android},

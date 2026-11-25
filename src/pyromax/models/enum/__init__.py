@@ -8,7 +8,7 @@ from .Registrys import (
     ProtocolRegistry,
     MapperRegistry,
 )
-from .DeviceType import DeviceType, BaseDeviceType
+from .DeviceType import DeviceType, BaseDeviceType, DeviceTypeLike
 
 __all__ = [
     "TwoFactorAction",
@@ -21,4 +21,5 @@ __all__ = [
     "MapperRegistry",
     "DeviceType",
     "BaseDeviceType",
+    "DeviceTypeLike",
 ]

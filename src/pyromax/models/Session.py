@@ -5,7 +5,7 @@ from typing import Any, Self
 from pydantic import Field, model_validator
 
 from .base import BaseMaxObject
-from .enum import DeviceType
+from .enum import DeviceTypeLike
 
 
 DEFAULT_CONFIG_HASH = (
@@ -58,7 +58,7 @@ class SessionInfo(BaseMaxObject):
 class SessionKey:
     session_id: str | None
     session_name: str
-    device_type: DeviceType
+    device_type: DeviceTypeLike
     session_value: str | None
     phone: str | None
     device_id: str | None

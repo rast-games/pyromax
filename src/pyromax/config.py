@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import json
 import logging
 import time
@@ -9,7 +8,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from itertools import product
 from logging import Logger
-from typing import Any, ClassVar, cast, Self, TYPE_CHECKING
+from typing import Any, ClassVar, cast, Self
 from uuid import uuid4
 from abc import ABC
 
@@ -29,6 +28,7 @@ from .models import (
     MapperRegistry,
     DeviceType,
     BaseDeviceType,
+    DeviceTypeLike,
     ApkBuildFingerprint,
 )
 from .models.enum.Registrys import BaseRegistry
@@ -36,14 +36,6 @@ from .models.Session import SessionInfo, SyncOverrides
 from .session import BaseSessionStorage
 from .interaction import AuthInteractor
 from .versions import VersionApi
-
-if TYPE_CHECKING:
-    from .mixins import AsyncConstructorType
-
-    from .transport import BaseTransport
-    from .protocol import BaseMaxProtocol
-    from .encoding import BaseEncoding
-    from .mapping import BaseMapper
 
 from .utils import get_random_device_id, get_random_device_id_numeric
 
@@ -294,7 +286,7 @@ class AndroidEnvelopeMappingUserAgentConfigV11(BaseEnvelopeMappingUserAgentConfi
 class BaseMapperConfig(BaseConfig, ABC):
     token: str | None = None
     password: str | None = None
-    device_type: DeviceType | BaseDeviceType
+    device_type: DeviceTypeLike
     phone: str | None = None
     user_agent_config: BaseEnvelopeMappingUserAgentConfigV11 = (
         WebEnvelopeMappingUserAgentConfigV11()
@@ -332,23 +324,25 @@ class MappingCircuitBreakersConfig(BaseConfig):
     api: CircuitBreakerConfig = Field(default_factory=CircuitBreakerConfig)
 
 
-USER_AGENTS_V11_PER_DEVICE_TYPE = {
-    DeviceType.Android: AndroidEnvelopeMappingUserAgentConfigV11,
-    DeviceType.Web: WebEnvelopeMappingUserAgentConfigV11,
-    DeviceType.Desktop: DesktopEnvelopeMappingUserAgentConfigV11,
-}
-
-
 class EnvelopeMapperConfigV11(BaseMapperConfig):
     token: str | None = None
     protocol_version: int = 11
-    device_type: DeviceType = DeviceType.Web
+    device_type: DeviceTypeLike = DeviceType.Web
     password: str | None = None
     phone: str | None = None
     sms_auth: bool = False
     interactive: bool = True
     keepalive_ping_interval: int = 30
     connect_timeout: int | None = None
+    user_agents_per_device_type: dict[
+        DeviceTypeLike, type[BaseEnvelopeMappingUserAgentConfigV11]
+    ] = Field(
+        default_factory=lambda: {
+            DeviceType.Android: AndroidEnvelopeMappingUserAgentConfigV11,
+            DeviceType.Web: WebEnvelopeMappingUserAgentConfigV11,
+            DeviceType.Desktop: DesktopEnvelopeMappingUserAgentConfigV11,
+        }
+    )
     user_agent_config: BaseEnvelopeMappingUserAgentConfigV11 = (
         WebEnvelopeMappingUserAgentConfigV11()
     )
@@ -369,7 +363,7 @@ class EnvelopeMapperConfigV11(BaseMapperConfig):
         if "sms_auth" not in original_fields_set:
             self.sms_auth = False if device_type == DeviceType.Web else True
         if "user_agent_config" not in original_fields_set:
-            user_agent_config_per_device_type = USER_AGENTS_V11_PER_DEVICE_TYPE.get(
+            user_agent_config_per_device_type = self.user_agents_per_device_type.get(
                 device_type
             )
             user_agent_config = (
@@ -380,11 +374,45 @@ class EnvelopeMapperConfigV11(BaseMapperConfig):
         self.__pydantic_fields_set__ = original_fields_set
         return self
 
+    def register_user_agent_config(
+        self,
+        device_type: DeviceTypeLike,
+        user_agent_config: type[BaseEnvelopeMappingUserAgentConfigV11],
+    ) -> None:
+        if not issubclass(user_agent_config, BaseEnvelopeMappingUserAgentConfigV11):
+            raise TypeError(
+                "user_agent_config must inherit "
+                "BaseEnvelopeMappingUserAgentConfigV11"
+            )
 
-CONFIG_SETS: dict[
-    DeviceType | BaseDeviceType,
-    list[tuple[TransportRegistry, EncodingRegistry, ProtocolRegistry, MapperRegistry],],
-] = {
+        original_fields_set = self.model_fields_set.copy()
+        self.user_agents_per_device_type[device_type] = user_agent_config
+        if (
+            device_type == self.device_type
+            and "user_agent_config" not in original_fields_set
+        ):
+            self.user_agent_config = user_agent_config()
+        self.__pydantic_fields_set__ = original_fields_set
+
+
+ConfigPreset = tuple[BaseRegistry, BaseRegistry, BaseRegistry, BaseRegistry]
+ConfigPresetOverrides = tuple[
+    BaseRegistry | None,
+    BaseRegistry | None,
+    BaseRegistry | None,
+    BaseRegistry | None,
+]
+ConfigSetsRegistry = dict[
+    DeviceTypeLike | str,
+    list[ConfigPreset],
+]
+ConfigsPerRegistry = dict[
+    type[BaseRegistry],
+    dict[BaseRegistry | None, type[BaseConfig]],
+]
+
+
+CONFIG_SETS: ConfigSetsRegistry = {
     DeviceType.Web: [
         (
             TransportRegistry.WebSocketTransport,
@@ -419,20 +447,17 @@ CONFIG_SETS: dict[
 
 
 def register_config_set(
-    device_type: DeviceType,
-    configuration: tuple[BaseRegistry, BaseRegistry, BaseRegistry, BaseRegistry],
-    configs_sets_registry: dict[
-        DeviceType, list[tuple[BaseRegistry, BaseRegistry, BaseRegistry, BaseRegistry]]
-    ] = None,
+    device_type: DeviceTypeLike | str,
+    configuration: ConfigPreset,
+    configs_sets_registry: ConfigSetsRegistry | None = None,
 ) -> None:
     if configs_sets_registry is None:
         configs_sets_registry = CONFIG_SETS
 
     if device_type not in configs_sets_registry:
         configs_sets_registry[device_type] = []
-    configs_sets_registry[device_type].append(configuration)
-    configs_sets_registry[device_type] = list(set(configs_sets_registry[device_type]))
-    return None
+    if configuration not in configs_sets_registry[device_type]:
+        configs_sets_registry[device_type].append(configuration)
 
 
 default_transport_config = WebSocketTransportConfig
@@ -461,9 +486,7 @@ class DefaultMapperConfig(default_mapper_config, Default):
     pass
 
 
-CONFIGS_PER_REGISTRY_ITEM: dict[
-    type[BaseRegistry], dict[BaseRegistry | None, type[BaseConfig]]
-] = {
+CONFIGS_PER_REGISTRY_ITEM: ConfigsPerRegistry = {
     TransportRegistry: {
         TransportRegistry.WebSocketTransport: WebSocketTransportConfig,
         TransportRegistry.SocketTransport: SocketTransportConfig,
@@ -518,9 +541,7 @@ CONFIGS_PER_REGISTRY_ITEM_DEFAULT_SNAPSHOT = deepcopy(CONFIGS_PER_REGISTRY_ITEM)
 def register_config_to_registry(
     config: type[BaseConfig],
     registry: BaseRegistry,
-    configs_per_registry: (
-        dict[type[BaseRegistry], dict[BaseRegistry | None, type[BaseConfig]]] | None
-    ) = None,
+    configs_per_registry: ConfigsPerRegistry | None = None,
 ) -> None:
     if configs_per_registry is None:
         # Default global scope
@@ -533,8 +554,14 @@ def register_config_to_registry(
     configs_per_registry[registry_family][registry] = config
 
 
-def from_config_to_registry(conf: type[BaseConfig]) -> BaseRegistry | None:
+def from_config_to_registry(
+    conf: type[BaseConfig],
+    configs_per_registry: ConfigsPerRegistry | None = None,
+) -> BaseRegistry | None:
     """Return first satisfied registry item."""
+
+    if configs_per_registry is None:
+        configs_per_registry = CONFIGS_PER_REGISTRY_ITEM
 
     if issubclass(conf, Default):
         defaults_map: dict[type[Default], type[BaseConfig]] = {
@@ -545,33 +572,40 @@ def from_config_to_registry(conf: type[BaseConfig]) -> BaseRegistry | None:
         }
         conf = defaults_map[conf]
 
-    unwrapped = _unwrap(CONFIGS_PER_REGISTRY_ITEM)
-
-    for k, v in unwrapped.items():
-        if v is conf:
-            return k
+    for registrations in configs_per_registry.values():
+        for registry, registered_config in registrations.items():
+            if registered_config is conf:
+                return registry
     return None
 
 
 def from_registry_to_config(
     registry_family: type[BaseRegistry],
     reg: BaseRegistry | type[BaseConfig] | None,
-    configs_per_registry: (
-        dict[type[BaseRegistry], dict[BaseRegistry | None, type[BaseConfig]]] | None
-    ) = None,
+    configs_per_registry: ConfigsPerRegistry | None = None,
 ) -> type[BaseConfig] | None:
     if configs_per_registry is None:
         # Default global scope
         configs_per_registry = CONFIGS_PER_REGISTRY_ITEM
 
-    if isinstance(reg, type) and issubclass(reg, BaseConfig):
-        reg_resolved = from_config_to_registry(reg)
-    else:
-        reg_resolved = reg
     if registry_family not in configs_per_registry:
         logging.warning("registry family '%s' is not supported", registry_family)
 
-    return CONFIGS_PER_REGISTRY_ITEM.get(registry_family, {}).get(reg_resolved)
+    registrations = configs_per_registry.get(registry_family, {})
+    if isinstance(reg, type) and issubclass(reg, BaseConfig):
+        reg_resolved = from_config_to_registry(reg, configs_per_registry)
+        resolved_config = registrations.get(reg_resolved)
+        if resolved_config is not None:
+            return resolved_config
+        return next(
+            (
+                registered_config
+                for registered_config in registrations.values()
+                if registered_config is reg
+            ),
+            None,
+        )
+    return registrations.get(reg)
 
 
 def get_defaults():
@@ -626,17 +660,12 @@ class ExtraConfig(BaseConfig):
     app_fingerprint: ApkBuildFingerprint | None = None
     version_api: VersionApi | None = None
     catalog: VersionApi | None = None
-    config_sets_source: dict[
-        DeviceType | BaseDeviceType,
-        list[
-            tuple[
-                TransportRegistry, EncodingRegistry, ProtocolRegistry, MapperRegistry
-            ],
-        ],
-    ] = CONFIG_SETS
-    config_registry_source: dict[
-        type[BaseRegistry], dict[BaseRegistry | None, type[BaseConfig]]
-    ] = CONFIGS_PER_REGISTRY_ITEM
+    config_sets_source: ConfigSetsRegistry = Field(
+        default_factory=lambda: deepcopy(CONFIG_SETS)
+    )
+    config_registry_source: ConfigsPerRegistry = Field(
+        default_factory=lambda: deepcopy(CONFIGS_PER_REGISTRY_ITEM)
+    )
 
     # directives
     restore_user_agent_from_session: bool = True
@@ -645,25 +674,15 @@ class ExtraConfig(BaseConfig):
     reconnect: bool = True
     reconnect_delay: float = 1.0
     relogin: bool = True
+    allow_registry_config_matching: bool = False
     autochange_app_version_if_current_unsupported: bool = True
 
     sync: SyncOverrides = Field(default_factory=SyncOverrides)
 
     _logger: ClassVar[Logger] = logging.getLogger("ExtraConfig")
-    _current_preset: (
-        tuple[BaseRegistry, BaseRegistry, BaseRegistry, BaseRegistry] | None
-    ) = PrivateAttr(None)
-    _register_configs_overrides: dict[
-        type[BaseRegistry], dict[BaseRegistry, type[BaseConfig]]
-    ] = PrivateAttr(default_factory=dict)
-    _config_sets_overrides: dict[
-        DeviceType | str,
-        list[
-            tuple[
-                TransportRegistry, EncodingRegistry, ProtocolRegistry, MapperRegistry
-            ],
-        ],
-    ] = PrivateAttr(default_factory=dict)
+    _current_preset: ConfigPreset | None = PrivateAttr(None)
+    _register_configs_overrides: ConfigsPerRegistry = PrivateAttr(default_factory=dict)
+    _config_sets_overrides: ConfigSetsRegistry = PrivateAttr(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_version_api_aliases(self) -> Self:
@@ -735,62 +754,33 @@ class ExtraConfig(BaseConfig):
 
     def _search_available_config_presets(
         self,
-        config_presets: tuple[
-            tuple[
-                BaseRegistry | None,
-                BaseRegistry | None,
-                BaseRegistry | None,
-                BaseRegistry | None,
-            ]
-        ],
-        overrides: (
-            tuple[
-                BaseRegistry | None,
-                BaseRegistry | None,
-                BaseRegistry | None,
-                BaseRegistry | None,
-            ]
-            | None
-        ) = None,
-    ) -> list[
-        tuple[
-            BaseRegistry | None,
-            BaseRegistry | None,
-            BaseRegistry | None,
-            BaseRegistry | None,
-        ]
-    ]:
+        config_presets: list[ConfigPreset],
+        overrides: ConfigPresetOverrides | None = None,
+    ) -> list[ConfigPreset]:
         if overrides is None:
-            overrides = [None, None, None, None]
-
-        defaults = [
-            default_transport_config,
-            default_encoding_config,
-            default_protocol_config,
-            default_mapper_config,
-        ]
-        current_config_preset = [
-            conf if not issubclass(type(conf), Default) else defaults[i]
-            for i, conf in enumerate(self._app_layers)
-        ]
-        current_config_preset = [
-            factor if inspect.isclass(factor) else type(factor)
-            for factor in current_config_preset
-        ]
-
-        overridden_current_config_preset = [
-            override or current_config
-            for override, current_config in zip(overrides, current_config_preset)
-        ]
+            overrides = (None, None, None, None)
 
         available_config_presets = []
         for config_preset in config_presets:
-            for preset, factor in zip(config_preset, overridden_current_config_preset):
-                if not factor is from_registry_to_config(
+            for preset, override in zip(config_preset, overrides):
+                if override is None:
+                    continue
+                if override == preset:
+                    continue
+                if not self.allow_registry_config_matching:
+                    break
+
+                preset_config = from_registry_to_config(
                     type(preset),
                     preset,
                     configs_per_registry=self._configs_per_registry,
-                ):
+                )
+                override_config = from_registry_to_config(
+                    type(override),
+                    override,
+                    configs_per_registry=self._configs_per_registry,
+                )
+                if override_config is None or override_config is not preset_config:
                     break
             else:
                 available_config_presets.append(config_preset)
@@ -798,42 +788,69 @@ class ExtraConfig(BaseConfig):
 
     def _compute_all_combinations(
         self,
-        available_config_presets: list[
-            tuple[
-                BaseRegistry | None,
-                BaseRegistry | None,
-                BaseRegistry | None,
-                BaseRegistry | None,
-            ]
-        ],
-    ) -> set[tuple[BaseRegistry, BaseRegistry, BaseRegistry, BaseRegistry]]:
+        available_config_presets: list[ConfigPreset],
+    ) -> set[ConfigPreset]:
 
-        all_combinations = set()
+        allowed_combinations = {
+            combination
+            for config_presets in self._config_sets.values()
+            for combination in config_presets
+        }
+        if not self.allow_registry_config_matching:
+            return set(available_config_presets) & allowed_combinations
+
+        configs_per_registry = self._configs_per_registry
+        all_combinations: set[ConfigPreset] = set()
         for available_config_preset in available_config_presets:
-            empty = [
-                i for i, item in enumerate(available_config_preset) if item is not None
-            ]
+            variants = []
+            for registry_item in available_config_preset:
+                config = from_registry_to_config(
+                    type(registry_item),
+                    registry_item,
+                    configs_per_registry=configs_per_registry,
+                )
+                registry_variants = _unwrap_keys(config, configs_per_registry)
+                variants.append(registry_variants or {registry_item})
 
-            for available_config in available_config_presets:
-                config_units = [
-                    available_config[i] for i in range(len(available_config))
-                ]
-                variants = [
-                    _unwrap_keys(unit, self._configs_per_registry)
-                    for unit in config_units
-                ]
-
-                combinations = set(product(*variants))
-                for combination in combinations:
-                    if combination in self._config_sets:
-                        all_combinations.add(combination)
+            for combination in product(*variants):
+                if combination in allowed_combinations:
+                    all_combinations.add(combination)
 
         return all_combinations
+
+    def _is_supported_config_mask(
+        self,
+        config_mask: ConfigPreset,
+        config_presets: list[ConfigPreset],
+    ) -> bool:
+        if not self.allow_registry_config_matching:
+            return config_mask in config_presets
+
+        configs_per_registry = self._configs_per_registry
+        for config_preset in config_presets:
+            for selected, preset in zip(config_mask, config_preset):
+                if selected == preset:
+                    continue
+                selected_config = from_registry_to_config(
+                    type(selected),
+                    selected,
+                    configs_per_registry=configs_per_registry,
+                )
+                preset_config = from_registry_to_config(
+                    type(preset),
+                    preset,
+                    configs_per_registry=configs_per_registry,
+                )
+                if selected_config is None or selected_config is not preset_config:
+                    break
+            else:
+                return True
+        return False
 
     @property
     def current_preset(
         self,
-    ) -> tuple[BaseRegistry, BaseRegistry, BaseRegistry, BaseRegistry] | None:
+    ) -> ConfigPreset | None:
         return self._current_preset
 
     def register_config_to_registry(
@@ -849,22 +866,20 @@ class ExtraConfig(BaseConfig):
         )
 
     @property
-    def _config_sets(self) -> dict[
-        DeviceType | str,
-        list[
-            tuple[
-                TransportRegistry, EncodingRegistry, ProtocolRegistry, MapperRegistry
-            ],
-        ],
-    ]:
+    def _config_sets(self) -> ConfigSetsRegistry:
         config_set = deepcopy(self.config_sets_source)
-        config_set.update(self._config_sets_overrides)
+        for device_type, configurations in self._config_sets_overrides.items():
+            merged_configurations = config_set.setdefault(device_type, [])
+            for configuration in configurations:
+                if configuration not in merged_configurations:
+                    merged_configurations.append(configuration)
+
         return config_set
 
     def register_config_set(
         self,
-        device_type: DeviceType,
-        configuration: tuple[BaseRegistry, BaseRegistry, BaseRegistry, BaseRegistry],
+        device_type: DeviceTypeLike | str,
+        configuration: ConfigPreset,
     ) -> None:
 
         register_config_set(
@@ -876,61 +891,94 @@ class ExtraConfig(BaseConfig):
     @property
     def _configs_per_registry(
         self,
-    ) -> dict[type[BaseRegistry], dict[BaseRegistry, type[BaseConfig]]]:
+    ) -> ConfigsPerRegistry:
         registry = deepcopy(self.config_registry_source)
-        registry.update(self._register_configs_overrides)
+        for registry_family, registrations in self._register_configs_overrides.items():
+            registry.setdefault(registry_family, {}).update(registrations)
 
         return registry
 
     def config_rebuild(
         self,
-        transport: TransportRegistry | None,
-        encoding: EncodingRegistry | None,
-        protocol: ProtocolRegistry | None,
-        mapper: MapperRegistry | None,
+        transport: BaseRegistry | None,
+        encoding: BaseRegistry | None,
+        protocol: BaseRegistry | None,
+        mapper: BaseRegistry | None,
     ) -> "ExtraConfig":
 
         device_type = self.mapper.device_type
 
-        config_presets = (
-            self._config_sets.get(device_type)
-            or self._config_sets.get(cast(str, device_type.value))
-            or (
-                (
-                    from_config_to_registry(default_transport_config),
-                    from_config_to_registry(default_encoding_config),
-                    from_config_to_registry(default_protocol_config),
-                    from_config_to_registry(default_mapper_config),
+        device_type_value = (
+            device_type.value
+            if isinstance(device_type, BaseDeviceType)
+            else str(device_type)
+        )
+        config_presets = self._config_sets.get(device_type) or self._config_sets.get(
+            device_type_value
+        )
+        if not config_presets:
+            default_preset = (
+                from_config_to_registry(
+                    default_transport_config, self._configs_per_registry
+                ),
+                from_config_to_registry(
+                    default_encoding_config, self._configs_per_registry
+                ),
+                from_config_to_registry(
+                    default_protocol_config, self._configs_per_registry
+                ),
+                from_config_to_registry(
+                    default_mapper_config, self._configs_per_registry
                 ),
             )
-        )
+            if any(registry is None for registry in default_preset):
+                raise RuntimeError("default configuration registries are incomplete")
+            config_presets = [cast(ConfigPreset, default_preset)]
 
         default_mask = config_presets[0]
 
+        layer_names = ("transport", "encoding", "protocol", "mapper")
+        layer_overrides = (transport, encoding, protocol, mapper)
+        explicit_layer_names = {
+            field_name
+            for override, field_name in zip(layer_overrides, layer_names)
+            if override is not None or field_name in self.model_fields_set
+        }
+        requested_registries: list[BaseRegistry | None] = []
+        for override, field_name, config in zip(
+            layer_overrides,
+            layer_names,
+            self._app_layers,
+        ):
+            requested_registries.append(
+                override
+                if override is not None
+                else (
+                    from_config_to_registry(type(config), self._configs_per_registry)
+                    if field_name in self.model_fields_set
+                    else None
+                )
+            )
+
+        requested_preset = cast(ConfigPresetOverrides, tuple(requested_registries))
         config_masks = self._search_available_config_presets(
             config_presets,
-            overrides=(
-                transport,
-                encoding,
-                protocol,
-                mapper,
-            ),
+            overrides=requested_preset,
         )
 
         all_combinations = self._compute_all_combinations(config_masks)
 
-        for combination in all_combinations:
-            if combination in config_presets:
-                config_mask = combination
-                break
-        else:
-            overrides = (transport, encoding, protocol, mapper)
-            config_mask = [
-                override or default
-                for override, default in zip(
-                    overrides, (tuple(all_combinations) or config_presets)[0]
-                )
-            ]
+        base_mask = next(
+            (preset for preset in config_presets if preset in all_combinations),
+            config_presets[0],
+        )
+        config_mask = cast(
+            ConfigPreset,
+            tuple(
+                requested if requested is not None else default
+                for requested, default in zip(requested_registries, base_mask)
+            ),
+        )
 
         transport_config = (
             from_registry_to_config(
@@ -986,7 +1034,7 @@ class ExtraConfig(BaseConfig):
             or self.mapper
         )
 
-        if tuple(config_mask) not in config_presets:
+        if not self._is_supported_config_mask(config_mask, config_presets):
             self._logger.warning(
                 "Your chosen settings not found in presets, a big chance for errors."
             )
@@ -994,8 +1042,12 @@ class ExtraConfig(BaseConfig):
         mapper_user_agent_config = self.mapper.user_agent_config
 
         mapper_dump = self.mapper.model_dump()
+        mapper_fields_to_preserve = {"user_agents_per_device_type"}
         for key in mapper_dump.copy():
-            if key not in self.mapper.model_fields_set:
+            if (
+                key not in self.mapper.model_fields_set
+                and key not in mapper_fields_to_preserve
+            ):
                 del mapper_dump[key]
         if not self.mapper.is_custom_user_agent_config:
             mapper_dump.pop("user_agent_config", None)
@@ -1024,6 +1076,13 @@ class ExtraConfig(BaseConfig):
             mapper=cast(BaseMapperConfig, mapper_config.model_validate(mapper_dump)),
             **other_params,
         )
+        config_updated.__pydantic_fields_set__.difference_update(
+            set(layer_names) - explicit_layer_names
+        )
+        config_updated._register_configs_overrides = deepcopy(
+            self._register_configs_overrides
+        )
+        config_updated._config_sets_overrides = deepcopy(self._config_sets_overrides)
         config_updated._current_preset = config_mask
 
         return config_updated
